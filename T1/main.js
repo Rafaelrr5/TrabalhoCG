@@ -13,7 +13,7 @@ const PROJECTILE_LIFETIME = 5;
 const SHOOT_RATE = 50;
 const PROJECTILE_SIZE = 0.3;
 
-let camera, scene, renderer, controls, player;
+let camera, scene, renderer, controls, hitbox;
 let clock = new THREE.Clock(); // Para calcular tempo delta
 let projectiles = []; // Array para armazenar projéteis ativos
 let collidableObjects = []; // Array de objetos que podem colidir
@@ -28,6 +28,7 @@ animate();
 function init() {
     setupScene();
     setupCamera();
+    createHitbox();
     setupLighting();
     createEnvironment();
     setupEventListeners();
@@ -223,6 +224,22 @@ function createGun() {
     camera.add(gun);
 }
 
+function createHitbox() {
+    //cria a hitbox para o jogador
+    const hitboxGeometry = new THREE.BoxGeometry(1.0, 2.0, 1.0);
+    const hitboxMaterial = new THREE.MeshBasicMaterial();
+    hitbox = new THREE.Mesh(hitboxGeometry, hitboxMaterial);
+    hitbox.position.set(0.0, 1.0, 0.0);
+    hitbox.visible = false; // Torna invisível
+    scene.add(hitbox);
+}
+
+function updateHitbox() {
+    // Atualiza a posição da hitbox para acompanhar a câmera
+    hitbox.position.copy(camera.position);
+    hitbox.position.y -= 1.0; // Ajusta a altura para que a hitbox não esteja flutuando.
+}
+
 
 function setupEventListeners() {
     document.addEventListener('keydown', onKeyDown);
@@ -296,7 +313,9 @@ function animate() {
     
     // Atualiza câmera e objetos
     updateCameraMovement(delta);
+    updateHitbox();
     updateProjectiles(delta);
+
     
     // Renderiza a cena
     renderer.render(scene, camera);
