@@ -91,12 +91,12 @@ function createBase() {
     scene.add(parede1);
     scene.add(parede2);
     scene.add(parede3);
-    parede0.position.set(0.0, 3.0, -250.0);
-    parede1.position.set(0.0, 3.0, 250.0);
+    parede0.position.set(0.0, 9.0, -250.0);
+    parede1.position.set(0.0, 9.0, 250.0);
     parede1.rotateY(-1*Math.PI);
-    parede2.position.set(-250.0, 3.0, 0.0);
+    parede2.position.set(-250.0, 9.0, 0.0);
     parede2.rotateY(Math.PI/2);
-    parede3.position.set(250.0, 3.0,0.0);
+    parede3.position.set(250.0, 9.0,0.0);
     parede3.rotateY(-1*Math.PI/2);
 
     //seta o material das areas
