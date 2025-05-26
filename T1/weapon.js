@@ -95,3 +95,13 @@ export function updateProjectiles(delta, scene) {
         }
     }
 }
+
+//export function weaponSwitch (now){
+ //   if (now - lastSwitch < CD) return;
+
+   // lastSwitch = now;
+
+    //direção do Scroll
+    //const dir = Math.sign(event.deltaY);
+
+//}

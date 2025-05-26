@@ -2,7 +2,7 @@
 // SISTEMA DE CONTROLES E MOVIMENTAÇÃO
 // ============================================================================
 import { CONFIG } from './config.js';
-import { startShooting, stopShooting } from './weapon.js';
+import { startShooting, stopShooting} from './weapon.js';
 
 // Estados de controle de movimento
 export let moveState = { 
@@ -18,6 +18,7 @@ export function setupEventListeners(camera, scene) {
     document.addEventListener('keyup', onKeyUp);
     document.addEventListener('mousedown', () => startShooting(camera, scene));
     document.addEventListener('mouseup', stopShooting);
+    // document.addEventListener('wheel', ()=> weaponSwitch(Date.now()))
     window.addEventListener('resize', onWindowResize);
 }
 
