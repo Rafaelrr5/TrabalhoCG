@@ -3,6 +3,7 @@
 // ============================================================================
 import * as THREE from '../build/three.module.js';
 import { setDefaultMaterial, createGroundPlaneXZ } from "../libs/util/util.js";
+import { CONFIG } from './config.js';
 
 // Cria as paredes do ambiente
 export function createWalls(scene, collidableObjects) {
@@ -10,6 +11,7 @@ export function createWalls(scene, collidableObjects) {
 
     // Cria o chão
     let plane = createGroundPlaneXZ(500, 500);
+    plane.position.y = CONFIG.ALTURA_CHAO;
     scene.add(plane);
     collidableObjects.push(plane);
 
@@ -38,6 +40,12 @@ export function createWalls(scene, collidableObjects) {
     Paredes.add(parede2);
     Paredes.add(parede3);
     scene.add(Paredes);
+
+ //paredes colidiveis
+    /* collidableObjects.push(parede0);
+    collidableObjects.push(parede1);
+    collidableObjects.push(parede2);
+    collidableObjects.push(parede3);  */
 }
 
 // Cria as áreas coloridas do jogo

@@ -10,7 +10,7 @@ import { CONFIG } from './config.js';
 import { createWalls, createAreas } from './environment.js';
 import { createGun, updateProjectiles } from './weapon.js';
 import { setupEventListeners, updateCameraMovement } from './controls.js';
-import { createHitbox, updateHitbox } from './player.js';
+import { applyGravity, createHitbox, hitbox, updateHitbox } from './player.js';
 
 // ============================================================================
 // VARIÁVEIS GLOBAIS PRINCIPAIS
@@ -33,9 +33,10 @@ animate();
 function init() {
     setupScene();
     setupCamera();
-    createHitbox(scene);
     setupLighting();
     createEnvironment();
+    createHitbox(scene);
+    resetPlayerPosition();
     setupControls();
     setupEventListeners(camera, scene);
 }
@@ -53,6 +54,16 @@ function setupScene() {
 function setupCamera() {
     camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     camera.position.y = CONFIG.CAMERA_HEIGHT;
+}
+
+function resetPlayerPosition() {
+    const startHeight = CONFIG.CAMERA_HEIGHT + 5;
+    camera.position.set(0, startHeight, 0);
+
+    if(hitbox) {
+        hitbox.position.set(0, startHeight, 0);
+        hitbox.position.y -= 1.0;
+    }
 }
 
 // Inicializa controles de pointer lock para movimento de câmera estilo FPS
@@ -91,8 +102,9 @@ function animate() {
     
     const delta = clock.getDelta();
     
-    updateCameraMovement(delta, controls);
     updateHitbox(camera);
+    applyGravity(delta, collidableObjects, camera);
+    updateCameraMovement(delta, controls);
     updateProjectiles(delta, scene);
     
     renderer.render(scene, camera);
