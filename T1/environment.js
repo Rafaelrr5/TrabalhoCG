@@ -40,16 +40,11 @@ export function createWalls(scene, collidableObjects) {
     Paredes.add(parede2);
     Paredes.add(parede3);
     scene.add(Paredes);
-
- //paredes colidiveis
-    /* collidableObjects.push(parede0);
-    collidableObjects.push(parede1);
-    collidableObjects.push(parede2);
-    collidableObjects.push(parede3);  */
+    marcarColidivel(Paredes, collidableObjects);
 }
 
 // Cria as áreas coloridas do jogo
-export function createAreas(scene) {
+export function createAreas(scene, collidableObjects) {
     // Materiais das áreas
     const materials = {
         stair: new THREE.MeshBasicMaterial({color: 'blue'}),
@@ -59,14 +54,14 @@ export function createAreas(scene) {
         area4: new THREE.MeshBasicMaterial({color: 'green'})
     };
 
-    createArea1(scene, materials);
-    createArea2(scene, materials);
-    createArea3(scene, materials);
-    createArea4(scene, materials);
+    createArea1(scene, materials, collidableObjects);
+    createArea2(scene, materials, collidableObjects);
+    createArea3(scene, materials, collidableObjects);
+    createArea4(scene, materials, collidableObjects);
 }
 
 // Cria a Área 1 (azul claro)
-function createArea1(scene, materials) {
+function createArea1(scene, materials, collidableObjects) {
     let AreaGeometry = new THREE.BoxGeometry(1, 1, 1);
     
     let Area1_centro = new THREE.Mesh(AreaGeometry, materials.area1);
@@ -88,10 +83,12 @@ function createArea1(scene, materials) {
     scene.add(Area1)
     Escada1.add(createStair(-197.75, 0.1, -62.8, 4.0, true, materials.stair));
     scene.add(Escada1);
+    marcarColidivel(Area1, collidableObjects);
+    marcarColidivel(Escada1, collidableObjects);
 }
 
 // Cria a Área 2 (vermelha)
-function createArea2(scene, materials) {
+function createArea2(scene, materials, collidableObjects) {
     let AreaGeometry = new THREE.BoxGeometry(1, 1, 1);
     
     let Area2_centro = new THREE.Mesh(AreaGeometry, materials.area2);
@@ -113,10 +110,12 @@ function createArea2(scene, materials) {
     scene.add(Area2)
     Escada2.add(createStair(50.0, 0.1, -62.8, 4.0, true, materials.stair));
     scene.add(Escada2);
+    marcarColidivel(Area2, collidableObjects);
+    marcarColidivel(Escada2, collidableObjects);
 }
 
 // Cria a Área 3 (azul escuro)
-function createArea3(scene, materials) {
+function createArea3(scene, materials, colidibleObjects) {
     let AreaGeometry = new THREE.BoxGeometry(1, 1, 1);
     
     let Area3_centro = new THREE.Mesh(AreaGeometry, materials.area3);
@@ -138,10 +137,12 @@ function createArea3(scene, materials) {
     scene.add(Area3);
     Escada3.add(createStair(156.25, 0.1, -62.8, 4.0, true, materials.stair));
     scene.add(Escada3);
+    marcarColidivel(Area3, colidibleObjects);
+    marcarColidivel(Escada3, colidibleObjects);
 }
 
 // Cria a Área 4 (verde)
-function createArea4(scene, materials) {
+function createArea4(scene, materials, collidableObjects) {
     let AreaGeometry = new THREE.BoxGeometry(1, 1, 1);
     
     let Area4_centro = new THREE.Mesh(AreaGeometry, materials.area4);
@@ -163,6 +164,8 @@ function createArea4(scene, materials) {
     scene.add(Area4);
     Escada4.add(createStair(0.0, 0.1, 62.8, 4.0, false, materials.stair));
     scene.add(Escada4);
+    marcarColidivel(Area4, collidableObjects);
+    marcarColidivel(Escada4, collidableObjects);
 }
 
 // Função para criar uma escada
@@ -190,4 +193,13 @@ function createStair(x, y, z, h, direcao, material) {
     }
     
     return grupoEscada;
+}
+
+//Esse médodo serve para marcar um objeto, pertencente a um grupo, como colidivel
+function marcarColidivel(Object, collidableObjects){
+    Object.traverse(child => {
+        if (child.isMesh) {
+            collidableObjects.push(child);
+        }
+    });
 }

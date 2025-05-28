@@ -10,7 +10,7 @@ import { CONFIG } from './config.js';
 import { createWalls, createAreas } from './environment.js';
 import { createGun, updateProjectiles } from './weapon.js';
 import { setupEventListeners, updateCameraMovement } from './controls.js';
-import { applyGravity, createHitbox, hitbox, updateHitbox } from './player.js';
+import { applyGravity,createHitbox, hitbox, updateHitbox } from './player.js';
 
 // ============================================================================
 // VARIÁVEIS GLOBAIS PRINCIPAIS
@@ -88,7 +88,7 @@ function setupLighting() {
 // Cria o ambiente do jogo (chão, paredes, áreas e arma)
 function createEnvironment() {
     createWalls(scene, collidableObjects);
-    createAreas(scene);
+    createAreas(scene, collidableObjects);
     createGun(camera);
 }
 
@@ -108,6 +108,9 @@ function animate() {
     updateProjectiles(delta, scene);
     
     renderer.render(scene, camera);
+
+    console.log("Camera Position:", camera.position);
+    console.log("Hitbox Position:", hitbox ? hitbox.position : "Hitbox not created");
 }
 
 // Lida com redimensionamento da janela

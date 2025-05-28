@@ -7,6 +7,8 @@ import { CONFIG } from './config.js';
 export let gun = null;
 export let projectiles = [];
 export let shootInterval = null;
+const raycaster = new THREE.Raycaster();
+const distanciaColisiao = CONFIG.PROJECTILE_SIZE * 2; // Distância de colisão para projéteis
 
 // Cria um modelo visual de arma anexado à câmera
 export function createGun(camera) {
@@ -82,6 +84,26 @@ export function updateProjectiles(delta, scene) {
         const projectile = projectileData.mesh;
         
         projectileData.timeAlive += delta;
+
+        // Verifica colisão com paredes usando Raycaster
+        raycaster.set(projectile.position, projectileData.direction);
+        raycaster.far = CONFIG.PROJECTILE_SPEED * delta + distanciaColisiao; // Distância máxima de colisão
+
+        const intersects = raycaster.intersectObjects(scene.children, true);
+
+        //filtra as colisões 
+        const validIntersects = intersects.filter(intersects =>{
+            return intersects.object !== gun && 
+                     intersects.object !== projectile && 
+                     intersects.object.parent !== gun;
+        });
+
+        //Colidindo com algo, remove o projétil da cena
+        if (validIntersects.length > 0) {
+            scene.remove(projectile);
+            projectiles.splice(i, 1);// splice remove o projetil do array
+            continue; // Sai do loop para evitar erros de índice
+        }
         
         // Move projétil na direção especificada
         projectile.position.add(

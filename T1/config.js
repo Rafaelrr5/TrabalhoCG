@@ -3,7 +3,7 @@
 // ============================================================================
 
 export const CONFIG = {
-    MOVE_SPEED: 50,
+    MOVE_SPEED: 20,
     PROJECTILE_SPEED: 150,
     PROJECTILE_LIFETIME: 5,
     SHOOT_RATE: 50,
