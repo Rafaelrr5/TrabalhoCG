@@ -108,9 +108,6 @@ function animate() {
     updateProjectiles(delta, scene);
     
     renderer.render(scene, camera);
-
-    console.log("Camera Position:", camera.position);
-    console.log("Hitbox Position:", hitbox ? hitbox.position : "Hitbox not created");
 }
 
 // Lida com redimensionamento da janela

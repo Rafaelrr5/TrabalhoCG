@@ -68,6 +68,7 @@ function createArea1(scene, materials, collidableObjects) {
     let Area1_left = new THREE.Mesh(AreaGeometry, materials.area1);
     let Area1_right = new THREE.Mesh(AreaGeometry, materials.area1);
     const Area1 = new THREE.Group();
+    Area1.name = "Area1";
     const Escada1 = new THREE.Group();
 
     Area1_centro.position.set(-152.25, 2.0, -131.0);
@@ -95,6 +96,7 @@ function createArea2(scene, materials, collidableObjects) {
     let Area2_left = new THREE.Mesh(AreaGeometry, materials.area2);
     let Area2_right = new THREE.Mesh(AreaGeometry, materials.area2);
     const Area2 = new THREE.Group();
+    Area2.name = "Area2";
     const Escada2 = new THREE.Group();
 
     Area2_centro.position.set(0.0, 2.0, -131.0);
@@ -122,6 +124,7 @@ function createArea3(scene, materials, colidibleObjects) {
     let Area3_left = new THREE.Mesh(AreaGeometry, materials.area3);
     let Area3_right = new THREE.Mesh(AreaGeometry, materials.area3);
     const Area3 = new THREE.Group();
+    Area3.name = "Area3";
     const Escada3 = new THREE.Group();
 
     Area3_centro.position.set(156.25, 2.0, -131.0);
@@ -149,6 +152,7 @@ function createArea4(scene, materials, collidableObjects) {
     let Area4_left = new THREE.Mesh(AreaGeometry, materials.area4);
     let Area4_right = new THREE.Mesh(AreaGeometry, materials.area4);
     const Area4 = new THREE.Group();
+    Area4.name = "Area4";
     const Escada4 = new THREE.Group();
     
     Area4_centro.position.set(0.0, 2.0, 131.0);
@@ -171,22 +175,25 @@ function createArea4(scene, materials, collidableObjects) {
 // Função para criar uma escada
 function createStair(x, y, z, h, direcao, material) {
     let grupoEscada = new THREE.Group();
+    grupoEscada.name = "Escada";
     grupoEscada.position.set(x, y, z);
+    const alturaDegrau = 0.2; // Altura de cada degrau
+    const profundidadeDegrau = 0.3; // Profundidade de cada degrau
     
     // Calcula o número de degraus necessários
-    let steps = Math.ceil(h / 0.2);
+    let steps = Math.ceil(h / alturaDegrau);
     
     for (let i = 0; i < steps; i++) {
         // Geometria da escada
-        let stairGeometry = new THREE.BoxGeometry(15.0, 0.2, 0.3);
+        let stairGeometry = new THREE.BoxGeometry(15.0, alturaDegrau, profundidadeDegrau);
         let step = new THREE.Mesh(stairGeometry, material);
         
         // Posiciona o degrau
-        step.position.y = i * 0.2 + 0.2 / 2;
+        step.position.y = i * alturaDegrau + alturaDegrau / 2;
         if (direcao === true) {
-            step.position.z = -i * 0.3;
+            step.position.z = -i * profundidadeDegrau;
         } else {
-            step.position.z = i * 0.3;
+            step.position.z = i * profundidadeDegrau;
         }
         
         grupoEscada.add(step);

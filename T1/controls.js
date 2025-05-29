@@ -44,6 +44,8 @@ function onKeyUp(event) {
 // Atualiza posição do jogador baseado na entrada do usuário
 export function updateCameraMovement(delta, controls) {
     const distance = CONFIG.MOVE_SPEED * delta;
+
+    
     
     if (moveState.forward) controls.moveForward(distance);
     if (moveState.backward) controls.moveForward(-distance);
