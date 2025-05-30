@@ -12,7 +12,7 @@ const distanciaColisiao = CONFIG.PROJECTILE_SIZE * 2; // Distância de colisão 
 
 // Cria um modelo visual de arma anexado à câmera
 export function createGun(camera) {
-    const gunGeometry = new THREE.CylinderGeometry(0.2, 0.2, 1.5);
+    const gunGeometry = new THREE.CylinderGeometry(CONFIG.GUN_RADIUS, CONFIG.GUN_RADIUS, CONFIG.GUN_LENGTH);
     const gunMaterial = new THREE.MeshBasicMaterial({ color: 0x888888 });
     gun = new THREE.Mesh(gunGeometry, gunMaterial);
     
@@ -54,9 +54,8 @@ function shoot(camera, scene) {
     // Calcula posição mundial da ponta da arma com precisão
     const gunWorldPosition = new THREE.Vector3();
     gun.getWorldPosition(gunWorldPosition);
-    
-    // Calcula offset da ponta da arma no espaço local
-    const gunTipOffset = new THREE.Vector3(0, 0, -0.75);
+      // Calcula offset da ponta da arma no espaço local
+    const gunTipOffset = new THREE.Vector3(0, 0, CONFIG.GUN_TIP_OFFSET);
     
     // Aplica rotação da câmera ao offset para manter sincronização
     const cameraRotationMatrix = new THREE.Matrix4();

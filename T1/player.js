@@ -10,7 +10,7 @@ export let isGrounded = false;
 const playerBox = new THREE.Box3();
 const tempBox = new THREE.Box3();
 const raycaster = new THREE.Raycaster();
-const tamanhoRaio = 1.0;
+const tamanhoRaio = CONFIG.RAYCAST_DISTANCE;
 //criação dos raios
 const rays = [
     {dir: new THREE.Vector3(1, 0, 0), axis: 'x', offset: new THREE.Vector3(0.5, CONFIG.ALTURA_PLAYER/2, 0)}, //Direita
@@ -26,7 +26,7 @@ export function createHitbox(scene) {
         console.error("Scene is not defined. Cannot create hitbox.");
         return null;
     }
-    const hitboxGeometry = new THREE.BoxGeometry(1.0, CONFIG.ALTURA_PLAYER, 1.0);
+    const hitboxGeometry = new THREE.BoxGeometry(CONFIG.HITBOX_WIDTH, CONFIG.ALTURA_PLAYER, CONFIG.HITBOX_DEPTH);
     const hitboxMaterial = new THREE.MeshBasicMaterial({wireframe: true, color: 0xff0000}); // Material de wireframe para visualização
     hitbox = new THREE.Mesh(hitboxGeometry, hitboxMaterial);
     //hitbox.visible = false; // Torna a hitbox invisível
@@ -83,11 +83,9 @@ function checkGroundCollisions(collidableObjects, camera) {
     const InfoEscada = detectarColisaoEscada(hitboxPos, collidableObjects);
 
     if (InfoEscada.isOnStair) {
-        const alturaEsperada = InfoEscada.alturaEscada + CONFIG.ALTURA_PLAYER / 2;
-
-        const diff = alturaEsperada - hitboxPos.y;
-        hitbox.position.y += diff * 0.2;
-        camera.position.y += diff * 0.2;
+        const alturaEsperada = InfoEscada.alturaEscada + CONFIG.ALTURA_PLAYER / 2;        const diff = alturaEsperada - hitboxPos.y;
+        hitbox.position.y += diff * CONFIG.STAIR_MOVEMENT_SPEED;
+        camera.position.y += diff * CONFIG.STAIR_MOVEMENT_SPEED;
         velocityY = 0;
         isGrounded = true;
         return;
@@ -105,20 +103,19 @@ function checkGroundCollisions(collidableObjects, camera) {
             const overlapX = Math.min(playerBox.max.x - tempBox.min.x, tempBox.max.x - playerBox.min.x);
             const overlapY = Math.min(playerBox.max.y - tempBox.min.y, tempBox.max.y - playerBox.min.y);
             const overlapZ = Math.min(playerBox.max.z - tempBox.min.z, tempBox.max.z - playerBox.min.z);
-            
-            // Encontra o eixo de menor sobreposição (colisão mais provável)
+              // Encontra o eixo de menor sobreposição (colisão mais provável)
             if (overlapY < overlapX && overlapY < overlapZ) {
                 // Colisão vertical
                 if (velocityY < 0) { // Se estiver caindo
                     // Colisão com o chão
-                    const correction = tempBox.max.y - playerBox.min.y + 0.001; //esse valor de 0.001 evita que a hitbox fique presa no chão
+                    const correction = tempBox.max.y - playerBox.min.y + CONFIG.COLLISION_MARGIN; //esse valor evita que a hitbox fique presa no chão
                     hitbox.position.y += correction;
                     camera.position.y += correction;
                     velocityY = 0;
                     isGrounded = true;
                 } else if (velocityY > 0) {//Embora a gente não pule, coloquei esse metodo caso outros trabahos precisem
                     // Colisão com o teto
-                    const correction = tempBox.min.y - playerBox.max.y - 0.001;
+                    const correction = tempBox.min.y - playerBox.max.y - CONFIG.COLLISION_MARGIN;
                     hitbox.position.y += correction;
                     camera.position.y += correction;
                     velocityY = 0;
@@ -155,11 +152,9 @@ function checkWallCollisions(collidableObjects, camera) {
         raycaster.set(hitbox.position, ray.dir);
 
         const interpts = raycaster.intersectObjects(validObjects, false);
-        console.log(interpts);
-
-        if (interpts.length > 0 && interpts[0].distance < tamanhoRaio) {
+        console.log(interpts);        if (interpts.length > 0 && interpts[0].distance < tamanhoRaio) {
             // Colisão com a parede
-            const correction = (interpts[0].distance - tamanhoRaio) * 1.05; // 1.05 é um fator de correção para evitar que a hitbox fique presa na parede
+            const correction = (interpts[0].distance - tamanhoRaio) * CONFIG.WALL_COLLISION_FACTOR; // fator de correção para evitar que a hitbox fique presa na parede
 
             if (ray.axis === 'x') {
                 hitbox.position.x += ray.dir.x * correction;
@@ -180,17 +175,15 @@ function detectarColisaoEscada(hitboxPos, collidableObjects) {
 
         if (object.parent && object.parent.name.includes("Escada")) {
             tempBox.setFromObject(object);
-            
-            // Verifica se está dentro da área da escada (com margem de 0.5 unidades)
-            if (hitboxPos.x >= tempBox.min.x - 1.5 && hitboxPos.x <= tempBox.max.x + 1.5 &&
-                hitboxPos.z >= tempBox.min.z - 1.0 && hitboxPos.z <= tempBox.max.z + 1.0) {
+              // Verifica se está dentro da área da escada (com margem configurável)
+            if (hitboxPos.x >= tempBox.min.x - CONFIG.STAIR_DETECTION_MARGIN_X && hitboxPos.x <= tempBox.max.x + CONFIG.STAIR_DETECTION_MARGIN_X &&
+                hitboxPos.z >= tempBox.min.z - CONFIG.STAIR_DETECTION_MARGIN_Z && hitboxPos.z <= tempBox.max.z + CONFIG.STAIR_DETECTION_MARGIN_Z) {
                 
-                const inclinacao = 0.2 / 0.3; 
-                
-                const alturaEscada = (tempBox.min.y + (hitboxPos.z - tempBox.min.z) * inclinacao)+0.1;
+                const inclinacao = CONFIG.STAIR_INCLINATION;
+                  const alturaEscada = (tempBox.min.y + (hitboxPos.z - tempBox.min.z) * inclinacao)+CONFIG.STAIR_HEIGHT_OFFSET;
 
                 // Só considera como "na escada" se o jogador estiver perto da superfície
-                if (Math.abs(hitboxPos.y - (alturaEscada + CONFIG.ALTURA_PLAYER/2)) < 1.5) {
+                if (Math.abs(hitboxPos.y - (alturaEscada + CONFIG.ALTURA_PLAYER/2)) < CONFIG.STAIR_HEIGHT_TOLERANCE) {
                     return {
                         isOnStair: true,
                         alturaEscada: alturaEscada,

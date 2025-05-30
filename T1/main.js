@@ -52,12 +52,12 @@ function setupScene() {
 
 // Configura a câmera do jogo
 function setupCamera() {
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera = new THREE.PerspectiveCamera(CONFIG.CAMERA_FOV, window.innerWidth/window.innerHeight, CONFIG.CAMERA_NEAR, CONFIG.CAMERA_FAR);
     camera.position.y = CONFIG.CAMERA_HEIGHT;
 }
 
 function resetPlayerPosition() {
-    const startHeight = CONFIG.CAMERA_HEIGHT + 5;
+    const startHeight = CONFIG.CAMERA_HEIGHT + CONFIG.START_HEIGHT_OFFSET;
     camera.position.set(0, startHeight, 0);
 
     if(hitbox) {
