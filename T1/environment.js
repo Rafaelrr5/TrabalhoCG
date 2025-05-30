@@ -7,7 +7,7 @@ import { CONFIG } from './config.js';
 
 // Cria as paredes do ambiente
 export function createWalls(scene, collidableObjects) {
-    let material = setDefaultMaterial();    // Cria o chão
+    let material = setDefaultMaterial('orange');    // Cria o chão
     let plane = createGroundPlaneXZ(CONFIG.WORLD_SIZE, CONFIG.WORLD_SIZE);
     plane.position.y = CONFIG.GROUND_HEIGHT;
     scene.add(plane);
@@ -45,11 +45,11 @@ export function createWalls(scene, collidableObjects) {
 export function createAreas(scene, collidableObjects) {
     // Materiais das áreas
     const materials = {
-        stair: new THREE.MeshBasicMaterial({color: 'blue'}),
-        area1: new THREE.MeshBasicMaterial({color: 'lightblue'}),
-        area2: new THREE.MeshBasicMaterial({color: 'red'}),
-        area3: new THREE.MeshBasicMaterial({color: 'darkblue'}),
-        area4: new THREE.MeshBasicMaterial({color: 'green'})
+        stair: setDefaultMaterial('blue'),
+        area1: setDefaultMaterial('lightblue'),
+        area2: setDefaultMaterial('red'),
+        area3: setDefaultMaterial('darkblue'),
+        area4: setDefaultMaterial('green')
     };
 
     createArea1(scene, materials, collidableObjects);
@@ -74,7 +74,7 @@ function createArea1(scene, materials, collidableObjects) {
     area1_left.position.set(-209.8, CONFIG.AREA_Y_POSITION, -66.0);
     area1_left.scale.set(9.5, CONFIG.AREA_HEIGHT, 6.0);
     area1_right.position.set(-140.0, CONFIG.AREA_Y_POSITION, -66.0);
-    area1_right.scale.set(101.0, CONFIG.AREA_HEIGHT, 6.0);
+    area1_right.scale.set(100.5, CONFIG.AREA_HEIGHT, 6.0);
     
     area1.add(area1_center);
     area1.add(area1_left);

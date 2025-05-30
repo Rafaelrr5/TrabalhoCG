@@ -3,6 +3,7 @@
 // ============================================================================
 import { CONFIG } from './config.js';
 import { startShooting, stopShooting} from './weapon.js';
+import { wallColide } from './player.js';
 
 // Estados de controle de movimento
 export let moveState = { 
@@ -44,13 +45,12 @@ function onKeyUp(event) {
 // Atualiza posição do jogador baseado na entrada do usuário
 export function updateCameraMovement(delta, controls) {
     const distance = CONFIG.MOVE_SPEED * delta;
-
     
-    
-    if (moveState.forward) controls.moveForward(distance);
-    if (moveState.backward) controls.moveForward(-distance);
-    if (moveState.left) controls.moveRight(-distance);
-    if (moveState.right) controls.moveRight(distance);
+    // Aplica movimento apenas se não houver colisão na direção correspondente
+    if (moveState.forward && !wallColide.z) controls.moveForward(distance);
+    if (moveState.backward && !wallColide.z) controls.moveForward(-distance);
+    if (moveState.left && !wallColide.x) controls.moveRight(-distance);
+    if (moveState.right && !wallColide.x) controls.moveRight(distance);
 }
 
 // Lida com redimensionamento da janela

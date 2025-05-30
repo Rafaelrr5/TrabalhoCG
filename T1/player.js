@@ -2,11 +2,16 @@
 // SISTEMA DE HITBOX DO JOGADOR
 // ============================================================================
 import * as THREE from '../build/three.module.js';
+import { setDefaultMaterial } from '../libs/util/util.js';
 import { CONFIG } from './config.js';
 
 export let hitbox = null;
 export let velocityY = 0;
 export let isGrounded = false;
+export let wallColide = {
+    x : false,
+    z : false
+};
 const playerBox = new THREE.Box3();
 const tempBox = new THREE.Box3();
 const raycaster = new THREE.Raycaster();
@@ -25,10 +30,11 @@ export function createHitbox(scene) {
     if (!scene) {
         console.error("Scene is not defined. Cannot create hitbox.");
         return null;
-    }    const hitboxGeometry = new THREE.BoxGeometry(CONFIG.HITBOX_WIDTH, CONFIG.PLAYER_HEIGHT, CONFIG.HITBOX_DEPTH);
-    const hitboxMaterial = new THREE.MeshBasicMaterial({wireframe: true, color: 0xff0000}); // Material de wireframe para visualização
+    }    
+    const hitboxGeometry = new THREE.BoxGeometry(CONFIG.HITBOX_WIDTH, CONFIG.PLAYER_HEIGHT, CONFIG.HITBOX_DEPTH);
+    const hitboxMaterial = setDefaultMaterial(); // Material de wireframe para visualização
     hitbox = new THREE.Mesh(hitboxGeometry, hitboxMaterial);
-    //hitbox.visible = false; // Torna a hitbox invisível
+    hitbox.visible = false; // Torna a hitbox invisível
     hitbox.position.set(0.0, CONFIG.CAMERA_HEIGHT + CONFIG.PLAYER_HEIGHT/2, 0.0);
     scene.add(hitbox);
     
@@ -124,44 +130,61 @@ function checkGroundCollisions(collidableObjects, camera) {
 function checkWallCollisions(collidableObjects, camera) {
     if (!hitbox || !collidableObjects || !camera) return;
 
+    // Reset collision flags
+    wallColide.x = false;
+    wallColide.z = false;
+
     const validObjects = collidableObjects.filter(obj => {
         if(!obj?.isMesh || !obj.visible) return false;
     
         const isStair = obj.parent && obj.parent.name.includes("Escada");
-        console.log("Objeto:", obj.name, "É escada?", isStair);
-          if (obj.isGroup) {
+        if (obj.isGroup) {
             let validChildren = false;
             obj.traverse(child => {
                 if (child.isMesh && child.visible && !isStair) { 
                     validChildren = true;
                 }
             });
-            return validChildren && !isStair; // Se o grupo tem filhos visíveis e não é uma escada, é válido
+            return validChildren && !isStair;
         }
-        return !isStair; // Se for um mesh visível e não for uma escada, é válido
+        return !isStair;
     });
 
+    // Store original positions
+    const originalHitboxPos = hitbox.position.clone();
+    const originalCameraPos = camera.position.clone();
 
-
-    for (const ray of rays){
-        raycaster.set(hitbox.position, ray.dir);        const intercepts = raycaster.intersectObjects(validObjects, false);
-        console.log(intercepts);
+    for (const ray of rays) {
+        raycaster.set(hitbox.position, ray.dir);      
+        const intercepts = raycaster.intersectObjects(validObjects, false);
         
         if (intercepts.length > 0 && intercepts[0].distance < raySize) {
-            // Colisão com a parede
-            const correction = (intercepts[0].distance - raySize) * CONFIG.WALL_COLLISION_FACTOR; // fator de correção para evitar que a hitbox fique presa na parede
-
+            const correction = (intercepts[0].distance - raySize) * CONFIG.WALL_COLLISION_FACTOR;
+            
             if (ray.axis === 'x') {
+                wallColide.x = true;
                 hitbox.position.x += ray.dir.x * correction;
                 camera.position.x += ray.dir.x * correction;
             }
             else if (ray.axis === 'z') {
+                wallColide.z = true;
                 hitbox.position.z += ray.dir.z * correction;
                 camera.position.z += ray.dir.z * correction;
             }
-            
         }
     }
+
+    // Apply smoothing to prevent jitter
+    if (wallColide.x || wallColide.z) {
+        const lerpFactor = CONFIG.COLLISION_SMOOTHING; // Adjust this value for smoother transitions (0-1)
+        hitbox.position.lerp(originalHitboxPos, lerpFactor);
+        camera.position.lerp(originalCameraPos, lerpFactor);
+    }
+}
+
+function applySmoothCollisionResponse(originalPos, currentPos, correction, lerpFactor = 0.5) {
+    const newPos = originalPos.clone().add(correction);
+    return currentPos.lerp(newPos, lerpFactor);
 }
 
 function detectStairCollision(hitboxPos, collidableObjects) {

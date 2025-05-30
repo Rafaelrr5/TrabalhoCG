@@ -2,6 +2,7 @@
 // SISTEMA DE ARMA E PROJÉTEIS
 // ============================================================================
 import * as THREE from '../build/three.module.js';
+import { setDefaultMaterial } from '../libs/util/util.js';
 import { CONFIG } from './config.js';
 
 export let gun = null;
@@ -13,7 +14,7 @@ const collisionDistance = CONFIG.PROJECTILE_SIZE * 2; // Distância de colisão 
 // Cria um modelo visual de arma anexado à câmera
 export function createGun(camera) {
     const gunGeometry = new THREE.CylinderGeometry(CONFIG.GUN_RADIUS, CONFIG.GUN_RADIUS, CONFIG.GUN_LENGTH);
-    const gunMaterial = new THREE.MeshBasicMaterial({ color: 0x888888 });
+    const gunMaterial = setDefaultMaterial('darkgrey');
     gun = new THREE.Mesh(gunGeometry, gunMaterial);
     
     // Rotaciona para apontar para frente
@@ -44,7 +45,7 @@ function shoot(camera, scene) {
     
     // Cria geometria e material do projétil
     const projectileGeometry = new THREE.SphereGeometry(CONFIG.PROJECTILE_SIZE);
-    const projectileMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
+    const projectileMaterial = setDefaultMaterial('lightgreen');
     const projectile = new THREE.Mesh(projectileGeometry, projectileMaterial);
     
     // Pega direção que a câmera está olhando no momento do tiro
