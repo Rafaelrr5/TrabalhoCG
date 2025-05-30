@@ -46,11 +46,29 @@ function onKeyUp(event) {
 export function updateCameraMovement(delta, controls) {
     const distance = CONFIG.MOVE_SPEED * delta;
     
-    // Aplica movimento apenas se não houver colisão na direção correspondente
-    if (moveState.forward && !wallColide.z) controls.moveForward(distance);
-    if (moveState.backward && !wallColide.z) controls.moveForward(-distance);
-    if (moveState.left && !wallColide.x) controls.moveRight(-distance);
-    if (moveState.right && !wallColide.x) controls.moveRight(distance);
+    // Movimento para frente/trás (eixo Z)
+    if (moveState.forward || moveState.backward) {
+        const moveZ = moveState.forward ? distance : -distance;
+        if (!wallColide.z) {
+            controls.moveForward(moveZ);
+        } else if (moveState.left || moveState.right) {
+            // Permite "deslizar" ao longo da parede se estiver tentando se mover diagonalmente
+            const moveX = moveState.left ? -distance : distance;
+            if (!wallColide.x) controls.moveRight(moveX);
+        }
+    }
+    
+    // Movimento para esquerda/direita (eixo X)
+    if (moveState.left || moveState.right) {
+        const moveX = moveState.left ? -distance : distance;
+        if (!wallColide.x) {
+            controls.moveRight(moveX);
+        } else if (moveState.forward || moveState.backward) {
+            // Permite "deslizar" ao longo da parede se estiver tentando se mover diagonalmente
+            const moveZ = moveState.forward ? distance : -distance;
+            if (!wallColide.z) controls.moveForward(moveZ);
+        }
+    }
 }
 
 // Lida com redimensionamento da janela

@@ -18,10 +18,10 @@ const raycaster = new THREE.Raycaster();
 const raySize = CONFIG.RAYCAST_DISTANCE;
 //criação dos raios
 const rays = [
-    {dir: new THREE.Vector3(1, 0, 0), axis: 'x', offset: new THREE.Vector3(0.5, CONFIG.PLAYER_HEIGHT/2, 0)}, //Direita
-    {dir: new THREE.Vector3(-1, 0, 0), axis: 'x', offset: new THREE.Vector3(-0.5, CONFIG.PLAYER_HEIGHT/2, 0)}, //Esquerda    
-    {dir: new THREE.Vector3(0, 0, 1), axis: 'z', offset: new THREE.Vector3(0, CONFIG.PLAYER_HEIGHT/2, 0.5)}, //Frente
-    {dir: new THREE.Vector3(0, 0, -1), axis: 'z', offset: new THREE.Vector3(0, CONFIG.PLAYER_HEIGHT/2, -0.5)} //Trás
+    {dir: new THREE.Vector3(1, 0, 0), axis: 'x', offset: new THREE.Vector3(0.5, CONFIG.PLAYER_HEIGHT/2, 0)},
+    {dir: new THREE.Vector3(-1, 0, 0), axis: 'x', offset: new THREE.Vector3(-0.5, CONFIG.PLAYER_HEIGHT/2, 0)},
+    {dir: new THREE.Vector3(0, 0, 1), axis: 'z', offset: new THREE.Vector3(0, CONFIG.PLAYER_HEIGHT/2, 0.5)},
+    {dir: new THREE.Vector3(0, 0, -1), axis: 'z', offset: new THREE.Vector3(0, CONFIG.PLAYER_HEIGHT/2, -0.5)}
 ];//Se quisermos usar o raycaster para o chão é só adiconar mais direções aqui e adaptar o código
 
 // Cria hitbox invisível para o jogador
@@ -174,17 +174,12 @@ function checkWallCollisions(collidableObjects, camera) {
         }
     }
 
-    // Apply smoothing to prevent jitter
+    /*// Apply smoothing to prevent jitter
     if (wallColide.x || wallColide.z) {
         const lerpFactor = CONFIG.COLLISION_SMOOTHING; // Adjust this value for smoother transitions (0-1)
         hitbox.position.lerp(originalHitboxPos, lerpFactor);
         camera.position.lerp(originalCameraPos, lerpFactor);
-    }
-}
-
-function applySmoothCollisionResponse(originalPos, currentPos, correction, lerpFactor = 0.5) {
-    const newPos = originalPos.clone().add(correction);
-    return currentPos.lerp(newPos, lerpFactor);
+    }*/
 }
 
 function detectStairCollision(hitboxPos, collidableObjects) {

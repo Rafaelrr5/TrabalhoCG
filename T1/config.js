@@ -31,7 +31,7 @@ export const CONFIG = {
     STAIR_DETECTION_MARGIN_Z: 1.0,
     STAIR_HEIGHT_TOLERANCE: 1.5,
     STAIR_MOVEMENT_SPEED: 0.2,
-    COLLISION_SMOOTHING: 0.6, // Valor entre 0 e 1 
+    COLLISION_SMOOTHING: 0.5, // Valor entre 0 e 0.5
     
     // Configurações do mundo
     WORLD_SIZE: 500,
