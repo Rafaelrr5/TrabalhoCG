@@ -143,12 +143,12 @@ function checkWallCollisions(collidableObjects, camera) {
 
 
     for (const ray of rays){
-        raycaster.set(hitbox.position, ray.dir);        const interpts = raycaster.intersectObjects(validObjects, false);
-        console.log(interpts);
+        raycaster.set(hitbox.position, ray.dir);        const intercepts = raycaster.intersectObjects(validObjects, false);
+        console.log(intercepts);
         
-        if (interpts.length > 0 && interpts[0].distance < raySize) {
+        if (intercepts.length > 0 && intercepts[0].distance < raySize) {
             // Colisão com a parede
-            const correction = (interpts[0].distance - raySize) * CONFIG.WALL_COLLISION_FACTOR; // fator de correção para evitar que a hitbox fique presa na parede
+            const correction = (intercepts[0].distance - raySize) * CONFIG.WALL_COLLISION_FACTOR; // fator de correção para evitar que a hitbox fique presa na parede
 
             if (ray.axis === 'x') {
                 hitbox.position.x += ray.dir.x * correction;
