@@ -10,13 +10,12 @@ export let isGrounded = false;
 const playerBox = new THREE.Box3();
 const tempBox = new THREE.Box3();
 const raycaster = new THREE.Raycaster();
-const tamanhoRaio = CONFIG.RAYCAST_DISTANCE;
+const raySize = CONFIG.RAYCAST_DISTANCE;
 //criação dos raios
 const rays = [
-    {dir: new THREE.Vector3(1, 0, 0), axis: 'x', offset: new THREE.Vector3(0.5, CONFIG.ALTURA_PLAYER/2, 0)}, //Direita
-    {dir: new THREE.Vector3(-1, 0, 0), axis: 'x', offset: new THREE.Vector3(-0.5, CONFIG.ALTURA_PLAYER/2, 0)}, //Esquerda
-    {dir: new THREE.Vector3(0, 0, 1), axis: 'z', offset: new THREE.Vector3(0, CONFIG.ALTURA_PLAYER/2, 0.5)}, //Frente
-    {dir: new THREE.Vector3(0, 0, -1), axis: 'z', offet: new THREE.Vector3(0, CONFIG.ALTURA_PLAYER/2, -0.5)} //Trás
+    {dir: new THREE.Vector3(1, 0, 0), axis: 'x', offset: new THREE.Vector3(0.5, CONFIG.PLAYER_HEIGHT/2, 0)}, //Direita
+    {dir: new THREE.Vector3(-1, 0, 0), axis: 'x', offset: new THREE.Vector3(-0.5, CONFIG.PLAYER_HEIGHT/2, 0)}, //Esquerda    {dir: new THREE.Vector3(0, 0, 1), axis: 'z', offset: new THREE.Vector3(0, CONFIG.PLAYER_HEIGHT/2, 0.5)}, //Frente
+    {dir: new THREE.Vector3(0, 0, -1), axis: 'z', offset: new THREE.Vector3(0, CONFIG.PLAYER_HEIGHT/2, -0.5)} //Trás
 ];//Se quisermos usar o raycaster para o chão é só adiconar mais direções aqui e adaptar o código
 
 // Cria hitbox invisível para o jogador
@@ -25,12 +24,11 @@ export function createHitbox(scene) {
     if (!scene) {
         console.error("Scene is not defined. Cannot create hitbox.");
         return null;
-    }
-    const hitboxGeometry = new THREE.BoxGeometry(CONFIG.HITBOX_WIDTH, CONFIG.ALTURA_PLAYER, CONFIG.HITBOX_DEPTH);
+    }    const hitboxGeometry = new THREE.BoxGeometry(CONFIG.HITBOX_WIDTH, CONFIG.PLAYER_HEIGHT, CONFIG.HITBOX_DEPTH);
     const hitboxMaterial = new THREE.MeshBasicMaterial({wireframe: true, color: 0xff0000}); // Material de wireframe para visualização
     hitbox = new THREE.Mesh(hitboxGeometry, hitboxMaterial);
     //hitbox.visible = false; // Torna a hitbox invisível
-    hitbox.position.set(0.0, CONFIG.CAMERA_HEIGHT + CONFIG.ALTURA_PLAYER/2, 0.0);
+    hitbox.position.set(0.0, CONFIG.CAMERA_HEIGHT + CONFIG.PLAYER_HEIGHT/2, 0.0);
     scene.add(hitbox);
     
     return hitbox;
@@ -66,10 +64,8 @@ export function applyGravity(delta, collidableObjects, camera) {
     
     // Verifica colisão com o chão e outros objetos
     checkGroundCollisions(collidableObjects, camera);
-    checkWallCollisions(collidableObjects, camera);
-
-    //Atuliza a camera para acompanhar a hitbox
-    camera.position.y = hitbox.position.y + CONFIG.ALTURA_PLAYER/2
+    checkWallCollisions(collidableObjects, camera);    //Atuliza a camera para acompanhar a hitbox
+    camera.position.y = hitbox.position.y + CONFIG.PLAYER_HEIGHT/2
 }
 
 // Verifica colisões com o chão usando o sistema AABB
@@ -77,13 +73,12 @@ function checkGroundCollisions(collidableObjects, camera) {
     if (!hitbox || !collidableObjects || !camera) return;
     isGrounded = false;
     playerBox.setFromObject(hitbox);
-    const hitboxPos = hitbox.position;
+    const hitboxPos = hitbox.position;    //Verifica se está em uma escada
+    const stairInfo = detectStairCollision(hitboxPos, collidableObjects);
 
-    //Verifica se está em uma escada
-    const InfoEscada = detectarColisaoEscada(hitboxPos, collidableObjects);
-
-    if (InfoEscada.isOnStair) {
-        const alturaEsperada = InfoEscada.alturaEscada + CONFIG.ALTURA_PLAYER / 2;        const diff = alturaEsperada - hitboxPos.y;
+    if (stairInfo.isOnStair) {
+        const expectedHeight = stairInfo.stairHeight + CONFIG.PLAYER_HEIGHT / 2;
+        const diff = expectedHeight - hitboxPos.y;
         hitbox.position.y += diff * CONFIG.STAIR_MOVEMENT_SPEED;
         camera.position.y += diff * CONFIG.STAIR_MOVEMENT_SPEED;
         velocityY = 0;
@@ -133,15 +128,14 @@ function checkWallCollisions(collidableObjects, camera) {
     
         const isStair = obj.parent && obj.parent.name.includes("Escada");
         console.log("Objeto:", obj.name, "É escada?", isStair);
-        
-        if (obj.isGroup) {
-            let filhosValidos = false;
+          if (obj.isGroup) {
+            let validChildren = false;
             obj.traverse(child => {
                 if (child.isMesh && child.visible && !isStair) { 
-                    filhosValidos = true;
+                    validChildren = true;
                 }
             });
-            return filhosValidos && !isStair; // Se o grupo tem filhos visíveis e não é uma escada, é válido
+            return validChildren && !isStair; // Se o grupo tem filhos visíveis e não é uma escada, é válido
         }
         return !isStair; // Se for um mesh visível e não for uma escada, é válido
     });
@@ -149,12 +143,12 @@ function checkWallCollisions(collidableObjects, camera) {
 
 
     for (const ray of rays){
-        raycaster.set(hitbox.position, ray.dir);
-
-        const interpts = raycaster.intersectObjects(validObjects, false);
-        console.log(interpts);        if (interpts.length > 0 && interpts[0].distance < tamanhoRaio) {
+        raycaster.set(hitbox.position, ray.dir);        const interpts = raycaster.intersectObjects(validObjects, false);
+        console.log(interpts);
+        
+        if (interpts.length > 0 && interpts[0].distance < raySize) {
             // Colisão com a parede
-            const correction = (interpts[0].distance - tamanhoRaio) * CONFIG.WALL_COLLISION_FACTOR; // fator de correção para evitar que a hitbox fique presa na parede
+            const correction = (interpts[0].distance - raySize) * CONFIG.WALL_COLLISION_FACTOR; // fator de correção para evitar que a hitbox fique presa na parede
 
             if (ray.axis === 'x') {
                 hitbox.position.x += ray.dir.x * correction;
@@ -169,24 +163,25 @@ function checkWallCollisions(collidableObjects, camera) {
     }
 }
 
-function detectarColisaoEscada(hitboxPos, collidableObjects) {
+function detectStairCollision(hitboxPos, collidableObjects) {
     for (const object of collidableObjects) {
         if (!object.geometry || !object.visible) continue;
 
         if (object.parent && object.parent.name.includes("Escada")) {
             tempBox.setFromObject(object);
-              // Verifica se está dentro da área da escada (com margem configurável)
+            
+            // Verifica se está dentro da área da escada (com margem configurável)
             if (hitboxPos.x >= tempBox.min.x - CONFIG.STAIR_DETECTION_MARGIN_X && hitboxPos.x <= tempBox.max.x + CONFIG.STAIR_DETECTION_MARGIN_X &&
                 hitboxPos.z >= tempBox.min.z - CONFIG.STAIR_DETECTION_MARGIN_Z && hitboxPos.z <= tempBox.max.z + CONFIG.STAIR_DETECTION_MARGIN_Z) {
                 
-                const inclinacao = CONFIG.STAIR_INCLINATION;
-                  const alturaEscada = (tempBox.min.y + (hitboxPos.z - tempBox.min.z) * inclinacao)+CONFIG.STAIR_HEIGHT_OFFSET;
+                const inclination = CONFIG.STAIR_INCLINATION;
+                const stairHeight = (tempBox.min.y + (hitboxPos.z - tempBox.min.z) * inclination) + CONFIG.STAIR_HEIGHT_OFFSET;
 
                 // Só considera como "na escada" se o jogador estiver perto da superfície
-                if (Math.abs(hitboxPos.y - (alturaEscada + CONFIG.ALTURA_PLAYER/2)) < CONFIG.STAIR_HEIGHT_TOLERANCE) {
+                if (Math.abs(hitboxPos.y - (stairHeight + CONFIG.PLAYER_HEIGHT/2)) < CONFIG.STAIR_HEIGHT_TOLERANCE) {
                     return {
                         isOnStair: true,
-                        alturaEscada: alturaEscada,
+                        stairHeight: stairHeight,
                         stairObject: object
                     };
                 }

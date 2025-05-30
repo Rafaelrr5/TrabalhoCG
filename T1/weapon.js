@@ -8,7 +8,7 @@ export let gun = null;
 export let projectiles = [];
 export let shootInterval = null;
 const raycaster = new THREE.Raycaster();
-const distanciaColisiao = CONFIG.PROJECTILE_SIZE * 2; // Distância de colisão para projéteis
+const collisionDistance = CONFIG.PROJECTILE_SIZE * 2; // Distância de colisão para projéteis
 
 // Cria um modelo visual de arma anexado à câmera
 export function createGun(camera) {
@@ -82,11 +82,9 @@ export function updateProjectiles(delta, scene) {
         const projectileData = projectiles[i];
         const projectile = projectileData.mesh;
         
-        projectileData.timeAlive += delta;
-
-        // Verifica colisão com paredes usando Raycaster
+        projectileData.timeAlive += delta;        // Verifica colisão com paredes usando Raycaster
         raycaster.set(projectile.position, projectileData.direction);
-        raycaster.far = CONFIG.PROJECTILE_SPEED * delta + distanciaColisiao; // Distância máxima de colisão
+        raycaster.far = CONFIG.PROJECTILE_SPEED * delta + collisionDistance; // Distância máxima de colisão
 
         const intersects = raycaster.intersectObjects(scene.children, true);
 

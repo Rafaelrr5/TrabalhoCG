@@ -10,11 +10,10 @@ export const CONFIG = {
     SHOOT_RATE: 50,
     PROJECTILE_SIZE: 0.3,
     GRAVITY: -20,
-    
-    // Configurações do jogador
+      // Configurações do jogador
     CAMERA_HEIGHT: 1.8,
-    ALTURA_CHAO: 0,
-    ALTURA_PLAYER: 2.0,
+    GROUND_HEIGHT: 0,
+    PLAYER_HEIGHT: 2.0,
     GUN_POSITION: { x: 0.5, y: -0.5, z: -1.0 },
     
     // Configurações da câmera
