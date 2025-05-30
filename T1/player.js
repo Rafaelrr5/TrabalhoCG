@@ -175,7 +175,16 @@ function detectStairCollision(hitboxPos, collidableObjects) {
                 hitboxPos.z >= tempBox.min.z - CONFIG.STAIR_DETECTION_MARGIN_Z && hitboxPos.z <= tempBox.max.z + CONFIG.STAIR_DETECTION_MARGIN_Z) {
                 
                 const inclination = CONFIG.STAIR_INCLINATION;
-                const stairHeight = (tempBox.min.y + (hitboxPos.z - tempBox.min.z) * inclination) + CONFIG.STAIR_HEIGHT_OFFSET;
+                let stairHeight;
+
+                //verifica a orientação da escada
+                if (object.position.z < 0) { // Escadas na direção z negativo
+                    stairHeight = tempBox.min.y + (tempBox.max.z - hitboxPos.z) * inclination;
+                } else { // Escadas na direção z positivo
+                    stairHeight = tempBox.min.y + (hitboxPos.z - tempBox.min.z) * inclination;
+                }
+                
+                stairHeight += CONFIG.STAIR_HEIGHT_OFFSET;
 
                 // Só considera como "na escada" se o jogador estiver perto da superfície
                 if (Math.abs(hitboxPos.y - (stairHeight + CONFIG.PLAYER_HEIGHT/2)) < CONFIG.STAIR_HEIGHT_TOLERANCE) {
