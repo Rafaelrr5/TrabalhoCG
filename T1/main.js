@@ -41,7 +41,7 @@ function init() {
     setupEventListeners(camera, scene);
 }
 
-// Cria a cena principal e o renderizador WebGL
+// Cria a cena principal e o renderizador WebGL, ajustando os tamanhos
 function setupScene() {
     scene = new THREE.Scene();
     renderer = new THREE.WebGLRenderer();
@@ -56,6 +56,7 @@ function setupCamera() {
     camera.position.y = CONFIG.CAMERA_HEIGHT;
 }
 
+//coloca camera e hitbox na posição inicial do jogador
 function resetPlayerPosition() {
     const startHeight = CONFIG.CAMERA_HEIGHT + CONFIG.START_HEIGHT_OFFSET;
     camera.position.set(0, startHeight, 0);
@@ -69,6 +70,8 @@ function resetPlayerPosition() {
 // Inicializa controles de pointer lock para movimento de câmera estilo FPS
 function setupControls() {
     controls = new PointerLockControls(camera, document.body);
+
+    //inicia quando clica na tela
     document.addEventListener('click', () => controls.lock());
     scene.add(controls.getObject());
     

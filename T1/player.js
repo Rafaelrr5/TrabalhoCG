@@ -150,10 +150,6 @@ function checkWallCollisions(collidableObjects, camera) {
         return !isStair;
     });
 
-    // Store original positions
-    const originalHitboxPos = hitbox.position.clone();
-    const originalCameraPos = camera.position.clone();
-
     for (const ray of rays) {
         raycaster.set(hitbox.position, ray.dir);      
         const intercepts = raycaster.intersectObjects(validObjects, false);

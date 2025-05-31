@@ -8,7 +8,7 @@ import { CONFIG } from './config.js';
 // Cria as paredes do ambiente
 export function createWalls(scene, collidableObjects) {
     let material = setDefaultMaterial('orange');    // Cria o chão
-    let plane = createGroundPlaneXZ(CONFIG.WORLD_SIZE, CONFIG.WORLD_SIZE);
+    let plane = createGroundPlaneXZ(CONFIG.WORLD_SIZE, CONFIG.WORLD_SIZE); //utils
     plane.position.y = CONFIG.GROUND_HEIGHT;
     scene.add(plane);
     collidableObjects.push(plane);

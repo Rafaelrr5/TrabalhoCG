@@ -5,7 +5,7 @@ import { CONFIG } from './config.js';
 import { startShooting, stopShooting} from './weapon.js';
 import { wallColide } from './player.js';
 
-// Estados de controle de movimento
+// Estados de controle de movimento (quais teclas estão ativas)
 export let moveState = { 
     forward: false, 
     backward: false, 
@@ -24,6 +24,7 @@ export function setupEventListeners(camera, scene) {
 }
 
 // ===== CONTROLES DE MOVIMENTO =====
+//atualiza pro estado de movimento correspondente
 function onKeyDown(event) {
     switch(event.key.toLowerCase()) {
         case 'w': case 'arrowup': moveState.forward = true; break;
@@ -55,7 +56,7 @@ export function updateCameraMovement(delta, controls) {
     if (moveState.left) moveX -= distance;
     if (moveState.right) moveX += distance;
     
-    // Normaliza movimento diagonal
+    // Normaliza movimento diagonal (mantém velocidade constante nas diagonais)
     if (moveX !== 0 && moveZ !== 0) {
         const factor = Math.sqrt(0.5);
         moveX *= factor;
