@@ -32,9 +32,9 @@ export function createHitbox(scene) {
         return null;
     }    
     const hitboxGeometry = new THREE.BoxGeometry(CONFIG.HITBOX_WIDTH, CONFIG.PLAYER_HEIGHT, CONFIG.HITBOX_DEPTH);
-    const hitboxMaterial = setDefaultMaterial(); // Material de wireframe para visualização
+    const hitboxMaterial = setDefaultMaterial('blue');
     hitbox = new THREE.Mesh(hitboxGeometry, hitboxMaterial);
-    hitbox.visible = false; // Torna a hitbox invisível
+    //hitbox.visible = false; // Torna a hitbox invisível
     hitbox.position.set(0.0, CONFIG.CAMERA_HEIGHT + CONFIG.PLAYER_HEIGHT/2, 0.0);
     scene.add(hitbox);
     
@@ -158,7 +158,7 @@ function checkWallCollisions(collidableObjects, camera) {
         raycaster.set(hitbox.position, ray.dir);      
         const intercepts = raycaster.intersectObjects(validObjects, false);
         
-        if (intercepts.length > 0 && intercepts[0].distance < raySize) {
+        if (intercepts.length > 0 && intercepts[0].distance < raySize * 0.95) {
             const correction = (intercepts[0].distance - raySize) * CONFIG.WALL_COLLISION_FACTOR;
             
             if (ray.axis === 'x') {
@@ -171,14 +171,18 @@ function checkWallCollisions(collidableObjects, camera) {
                 hitbox.position.z += ray.dir.z * correction;
                 camera.position.z += ray.dir.z * correction;
             }
+            console.log(`Colisão X: ${wallColide.x}, Z: ${wallColide.z}`);
+            console.log(`Correção X: ${ray.dir.x * correction}, Z: ${ray.dir.z * correction}`);
         }
+        
     }
+    
 
     /*// Apply smoothing to prevent jitter
     if (wallColide.x || wallColide.z) {
-        const lerpFactor = CONFIG.COLLISION_SMOOTHING; // Adjust this value for smoother transitions (0-1)
-        hitbox.position.lerp(originalHitboxPos, lerpFactor);
-        camera.position.lerp(originalCameraPos, lerpFactor);
+    const lerpFactor = 0.1; // Valor mais baixo para suavização mais forte
+    hitbox.position.lerp(originalHitboxPos, lerpFactor);
+    camera.position.lerp(originalCameraPos, lerpFactor);
     }*/
 }
 

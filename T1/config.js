@@ -24,7 +24,7 @@ export const CONFIG = {
     // Configurações da hitbox e colisão
     HITBOX_WIDTH: 1.0,
     HITBOX_DEPTH: 1.0,
-    RAYCAST_DISTANCE: 1.0,
+    RAYCAST_DISTANCE: 1.2,
     COLLISION_MARGIN: 0.0001,
     WALL_COLLISION_FACTOR: 1.01,
     STAIR_DETECTION_MARGIN_X: 1.5,
@@ -32,6 +32,8 @@ export const CONFIG = {
     STAIR_HEIGHT_TOLERANCE: 1.5,
     STAIR_MOVEMENT_SPEED: 0.2,
     COLLISION_SMOOTHING: 0.5, // Valor entre 0 e 0.5
+    COLLISION_ANGLE_THRESHOLD: 15, // Margem para a ativação da suavisação extra
+    
     
     // Configurações do mundo
     WORLD_SIZE: 500,

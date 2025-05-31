@@ -46,29 +46,47 @@ function onKeyUp(event) {
 export function updateCameraMovement(delta, controls) {
     const distance = CONFIG.MOVE_SPEED * delta;
     
-    // Movimento para frente/trás (eixo Z)
-    if (moveState.forward || moveState.backward) {
-        const moveZ = moveState.forward ? distance : -distance;
-        if (!wallColide.z) {
-            controls.moveForward(moveZ);
-        } else if (moveState.left || moveState.right) {
-            // Permite "deslizar" ao longo da parede se estiver tentando se mover diagonalmente
-            const moveX = moveState.left ? -distance : distance;
-            if (!wallColide.x) controls.moveRight(moveX);
-        }
+    // Calcula os vetores de movimento
+    let moveX = 0;
+    let moveZ = 0;
+    
+    if (moveState.forward) moveZ += distance;
+    if (moveState.backward) moveZ -= distance;
+    if (moveState.left) moveX -= distance;
+    if (moveState.right) moveX += distance;
+    
+    // Normaliza movimento diagonal
+    if (moveX !== 0 && moveZ !== 0) {
+        const factor = Math.sqrt(0.5);
+        moveX *= factor;
+        moveZ *= factor;
     }
     
-    // Movimento para esquerda/direita (eixo X)
-    if (moveState.left || moveState.right) {
-        const moveX = moveState.left ? -distance : distance;
-        if (!wallColide.x) {
-            controls.moveRight(moveX);
-        } else if (moveState.forward || moveState.backward) {
-            // Permite "deslizar" ao longo da parede se estiver tentando se mover diagonalmente
-            const moveZ = moveState.forward ? distance : -distance;
-            if (!wallColide.z) controls.moveForward(moveZ);
+    // --- Suavização adaptativa para ângulos próximos a 90º ---
+    if (wallColide.x || wallColide.z) {
+        // Calcula o ângulo do movimento (em radianos)
+        const angle = Math.atan2(moveZ, moveX);
+        const angleDeg = Math.abs(angle * (180 / Math.PI));
+        
+        // Fator de suavização baseado no ângulo:
+        // - Quanto mais próximo de 0º ou 90º, mais suavização é aplicada.
+        // - Para diagonais (45º), mantém a suavização padrão.
+        let smoothingFactor = CONFIG.COLLISION_SMOOTHING;
+        
+        // Ajusta o fator para movimentos laterais (ângulos próximos a 0º ou 90º)
+        const angleThreshold = CONFIG.COLLISION_ANGLE_THRESHOLD; // Margem para considerar "próximo a 90º"
+        if (angleDeg <= angleThreshold || angleDeg >= 90 - angleThreshold) {
+            smoothingFactor *= 2; // Dobra a suavização para movimentos retos
         }
+        
+        // Aplica suavização apenas no eixo colidido
+        if (wallColide.x) moveX *= smoothingFactor;
+        if (wallColide.z) moveZ *= smoothingFactor;
     }
+    
+    // Aplica movimento
+    controls.moveRight(moveX);
+    controls.moveForward(moveZ);
 }
 
 // Lida com redimensionamento da janela
