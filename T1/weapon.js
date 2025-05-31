@@ -58,7 +58,7 @@ function shoot(camera, scene) {
       // Calcula offset da ponta da arma no espaço local
     const gunTipOffset = new THREE.Vector3(0, 0, CONFIG.GUN_TIP_OFFSET);
     
-    // Aplica rotação da câmera ao offset para manter sincronização
+    // Quando soma o vetor quer representa a ponta da arma à posição global da arma, o projétil sai exatamente na ponta do cano
     const cameraRotationMatrix = new THREE.Matrix4();
     cameraRotationMatrix.extractRotation(camera.matrixWorld);
     gunTipOffset.applyMatrix4(cameraRotationMatrix);
