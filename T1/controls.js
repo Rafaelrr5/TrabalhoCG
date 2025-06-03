@@ -3,7 +3,7 @@
 // ============================================================================
 import { CONFIG } from './config.js';
 import { startShooting, stopShooting} from './weapon.js';
-import { wallColide } from './player.js';
+import { wallColide } from './collision.js';
 
 // Estados de controle de movimento (quais teclas estão ativas)
 export let moveState = { 

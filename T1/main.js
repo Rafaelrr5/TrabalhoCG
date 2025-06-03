@@ -10,7 +10,8 @@ import { CONFIG } from './config.js';
 import { createWalls, createAreas } from './environment.js';
 import { createGun, updateProjectiles } from './weapon.js';
 import { setupEventListeners, updateCameraMovement } from './controls.js';
-import { applyGravity,createHitbox, hitbox, updateHitbox } from './player.js';
+import { applyGravity } from './collision.js';
+import { createHitbox, hitbox, updateHitbox } from './player.js';
 
 // ============================================================================
 // VARIÁVEIS GLOBAIS PRINCIPAIS
