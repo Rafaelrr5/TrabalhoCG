@@ -6,18 +6,6 @@ import { setDefaultMaterial } from '../libs/util/util.js';
 import { CONFIG } from './config.js';
 
 export let hitbox = null;
-const playerBox = new THREE.Box3();
-const tempBox = new THREE.Box3();
-const raycaster = new THREE.Raycaster();
-const raySize = CONFIG.RAYCAST_DISTANCE;
-//criação dos raios
-const rays = [
-    {dir: new THREE.Vector3(1, 0, 0), axis: 'x', offset: new THREE.Vector3(0.5, CONFIG.PLAYER_HEIGHT/2, 0)},
-    {dir: new THREE.Vector3(-1, 0, 0), axis: 'x', offset: new THREE.Vector3(-0.5, CONFIG.PLAYER_HEIGHT/2, 0)},
-    {dir: new THREE.Vector3(0, 0, 1), axis: 'z', offset: new THREE.Vector3(0, CONFIG.PLAYER_HEIGHT/2, 0.5)},
-    {dir: new THREE.Vector3(0, 0, -1), axis: 'z', offset: new THREE.Vector3(0, CONFIG.PLAYER_HEIGHT/2, -0.5)}
-];//Se quisermos usar o raycaster para o chão é só adiconar mais direções aqui e adaptar o código
-
 // Cria hitbox invisível para o jogador
 export function createHitbox(scene) {
     //verificação de segurança
