@@ -45,7 +45,10 @@ function init() {
 // Cria a cena principal e o renderizador WebGL, ajustando os tamanhos
 function setupScene() {
     scene = new THREE.Scene();
-    renderer = new THREE.WebGLRenderer();
+    // Enable antialiasing to smooth edges and prevent black artifacts
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    // Use device pixel ratio for crisp rendering on high-DPI screens
+    renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     const container = document.getElementById('webgl-output') || document.body;
     container.appendChild(renderer.domElement);
