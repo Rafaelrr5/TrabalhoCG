@@ -45,41 +45,20 @@ function detectStairCollision(hitboxPos, collidableObjects) {
     return { isOnStair: false };
 }
 
+// function checkGroundCollisions(hitbox, collidableObjects, camera) {
 function checkGroundCollisions(hitbox, collidableObjects, camera) {
+    // Raycast for ground and stairs
     isGrounded = false;
-    playerBox.setFromObject(hitbox);
-    const hitboxPos = hitbox.position;
-    const stairInfo = detectStairCollision(hitboxPos, collidableObjects);
-    if (stairInfo.isOnStair) {
-        const expectedHeight = stairInfo.stairHeight + CONFIG.PLAYER_HEIGHT / 2;
-        const diff = expectedHeight - hitboxPos.y;
-        hitbox.position.y += diff * CONFIG.STAIR_MOVEMENT_SPEED;
-        camera.position.y += diff * CONFIG.STAIR_MOVEMENT_SPEED;
-        velocityY = 0;
-        isGrounded = true;
-        return;
-    }
-    for (const object of collidableObjects) {
-        if (!object.geometry || !object.visible) continue;
-        tempBox.setFromObject(object);
-        if (playerBox.intersectsBox(tempBox)) {
-            const overlapX = Math.min(playerBox.max.x - tempBox.min.x, tempBox.max.x - playerBox.min.x);
-            const overlapY = Math.min(playerBox.max.y - tempBox.min.y, tempBox.max.y - playerBox.min.y);
-            const overlapZ = Math.min(playerBox.max.z - tempBox.min.z, tempBox.max.z - playerBox.min.z);
-            if (overlapY < overlapX && overlapY < overlapZ) {
-                if (velocityY < 0) {
-                    const correction = tempBox.max.y - playerBox.min.y + CONFIG.COLLISION_MARGIN;
-                    hitbox.position.y += correction;
-                    camera.position.y += correction;
-                    velocityY = 0;
-                    isGrounded = true;
-                } else if (velocityY > 0) {
-                    const correction = tempBox.min.y - playerBox.max.y - CONFIG.COLLISION_MARGIN;
-                    hitbox.position.y += correction;
-                    camera.position.y += correction;
-                    velocityY = 0;
-                }
-            }
+    const downDir = new THREE.Vector3(0, -1, 0);
+    const hits = detectRayCollisions(hitbox.position.clone(), downDir, collidableObjects, raySize, true);
+    if (hits.length > 0) {
+        const hit = hits[0];
+        if (hit.distance < raySize) {
+            const correction = raySize - hit.distance;
+            hitbox.position.y += correction;
+            camera.position.y += correction;
+            velocityY = 0;
+            isGrounded = true;
         }
     }
 }
@@ -102,8 +81,7 @@ function checkWallCollisions(hitbox, collidableObjects, camera) {
         return !isStair;
     });
     for (const ray of rays) {
-        raycaster.set(hitbox.position, ray.dir);
-        const intercepts = raycaster.intersectObjects(validObjects, false);
+        const intercepts = detectRayCollisions(hitbox.position.clone(), ray.dir, validObjects, raySize * 0.95, false);
         if (intercepts.length > 0 && intercepts[0].distance < raySize * 0.95) {
             const correction = (intercepts[0].distance - raySize) * CONFIG.WALL_COLLISION_FACTOR;
             if (ray.axis === 'x') {
@@ -117,6 +95,13 @@ function checkWallCollisions(hitbox, collidableObjects, camera) {
             }
         }
     }
+}
+
+// Generic ray-based collision detection
+export function detectRayCollisions(origin, direction, objects, maxDistance, recursive = false) {
+    raycaster.set(origin, direction);
+    raycaster.far = maxDistance;
+    return raycaster.intersectObjects(objects, recursive);
 }
 
 export function applyGravity(delta, collidableObjects, camera) {
