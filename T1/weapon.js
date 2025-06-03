@@ -8,6 +8,8 @@ import { CONFIG } from './config.js';
 export let gun = null;
 export let projectiles = [];
 export let shootInterval = null;
+let lastShotTime = 0; // Timestamp do último disparo
+let isMousePressed = false; // Estado do mouse
 const raycaster = new THREE.Raycaster();
 const collisionDistance = CONFIG.PROJECTILE_SIZE * 2; // Distância de colisão para projéteis
 
@@ -30,18 +32,36 @@ export function createGun(camera) {
 
 // Inicia o sistema de tiro contínuo
 export function startShooting(camera, scene) {
-    shoot(camera, scene);
-    shootInterval = setInterval(() => shoot(camera, scene), CONFIG.SHOOT_RATE);
+    if (isMousePressed) return; // Evita múltiplas chamadas
+    isMousePressed = true;
+    
+    // Dispara imediatamente apenas se passou tempo suficiente
+    const now = performance.now();
+    if (now - lastShotTime >= CONFIG.SHOOT_RATE) {
+        shoot(camera, scene);
+        lastShotTime = now;
+    }
+    
+    // Inicia o interval para disparos contínuos
+    shootInterval = setInterval(() => {
+        if (isMousePressed) {
+            shoot(camera, scene);
+        }
+    }, CONFIG.SHOOT_RATE);
 }
 
 // Para o sistema de tiro contínuo
 export function stopShooting() {
+    isMousePressed = false;
     clearInterval(shootInterval);
 }
 
 // Cria e dispara um projétil da posição da arma
 function shoot(camera, scene) {
     if (!gun || !camera) return; // Verificação de segurança
+    
+    // Atualiza timestamp do último disparo
+    lastShotTime = performance.now();
     
     // Cria geometria e material do projétil
     const projectileGeometry = new THREE.SphereGeometry(CONFIG.PROJECTILE_SIZE);
