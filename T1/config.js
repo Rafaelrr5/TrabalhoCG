@@ -41,7 +41,7 @@ export const CONFIG = {
     WALL_Y_POSITION: 9.0,
     
     // Configurações das escadas
-    STAIR_STEP_HEIGHT: 0.5,
+    STAIR_STEP_HEIGHT: 0.485,
     STAIR_STEP_DEPTH: 0.8,
     STAIR_WIDTH: 15.0,
     STAIR_INCLINATION: 0.5 / 0.8, // inclinação calculada

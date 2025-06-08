@@ -71,7 +71,7 @@ function createArea1(scene, materials, collidableObjects) {
 
     area1_center.position.set(-152.25, CONFIG.AREA_Y_POSITION, -131.0);
     area1_center.scale.set(125.0, CONFIG.AREA_HEIGHT, 125.0);
-    area1_left.position.set(-209.8, CONFIG.AREA_Y_POSITION, -66.0);
+    area1_left.position.set(-210.0, CONFIG.AREA_Y_POSITION, -66.0);
     area1_left.scale.set(9.5, CONFIG.AREA_HEIGHT, 6.0);
     area1_right.position.set(-140.0, CONFIG.AREA_Y_POSITION, -66.0);
     area1_right.scale.set(100.5, CONFIG.AREA_HEIGHT, 6.0);
@@ -176,7 +176,7 @@ function createStair(x, y, z, h, direction, material) {
     const stepHeight = CONFIG.STAIR_STEP_HEIGHT; // Altura de cada degrau
     const stepDepth = CONFIG.STAIR_STEP_DEPTH; // Profundidade de cada degrau
       // Calcula o número de degraus necessários
-    let steps = Math.ceil(h / stepHeight);
+    let steps = Math.floor(h / stepHeight);
     
     for (let i = 0; i < steps; i++) {
         // Geometria da escada
