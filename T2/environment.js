@@ -5,6 +5,7 @@ import * as THREE from '../build/three.module.js';
 import { setDefaultMaterial, createGroundPlaneXZ } from "../libs/util/util.js";
 import { CONFIG } from './config.js';
 import { CSG } from '../libs/other/CSGMesh.js';
+import { enemies } from './enemy.js';
 
 // Variáveis globais para gerenciamento da área 1
 export let area1KeyPlatform = null;
@@ -356,24 +357,17 @@ export function getBlueKey() {
 }
 
 // Função para ser chamada no main.js para atualizar a área 1
-export function updateArea1(delta, scene, camera) {
-    // Atualiza rotação da chave
-    if (area1KeyPlatform) {
-        const key = area1KeyPlatform.userData.key;
-        if (key) {
-            key.rotation.y += key.userData.rotationSpeed;
-        }
-        
-        // Verifica se o jogador entrou na Área 1
-        if (!area1KeyPlatform.userData.isRaised && isPlayerInArea1(camera)) {
-            console.log("Jogador entrou na Área 1! Iniciando elevação da plataforma...");
-            area1KeyPlatform.userData.shouldRaise = true;
-        }
-        
-        // Se deve elevar e ainda não foi elevada, executa a elevação
-        if (area1KeyPlatform.userData.shouldRaise && !area1KeyPlatform.userData.isRaised) {
-            raisePlatform(area1KeyPlatform, delta);
-        }
+export function updateArea1(delta) {
+    if (!area1KeyPlatform) return;
+    const key = area1KeyPlatform.userData.key;
+    if (key) key.rotation.y += key.userData.rotationSpeed;
+    // Trigger raise only when all enemies are defeated
+    if (!area1KeyPlatform.userData.shouldRaise && enemies.every(e => !e.userData.alive)) {
+        console.log('Todos inimigos derrotados! Subindo plataforma.');
+        area1KeyPlatform.userData.shouldRaise = true;
+    }
+    if (area1KeyPlatform.userData.shouldRaise && !area1KeyPlatform.userData.isRaised) {
+        raisePlatform(area1KeyPlatform, delta);
     }
 }
 

@@ -5,7 +5,7 @@ import * as THREE from '../build/three.module.js';
 import { CONFIG } from './config.js';
 import { isPlayerInArea1 } from './environment.js';
 
-const enemies = [];
+export const enemies = [];
 const ENEMY_SPEED = 20; // units per second
 
 // Create placeholder enemies in Area 1
@@ -24,6 +24,33 @@ export function createEnemies(scene) {
         const enemy = new THREE.Mesh(geom, mat);
         enemy.position.copy(pos);
         scene.add(enemy);
+        // initialize HP and alive status
+        enemy.userData = {
+            hp: 20,
+            alive: true,
+            baseSpeed: 2.0,         // slow approach speed
+            dashSpeed: 15.0,        // kamikaze dash speed
+            dashInterval: 5.0,      // seconds between dashes
+            dashDuration: 0.8,      // duration of dash
+            dashTimer: 0.0,
+            isDashing: false
+        };
+        // create health bar
+        const barWidth = 2, barHeight = 0.2;
+        const bgMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const fgMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        const bgBar = new THREE.Mesh(new THREE.PlaneGeometry(barWidth, barHeight), bgMat);
+        const fgBar = new THREE.Mesh(new THREE.PlaneGeometry(barWidth, barHeight), fgMat);
+        fgBar.position.z = 0.01; // front
+        const healthBar = new THREE.Group();
+        healthBar.add(bgBar);
+        healthBar.add(fgBar);
+        healthBar.position.set(0, 1.5, 0); // above enemy
+        healthBar.name = 'healthBar';
+        enemy.add(healthBar);
+        // store for updates
+        enemy.userData.healthBar = fgBar;
+        enemy.userData.healthBarMaxWidth = barWidth;
         enemies.push(enemy);
     });
 }
@@ -31,16 +58,40 @@ export function createEnemies(scene) {
 // Update all enemies: idle outside Area 1, chase when player enters
 export function updateEnemies(delta, scene, camera) {
     enemies.forEach(enemy => {
-        if (isPlayerInArea1(camera)) {
-            // Chase player
-            const dir = new THREE.Vector3();
-            dir.subVectors(camera.position, enemy.position).normalize();
-            enemy.position.add(dir.multiplyScalar(ENEMY_SPEED * delta));
-            // Face player
-            enemy.lookAt(camera.position.x, enemy.position.y, camera.position.z);
-        } else {
-            // Idle rotation
-            enemy.rotation.y += delta;
+        // skip dead enemies
+        if (!enemy.userData.alive || enemy.userData.hp <= 0) {
+            enemy.visible = false;
+            return;
         }
+        // update health bar scale and position
+        const fgBar = enemy.userData.healthBar;
+        if (fgBar) {
+            const ratio = Math.max(enemy.userData.hp / 20, 0);
+            fgBar.scale.x = ratio;
+            fgBar.position.x = - (enemy.userData.healthBarMaxWidth * (1 - ratio)) / 2;
+        }
+
+        if (isPlayerInArea1(camera)) {
+            // update dash timer
+            const ud = enemy.userData;
+            ud.dashTimer += delta;
+            if (!ud.isDashing && ud.dashTimer >= ud.dashInterval) {
+                ud.isDashing = true;
+                ud.dashTimer = 0;
+            } else if (ud.isDashing && ud.dashTimer >= ud.dashDuration) {
+                ud.isDashing = false;
+                ud.dashTimer = 0;
+            }
+            // choose speed
+            const speed = enemy.userData.isDashing ? enemy.userData.dashSpeed : enemy.userData.baseSpeed;
+             // Chase player
+            const dir = new THREE.Vector3().subVectors(camera.position, enemy.position).normalize();
+            enemy.position.add(dir.multiplyScalar(speed * delta));
+             // Face player
+             enemy.lookAt(camera.position.x, enemy.position.y, camera.position.z);
+         } else {
+             // Idle rotation
+             enemy.rotation.y += delta;
+         }
     });
 }

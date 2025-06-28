@@ -4,6 +4,7 @@
 import * as THREE from '../build/three.module.js';
 import { setDefaultMaterial } from '../libs/util/util.js';
 import { CONFIG } from './config.js';
+import { enemies } from './enemy.js';
 
 export let gun = null;
 export let projectiles = [];
@@ -109,31 +110,47 @@ export function updateProjectiles(delta, scene) {
 
         const intersects = raycaster.intersectObjects(scene.children, true);
 
-        //filtra as colisões 
+        // filtra as colisões 
         const validIntersects = intersects.filter(intersects =>{
             return intersects.object !== gun && 
                      intersects.object !== projectile && 
                      intersects.object.parent !== gun;
         });
 
-        //Colidindo com algo, remove o projétil da cena
+        // Se colidiu com inimigo, aplica dano e remove projétil
+        let hitEnemy = false;
+        for (const hit of validIntersects) {
+            // identifica se objeto ou seu parent é inimigo
+            const obj = hit.object;
+            const enemy = enemies.find(e => e === obj || e === obj.parent);
+            if (enemy && enemy.userData.alive) {
+                enemy.userData.hp -= 10;
+                if (enemy.userData.hp <= 0) enemy.userData.alive = false;
+                scene.remove(projectile);
+                projectiles.splice(i, 1);
+                hitEnemy = true;
+                break;
+            }
+        }
+        if (hitEnemy) continue;
+        // colisão com ambiente, remove o projétil
         if (validIntersects.length > 0) {
             scene.remove(projectile);
-            projectiles.splice(i, 1);// splice remove o projetil do array
-            continue; // Sai do loop para evitar erros de índice
-        }
-        
-        // Move projétil na direção especificada
-        projectile.position.add(
-            projectileData.direction.clone().multiplyScalar(CONFIG.PROJECTILE_SPEED * delta)
-        );
-        
-        // Remove projétil após tempo limite
-        if (projectileData.timeAlive > CONFIG.PROJECTILE_LIFETIME) {
-            scene.remove(projectile);
             projectiles.splice(i, 1);
+            continue; // evita erros de índice
         }
-    }
+         
+         // Move projétil na direção especificada
+         projectile.position.add(
+             projectileData.direction.clone().multiplyScalar(CONFIG.PROJECTILE_SPEED * delta)
+         );
+         
+         // Remove projétil após tempo limite
+         if (projectileData.timeAlive > CONFIG.PROJECTILE_LIFETIME) {
+             scene.remove(projectile);
+             projectiles.splice(i, 1);
+         }
+     }
 }
 
 //export function weaponSwitch (now){
