@@ -5,6 +5,9 @@ import * as THREE from '../build/three.module.js';
 import { setDefaultMaterial, createGroundPlaneXZ } from "../libs/util/util.js";
 import { CONFIG } from './config.js';
 
+// Variáveis globais para gerenciamento da área 1
+export let area1KeyPlatform = null;
+
 // Cria as paredes do ambiente
 export function createWalls(scene, collidableObjects) {
     let material = setDefaultMaterial('orange');    // Cria o chão
@@ -54,11 +57,16 @@ export function createAreas(scene, collidableObjects) {
 
     createArea1(scene, materials, collidableObjects);
     createArea2(scene, materials, collidableObjects);
-    createArea3(scene, materials, collidableObjects);
-    createArea4(scene, materials, collidableObjects);
+    createArea3(scene, materials, collidableObjects);    createArea4(scene, materials, collidableObjects);
+    
+    // Armazena referência da plataforma
+    const area1Group = scene.getObjectByName("Area1");
+    if (area1Group) {
+        area1KeyPlatform = area1Group.getObjectByName("KeyPlatform");
+    }
 }
 
-// Cria a Área 1 (azul claro)
+// Cria a Área 1 (azul claro) - Templo Romano com colunas
 function createArea1(scene, materials, collidableObjects) {
     let areaGeometry = new THREE.BoxGeometry(1, 1, 1);
     
@@ -78,7 +86,17 @@ function createArea1(scene, materials, collidableObjects) {
     
     area1.add(area1_center);
     area1.add(area1_left);
-    area1.add(area1_right);    scene.add(area1);
+    area1.add(area1_right);
+    
+    // Adiciona colunas romanas ao redor da área
+    const romanColumns = createRomanColumns(scene);
+    area1.add(romanColumns);
+    
+    // Adiciona plataforma para a chave no centro da área
+    const keyPlatform = createKeyPlatform(scene);
+    area1.add(keyPlatform);
+    
+    scene.add(area1);
     stair1.add(createStair(-197.75, CONFIG.STAIR_HEIGHT_OFFSET, -62.8, CONFIG.AREA_HEIGHT, true, materials.stair));
     scene.add(stair1);
     markCollisionObject(area1, collidableObjects);
@@ -105,7 +123,8 @@ function createArea2(scene, materials, collidableObjects) {
     
     area2.add(area2_center);
     area2.add(area2_left);
-    area2.add(area2_right);    scene.add(area2);
+    area2.add(area2_right);
+    scene.add(area2);
     stair2.add(createStair(50.0, CONFIG.STAIR_HEIGHT_OFFSET, -62.8, CONFIG.AREA_HEIGHT, true, materials.stair));
     scene.add(stair2);
     markCollisionObject(area2, collidableObjects);
@@ -168,6 +187,187 @@ function createArea4(scene, materials, collidableObjects) {
     markCollisionObject(stair4, collidableObjects);
 }
 
+// Cria colunas romanas ao redor da Área 1
+function createRomanColumns(scene) {
+    const columnsGroup = new THREE.Group();
+    columnsGroup.name = "RomanColumns";
+    
+    // Material das colunas (mármore branco/cinza)
+    const columnMaterial = new THREE.MeshLambertMaterial({ 
+        color: 0xf5f5dc, // Bege claro (mármore)
+        transparent: false
+    });
+    
+    // Configurações das colunas
+    const columnHeight = 12;
+    const columnRadius = 2;
+    const columnSegments = 12;
+    const capitalHeight = 1.5;
+    const baseHeight = 1;
+    
+    // Posições das colunas ao redor da área, EVITANDO a área da escada (X=-197.75)
+    // Área 1: centro (-152.25, -131.0), dimensões 125x125
+    const columnPositions = [
+        // Frente (sul) - borda interna
+        { x: -152.25 - 40, z: -131.0 + 50 },
+        { x: -152.25 - 15, z: -131.0 + 50 },
+        { x: -152.25 + 15, z: -131.0 + 50 },
+        { x: -152.25 + 40, z: -131.0 + 50 },
+        
+        // Trás (norte) - borda interna
+        { x: -152.25 - 40, z: -131.0 - 50 },
+        { x: -152.25 - 15, z: -131.0 - 50 },
+        { x: -152.25 + 15, z: -131.0 - 50 },
+        { x: -152.25 + 40, z: -131.0 - 50 },
+        
+        // Esquerda (oeste) - borda interna - REMOVIDA a coluna mais próxima da escada
+        { x: -152.25 - 50, z: -131.0 - 25 },
+        { x: -152.25 - 50, z: -131.0 },
+        { x: -152.25 - 50, z: -131.0 + 25 },
+        
+        // Direita (leste) - borda interna
+        { x: -152.25 + 50, z: -131.0 - 25 },
+        { x: -152.25 + 50, z: -131.0 },
+        { x: -152.25 + 50, z: -131.0 + 25 }
+    ];
+    
+    columnPositions.forEach((pos, index) => {
+        const column = createSingleColumn(columnRadius, columnHeight, columnSegments, capitalHeight, baseHeight, columnMaterial);
+        // Posiciona a coluna apoiada sobre a superfície da área
+        column.position.set(pos.x, CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + columnHeight/2, pos.z);
+        columnsGroup.add(column);
+    });
+    
+    return columnsGroup;
+}
+
+// Cria uma única coluna romana com base, fuste e capitel
+function createSingleColumn(radius, height, segments, capitalHeight, baseHeight, material) {
+    const columnGroup = new THREE.Group();
+    
+    // Base da coluna (mais larga)
+    const baseGeometry = new THREE.CylinderGeometry(radius * 1.3, radius * 1.4, baseHeight, segments);
+    const base = new THREE.Mesh(baseGeometry, material);
+    base.position.y = -height/2 + baseHeight/2;
+    columnGroup.add(base);
+    
+    // Fuste da coluna (corpo principal)
+    const shaftGeometry = new THREE.CylinderGeometry(radius, radius, height - capitalHeight - baseHeight, segments);
+    const shaft = new THREE.Mesh(shaftGeometry, material);
+    shaft.position.y = -capitalHeight/2;
+    columnGroup.add(shaft);
+    
+    // Capitel da coluna (topo decorativo)
+    const capitalGeometry = new THREE.CylinderGeometry(radius * 1.2, radius, capitalHeight, segments);
+    const capital = new THREE.Mesh(capitalGeometry, material);
+    capital.position.y = height/2 - capitalHeight/2;
+    columnGroup.add(capital);
+    
+    return columnGroup;
+}
+
+// Cria a plataforma para a chave vermelha
+function createKeyPlatform(scene) {
+    const platformGroup = new THREE.Group();
+    platformGroup.name = "KeyPlatform";
+    
+    // Material da plataforma
+    const platformMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 }); // Marrom
+    
+    // Plataforma circular
+    const platformGeometry = new THREE.CylinderGeometry(3, 3, 0.5, 16);
+    const platform = new THREE.Mesh(platformGeometry, platformMaterial);
+    platform.position.set(-152.25, CONFIG.AREA_Y_POSITION - 2, -131.0); // Começa subterrânea
+    platformGroup.add(platform);
+    
+    // Chave vermelha
+    const redKey = createRedKey();
+    redKey.position.set(-152.25, CONFIG.AREA_Y_POSITION - 1.5, -131.0);
+    platformGroup.add(redKey);
+    
+    // Armazena referências globais para animação
+    platformGroup.userData.platform = platform;
+    platformGroup.userData.key = redKey;
+    platformGroup.userData.isRaised = false;
+    platformGroup.userData.targetY = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + 1;
+    
+    return platformGroup;
+}
+
+// Cria a chave vermelha
+function createRedKey() {
+    const keyGroup = new THREE.Group();
+    keyGroup.name = "RedKey";
+    
+    // Material vermelho brilhante
+    const keyMaterial = new THREE.MeshLambertMaterial({ 
+        color: 0xff0000,
+        emissive: 0x440000
+    });
+    
+    // Corpo da chave
+    const shaftGeometry = new THREE.CylinderGeometry(0.1, 0.1, 2, 8);
+    const shaft = new THREE.Mesh(shaftGeometry, keyMaterial);
+    shaft.rotation.z = Math.PI / 2;
+    keyGroup.add(shaft);
+    
+    // Cabeça da chave (círculo)
+    const headGeometry = new THREE.TorusGeometry(0.5, 0.1, 8, 16);
+    const head = new THREE.Mesh(headGeometry, keyMaterial);
+    head.position.x = -1;
+    head.rotation.y = Math.PI / 2;
+    keyGroup.add(head);
+    
+    // Dentes da chave
+    const tooth1Geometry = new THREE.BoxGeometry(0.3, 0.1, 0.1);
+    const tooth1 = new THREE.Mesh(tooth1Geometry, keyMaterial);
+    tooth1.position.set(0.7, 0, 0.1);
+    keyGroup.add(tooth1);
+    
+    const tooth2 = new THREE.Mesh(tooth1Geometry, keyMaterial);
+    tooth2.position.set(0.9, 0, 0.1);
+    keyGroup.add(tooth2);
+    
+    // Adiciona rotação contínua
+    keyGroup.userData.rotationSpeed = 0.02;
+    
+    return keyGroup;
+}
+
+// Função para ser chamada no main.js para atualizar a área 1
+export function updateArea1(delta, scene) {
+    // Atualiza rotação da chave
+    if (area1KeyPlatform) {
+        const key = area1KeyPlatform.userData.key;
+        if (key) {
+            key.rotation.y += key.userData.rotationSpeed;
+        }
+          // Como não há inimigos, a plataforma sobe automaticamente
+        if (!area1KeyPlatform.userData.isRaised) {
+            raisePlatform(area1KeyPlatform, delta);
+        }
+    }
+}
+
+// Anima a subida suave da plataforma
+function raisePlatform(platformGroup, delta) {
+    const platform = platformGroup.userData.platform;
+    const key = platformGroup.userData.key;
+    const targetY = platformGroup.userData.targetY;
+    
+    if (platform.position.y < targetY) {
+        const riseSpeed = 2; // Velocidade de subida
+        platform.position.y += riseSpeed * delta;
+        key.position.y += riseSpeed * delta;
+        
+        if (platform.position.y >= targetY) {
+            platform.position.y = targetY;
+            key.position.y = targetY + 0.5;
+            platformGroup.userData.isRaised = true;
+        }
+    }
+}
+
 // Função para criar uma escada
 function createStair(x, y, z, h, direction, material) {
     let stairGroup = new THREE.Group();
@@ -175,7 +375,8 @@ function createStair(x, y, z, h, direction, material) {
     stairGroup.position.set(x, y, z);
     const stepHeight = CONFIG.STAIR_STEP_HEIGHT; // Altura de cada degrau
     const stepDepth = CONFIG.STAIR_STEP_DEPTH; // Profundidade de cada degrau
-      // Calcula o número de degraus necessários
+      
+    // Calcula o número de degraus necessários
     let steps = Math.floor(h / stepHeight);
     
     for (let i = 0; i < steps; i++) {
