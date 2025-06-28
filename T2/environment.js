@@ -378,7 +378,7 @@ export function updateArea1(delta, scene, camera) {
 }
 
 // Verifica se o jogador está dentro da Área 1
-function isPlayerInArea1(camera) {
+export function isPlayerInArea1(camera) {
     if (!camera) return false;
     
     const playerX = camera.position.x;

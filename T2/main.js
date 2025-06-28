@@ -9,6 +9,7 @@ import { initDefaultBasicLight } from "../libs/util/util.js";
 import { CONFIG } from './config.js';
 import { createWalls, createAreas, updateArea1 } from './environment.js';
 import { createGun, updateProjectiles } from './weapon.js';
+import { createEnemies, updateEnemies } from './enemy.js';
 import { setupEventListeners, updateCameraMovement } from './controls.js';
 import { applyGravity } from './collision.js';
 import { createHitbox, hitbox, updateHitbox } from './player.js';
@@ -97,6 +98,8 @@ function createEnvironment() {
     createWalls(scene, collidableObjects);
     createAreas(scene, collidableObjects);
     createGun(camera);
+    // Create enemies in Area 1
+    createEnemies(scene);
 }
 
 // ============================================================================
@@ -114,6 +117,8 @@ function animate() {
     updateCameraMovement(delta, controls);
     updateProjectiles(delta, scene);
     updateArea1(delta, scene, camera);
+    // Update enemy behavior
+    updateEnemies(delta, scene, camera);
     
     renderer.render(scene, camera);
 }
