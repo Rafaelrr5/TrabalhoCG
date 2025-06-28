@@ -4,6 +4,7 @@
 import * as THREE from '../build/three.module.js';
 import { setDefaultMaterial, createGroundPlaneXZ } from "../libs/util/util.js";
 import { CONFIG } from './config.js';
+import { CSG } from '../libs/other/CSGMesh.js';
 
 // Variáveis globais para gerenciamento da área 1
 export let area1KeyPlatform = null;
@@ -280,73 +281,143 @@ function createKeyPlatform(scene) {
     platform.position.set(-152.25, CONFIG.AREA_Y_POSITION - 2, -131.0); // Começa subterrânea
     platformGroup.add(platform);
     
-    // Chave vermelha
+    // Chave vermelha (CSG)
     const redKey = createRedKey();
-    redKey.position.set(-152.25, CONFIG.AREA_Y_POSITION - 1.5, -131.0);
+    redKey.position.set(-152.25, CONFIG.AREA_Y_POSITION - 1.0, -131.0);
     platformGroup.add(redKey);
-    
-    // Armazena referências globais para animação
+      // Armazena referências globais para animação
     platformGroup.userData.platform = platform;
     platformGroup.userData.key = redKey;
     platformGroup.userData.isRaised = false;
-    platformGroup.userData.targetY = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + 1;
+    platformGroup.userData.targetY = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + 0.5;
     
     return platformGroup;
 }
 
-// Cria a chave vermelha
+// Cria a chave vermelha usando CSG
 function createRedKey() {
     const keyGroup = new THREE.Group();
     keyGroup.name = "RedKey";
-    
-    // Material vermelho brilhante
-    const keyMaterial = new THREE.MeshLambertMaterial({ 
-        color: 0xff0000,
-        emissive: 0x440000
-    });
-    
-    // Corpo da chave
-    const shaftGeometry = new THREE.CylinderGeometry(0.1, 0.1, 2, 8);
-    const shaft = new THREE.Mesh(shaftGeometry, keyMaterial);
-    shaft.rotation.z = Math.PI / 2;
-    keyGroup.add(shaft);
-    
-    // Cabeça da chave (círculo)
-    const headGeometry = new THREE.TorusGeometry(0.5, 0.1, 8, 16);
-    const head = new THREE.Mesh(headGeometry, keyMaterial);
-    head.position.x = -1;
-    head.rotation.y = Math.PI / 2;
-    keyGroup.add(head);
-    
-    // Dentes da chave
-    const tooth1Geometry = new THREE.BoxGeometry(0.3, 0.1, 0.1);
-    const tooth1 = new THREE.Mesh(tooth1Geometry, keyMaterial);
-    tooth1.position.set(0.7, 0, 0.1);
-    keyGroup.add(tooth1);
-    
-    const tooth2 = new THREE.Mesh(tooth1Geometry, keyMaterial);
-    tooth2.position.set(0.9, 0, 0.1);
-    keyGroup.add(tooth2);
-    
-    // Adiciona rotação contínua
+    const keyMaterial = new THREE.MeshPhongMaterial({ color: 0xff0000, shininess: 50, specular: 0x444444 });
+
+    // Base cube
+    const cube = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), keyMaterial);
+    // Cylindrical holes
+    const holeGeom = new THREE.CylinderGeometry(0.25, 0.25, 1.4, 32);
+    const holeX = new THREE.Mesh(holeGeom, keyMaterial);
+    holeX.rotation.z = Math.PI / 2;
+    const holeY = new THREE.Mesh(holeGeom, keyMaterial);
+    holeY.rotation.x = Math.PI / 2;
+    const holeZ = new THREE.Mesh(holeGeom, keyMaterial);
+
+    [cube, holeX, holeY, holeZ].forEach(mesh => mesh.updateMatrix());
+    let csgBSP = CSG.fromMesh(cube)
+        .subtract(CSG.fromMesh(holeX))
+        .subtract(CSG.fromMesh(holeY))
+        .subtract(CSG.fromMesh(holeZ));
+    const finalMesh = CSG.toMesh(csgBSP, new THREE.Matrix4());
+    finalMesh.material = keyMaterial;
+    keyGroup.add(finalMesh);
     keyGroup.userData.rotationSpeed = 0.02;
-    
     return keyGroup;
 }
 
+// Cria a segunda chave azul usando CSG
+function createBlueKey() {
+    const keyGroup = new THREE.Group();
+    keyGroup.name = "BlueKey";
+    const keyMaterial = new THREE.MeshPhongMaterial({ color: 0x0066ff, shininess: 100, specular: 0x888888 });
+
+    // Base cube
+    const cubeB = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), keyMaterial);
+    // Cylindrical holes
+    const holeGeomB = new THREE.CylinderGeometry(0.25, 0.25, 1.4, 32);
+    const holeBX = new THREE.Mesh(holeGeomB, keyMaterial);
+    holeBX.rotation.z = Math.PI / 2;
+    const holeBY = new THREE.Mesh(holeGeomB, keyMaterial);
+    holeBY.rotation.x = Math.PI / 2;
+    const holeBZ = new THREE.Mesh(holeGeomB, keyMaterial);
+
+    [cubeB, holeBX, holeBY, holeBZ].forEach(mesh => mesh.updateMatrix());
+    let csgBSPB = CSG.fromMesh(cubeB)
+        .subtract(CSG.fromMesh(holeBX))
+        .subtract(CSG.fromMesh(holeBY))
+        .subtract(CSG.fromMesh(holeBZ));
+    const finalMeshB = CSG.toMesh(csgBSPB, new THREE.Matrix4());
+    finalMeshB.material = keyMaterial;
+    keyGroup.add(finalMeshB);
+    keyGroup.userData.rotationSpeed = -0.02;
+    return keyGroup;
+}
+
+// Função para obter a chave azul (para uso futuro)
+export function getBlueKey() {
+    return createBlueKey();
+}
+
 // Função para ser chamada no main.js para atualizar a área 1
-export function updateArea1(delta, scene) {
+export function updateArea1(delta, scene, camera) {
     // Atualiza rotação da chave
     if (area1KeyPlatform) {
         const key = area1KeyPlatform.userData.key;
         if (key) {
             key.rotation.y += key.userData.rotationSpeed;
         }
-          // Como não há inimigos, a plataforma sobe automaticamente
-        if (!area1KeyPlatform.userData.isRaised) {
+        
+        // Verifica se o jogador entrou na Área 1
+        if (!area1KeyPlatform.userData.isRaised && isPlayerInArea1(camera)) {
+            console.log("Jogador entrou na Área 1! Iniciando elevação da plataforma...");
+            area1KeyPlatform.userData.shouldRaise = true;
+        }
+        
+        // Se deve elevar e ainda não foi elevada, executa a elevação
+        if (area1KeyPlatform.userData.shouldRaise && !area1KeyPlatform.userData.isRaised) {
             raisePlatform(area1KeyPlatform, delta);
         }
     }
+}
+
+// Verifica se o jogador está dentro da Área 1
+function isPlayerInArea1(camera) {
+    if (!camera) return false;
+    
+    const playerX = camera.position.x;
+    const playerZ = camera.position.z;
+    
+    // Área 1 - posições baseadas nas definições em createArea1
+    // Centro: (-152.25, -131.0) com escala (125.0, 125.0)
+    // Esquerda: (-210.0, -66.0) com escala (9.5, 6.0)
+    // Direita: (-140.0, -66.0) com escala (100.5, 6.0)
+    
+    // Centro da área 1 (maior retângulo)
+    const centerMinX = -152.25 - 125.0/2;  // -214.75
+    const centerMaxX = -152.25 + 125.0/2;  // -89.75
+    const centerMinZ = -131.0 - 125.0/2;   // -193.5
+    const centerMaxZ = -131.0 + 125.0/2;   // -68.5
+    
+    // Parte esquerda
+    const leftMinX = -210.0 - 9.5/2;       // -214.75
+    const leftMaxX = -210.0 + 9.5/2;       // -205.25
+    const leftMinZ = -66.0 - 6.0/2;        // -69.0
+    const leftMaxZ = -66.0 + 6.0/2;        // -63.0
+    
+    // Parte direita
+    const rightMinX = -140.0 - 100.5/2;    // -190.25
+    const rightMaxX = -140.0 + 100.5/2;    // -89.75
+    const rightMinZ = -66.0 - 6.0/2;       // -69.0
+    const rightMaxZ = -66.0 + 6.0/2;       // -63.0
+    
+    // Verifica se está em alguma das partes da Área 1
+    const inCenter = playerX >= centerMinX && playerX <= centerMaxX && 
+                     playerZ >= centerMinZ && playerZ <= centerMaxZ;
+                     
+    const inLeft = playerX >= leftMinX && playerX <= leftMaxX && 
+                   playerZ >= leftMinZ && playerZ <= leftMaxZ;
+                   
+    const inRight = playerX >= rightMinX && playerX <= rightMaxX && 
+                    playerZ >= rightMinZ && playerZ <= rightMaxZ;
+    
+    return inCenter || inLeft || inRight;
 }
 
 // Anima a subida suave da plataforma
@@ -362,7 +433,8 @@ function raisePlatform(platformGroup, delta) {
         
         if (platform.position.y >= targetY) {
             platform.position.y = targetY;
-            key.position.y = targetY + 0.5;
+            // Position key further above the raised platform
+            key.position.y = targetY + 1.0;
             platformGroup.userData.isRaised = true;
         }
     }

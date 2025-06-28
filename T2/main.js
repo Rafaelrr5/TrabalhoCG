@@ -7,7 +7,7 @@ import { initDefaultBasicLight } from "../libs/util/util.js";
 
 // Importa módulos do jogo
 import { CONFIG } from './config.js';
-import { createWalls, createAreas } from './environment.js';
+import { createWalls, createAreas, updateArea1 } from './environment.js';
 import { createGun, updateProjectiles } from './weapon.js';
 import { setupEventListeners, updateCameraMovement } from './controls.js';
 import { applyGravity } from './collision.js';
@@ -113,6 +113,7 @@ function animate() {
     applyGravity(delta, collidableObjects, camera);
     updateCameraMovement(delta, controls);
     updateProjectiles(delta, scene);
+    updateArea1(delta, scene, camera);
     
     renderer.render(scene, camera);
 }
