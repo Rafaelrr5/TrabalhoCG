@@ -86,7 +86,7 @@ function setupLighting() {
     
     // Configuração da luz direcional
     let light = new THREE.DirectionalLight(0xffffff, 5.0);
-    light.position.set(-481.86, 300, 458.45);
+    light.position.set(481.86, 300, -458.45);
     light.castShadow = true;
     
     // Ajuste fino do mapa de sombras

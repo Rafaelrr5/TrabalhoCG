@@ -119,6 +119,16 @@ function createArea2(scene, materials, collidableObjects) {
     let area2_center = new THREE.Mesh(areaGeometry, materials.area2);
     let area2_left = new THREE.Mesh(areaGeometry, materials.area2);
     let area2_right = new THREE.Mesh(areaGeometry, materials.area2);
+
+    let bloco1 = new THREE.Mesh(areaGeometry, materials.area2);
+    let bloco2 = new THREE.Mesh(areaGeometry, materials.area2);
+    let bloco3 = new THREE.Mesh(areaGeometry, materials.area2);
+    let bloco4 = new THREE.Mesh(areaGeometry, materials.area2);
+    let bloco5 = new THREE.Mesh(areaGeometry, materials.area2);
+    let bloco6 = new THREE.Mesh(areaGeometry, materials.area2);
+    let bloco7 = new THREE.Mesh(areaGeometry, materials.area2);
+
+
     const area2 = new THREE.Group();
     area2.name = "Area2";
     //const stair2 = new THREE.Group();
@@ -129,11 +139,34 @@ function createArea2(scene, materials, collidableObjects) {
     area2_left.scale.set(105.0, CONFIG.AREA_HEIGHT, 6.0);
     area2_right.position.set(60.0, CONFIG.AREA_Y_POSITION, -66.0);
     area2_right.scale.set(5.0, CONFIG.AREA_HEIGHT, 6.0);
+
+    bloco1.scale.set(4.0 , 6.0, 100.0);
+    bloco1.position.set (0.0, CONFIG.AREA_Y_POSITION + 3.0, -125.0);
+    bloco2.scale.set(30.0, 20.0, 30.0);
+    bloco2.position.set(37.5, CONFIG.AREA_Y_POSITION + 20.0, -125.0);
+    bloco3.scale.set(60, 30.0, 4.0)
+    bloco3.position.set(31.25, CONFIG.AREA_Y_POSITION + 15.0, -185,5);
+    bloco4.scale.set(5.0, 15.0, 5.0);
+    bloco4.position.set(-30, CONFIG.AREA_Y_POSITION + 7.5, -125.0);
+    bloco5.scale.set(5.0,10.0,5.0);
+    bloco5.position.set(-30, CONFIG.AREA_Y_POSITION + 5.0, -105.0);
+    bloco6.scale.set(5.0, 20.0, 5.0);
+    bloco6.position.set(-30, CONFIG.AREA_Y_POSITION + 10.0, -145.0);
+    bloco7.scale.set(15.0, 2.0, 4.0);
+    bloco7.position.set(37.5, CONFIG.AREA_Y_POSITION + 20.0, -145.0);
     
     area2.add(area2_center);
     area2.add(area2_left);
     area2.add(area2_right);
+    area2.add(bloco1);
+    area2.add(bloco2);
+    area2.add(bloco3);
+    area2.add(bloco4);
+    area2.add(bloco5);
+    area2.add(bloco6);
+    area2.add(bloco7);
     scene.add(area2);
+
     //stair2.add(createStair(50.0, CONFIG.STAIR_HEIGHT_OFFSET, -62.8, CONFIG.AREA_HEIGHT, true, materials.stair));
     //scene.add(stair2);
     markCollisionObject(area2, collidableObjects);

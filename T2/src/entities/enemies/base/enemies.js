@@ -1,5 +1,7 @@
 import * as THREE from '../../../../../build/three.module.js';
+import { gun } from '../../../components/weapon.js';
 import { CONFIG } from '../../../core/config.js';
+import { hitbox } from '../../player/player.js';
 
 // Base Enemy class
 export class Enemy {
@@ -117,16 +119,16 @@ export class Enemy {
     this.updateBoundingBox();
   }
 
-  update(delta, camera) {
+  update(delta, gun) {
     if (!this.isAlive) return;
     
     // Move towards camera/player
-    this.moveTowards(camera.position, delta);
+    this.moveTowards(gun, delta);
     
     // Make health bar face camera
     if (this.healthBarBg && this.healthBarFill) {
-      this.healthBarBg.lookAt(camera.position);
-      this.healthBarFill.lookAt(camera.position);
+      this.healthBarBg.lookAt(gun.position);
+      this.healthBarFill.lookAt(gun.position);
     }
   }
 
@@ -170,11 +172,11 @@ export function initEnemies(scene) {
 }
 
 // Update all enemies
-export function updateEnemies(delta, camera) {
+export function updateEnemies(delta, gun) {
   if (!enemies || enemies.length === 0) return;
   
   enemies.forEach(enemy => {
-    enemy.update(delta, camera);
+    enemy.update(delta, gun);
   });
   
   // Remove dead enemies

@@ -1,6 +1,6 @@
-import * as THREE from '../../../../build/three.module.js';
-import { OBJLoader } from '../../../../build/jsm/loaders/OBJLoader.js';
-import { MTLLoader } from '../../../../build/jsm/loaders/MTLLoader.js';
+import * as THREE from '../../../build/three.module.js';
+import { OBJLoader } from '../../../build/jsm/loaders/OBJLoader.js';
+import { MTLLoader } from '../../../build/jsm/loaders/MTLLoader.js';
 
 // Loader instances
 const mtlLoader = new MTLLoader();
