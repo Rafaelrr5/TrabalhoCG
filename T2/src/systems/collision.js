@@ -1,6 +1,6 @@
-import * as THREE from '../build/three.module.js';
-import { CONFIG } from './config.js';
-import { hitbox } from './player.js';
+import * as THREE from '../../../build/three.module.js';
+import { CONFIG } from '../core/config.js';
+import { hitbox } from '../entities/player/player.js';
 
 export let velocityY = 0;
 export let isGrounded = false;

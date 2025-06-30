@@ -1,10 +1,7 @@
-// ============================================================================
-// SISTEMA DE ARMA E PROJÉTEIS
-// ============================================================================
-import * as THREE from '../build/three.module.js';
-import { setDefaultMaterial } from '../libs/util/util.js';
-import { CONFIG } from './config.js';
-import { enemies } from './enemy.js';
+import * as THREE from '../../../build/three.module.js';
+import { setDefaultMaterial } from '../../../libs/util/util.js';
+import { CONFIG } from '../core/config.js';
+import { enemies } from '../entities/enemies/enemy.js';
 
 export let gun = null;
 export let projectiles = [];
@@ -122,10 +119,23 @@ export function updateProjectiles(delta, scene) {
         for (const hit of validIntersects) {
             // identifica se objeto ou seu parent é inimigo
             const obj = hit.object;
-            const enemy = enemies.find(e => e === obj || e === obj.parent);
-            if (enemy && enemy.userData.alive) {
-                enemy.userData.hp -= 10;
-                if (enemy.userData.hp <= 0) enemy.userData.alive = false;
+            // Check for enemy userData in hit object or its ancestors
+            let enemy = null;
+            let currentObj = obj;
+            while (currentObj && !enemy) {
+                if (currentObj.userData && currentObj.userData.enemy) {
+                    enemy = currentObj.userData.enemy;
+                    break;
+                }
+                // Also check if this object IS an enemy mesh
+                enemy = enemies.find(e => e.mesh === currentObj);
+                if (enemy) break;
+                // Traverse up the hierarchy
+                currentObj = currentObj.parent;
+            }
+            if (enemy && enemy.isAlive) {
+                console.log('Hit enemy!', enemy);
+                enemy.takeDamage(10);
                 scene.remove(projectile);
                 projectiles.splice(i, 1);
                 hitEnemy = true;

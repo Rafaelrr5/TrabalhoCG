@@ -1,35 +1,22 @@
-// ============================================================================
-// ARQUIVO PRINCIPAL - COORDENA TODOS OS MÓDULOS
-// ============================================================================
-import * as THREE from '../build/three.module.js';
-import { PointerLockControls } from '../build/jsm/controls/PointerLockControls.js';
-import { initDefaultBasicLight } from "../libs/util/util.js";
+import * as THREE from '../../../build/three.module.js';
+import { PointerLockControls } from '../../../build/jsm/controls/PointerLockControls.js';
+import { initDefaultBasicLight } from "../../../libs/util/util.js";
 
 // Importa módulos do jogo
 import { CONFIG } from './config.js';
-import { createWalls, createAreas, updateArea1 } from './environment.js';
-import { createGun, updateProjectiles } from './weapon.js';
-import { createEnemies, updateEnemies } from './enemy.js';
-import { setupEventListeners, updateCameraMovement } from './controls.js';
-import { applyGravity } from './collision.js';
-import { createHitbox, hitbox, updateHitbox } from './player.js';
+import { createWalls, createAreas, updateArea1 } from '../systems/environment.js';
+import { createGun, updateProjectiles } from '../components/weapon.js';
+import { createEnemies, updateEnemies } from '../entities/enemies/enemy.js';
+import { setupEventListeners, updateCameraMovement } from '../systems/controls.js';
+import { applyGravity } from '../systems/collision.js';
+import { createHitbox, hitbox, updateHitbox } from '../entities/player/player.js';
 
-// ============================================================================
-// VARIÁVEIS GLOBAIS PRINCIPAIS
-// ============================================================================
 let camera, scene, renderer, controls;
 let clock = new THREE.Clock();
 let collidableObjects = [];
 
-// ============================================================================
-// INICIALIZAÇÃO PRINCIPAL
-// ============================================================================
 init();
 animate();
-
-// ============================================================================
-// FUNÇÕES DE INICIALIZAÇÃO
-// ============================================================================
 
 // Função principal de inicialização - configura todos os componentes do jogo
 function init() {
@@ -89,22 +76,14 @@ function setupLighting() {
     initDefaultBasicLight(scene);
 }
 
-// ============================================================================
-// CRIAÇÃO DO AMBIENTE
-// ============================================================================
-
 // Cria o ambiente do jogo (chão, paredes, áreas e arma)
 function createEnvironment() {
     createWalls(scene, collidableObjects);
     createAreas(scene, collidableObjects);
     createGun(camera);
-    // Create enemies in Area 1
+    // Spawn Lost Soul enemies (they will idle until Area 1 entry)
     createEnemies(scene);
 }
-
-// ============================================================================
-// LOOP PRINCIPAL
-// ============================================================================
 
 // Loop principal de animação
 function animate() {

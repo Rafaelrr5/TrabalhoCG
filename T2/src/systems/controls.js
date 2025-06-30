@@ -1,8 +1,5 @@
-// ============================================================================
-// SISTEMA DE CONTROLES E MOVIMENTAÇÃO
-// ============================================================================
-import { CONFIG } from './config.js';
-import { startShooting, stopShooting} from './weapon.js';
+import { CONFIG } from '../core/config.js';
+import { startShooting, stopShooting} from '../components/weapon.js';
 import { wallColide } from './collision.js';
 
 // Estados de controle de movimento (quais teclas estão ativas)

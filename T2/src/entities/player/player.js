@@ -1,9 +1,9 @@
 // ============================================================================
 // SISTEMA DE HITBOX DO JOGADOR
 // ============================================================================
-import * as THREE from '../build/three.module.js';
-import { setDefaultMaterial } from '../libs/util/util.js';
-import { CONFIG } from './config.js';
+import * as THREE from '../../../../build/three.module.js';
+import { setDefaultMaterial } from '../../../../libs/util/util.js';
+import { CONFIG } from '../../core/config.js';
 
 export let hitbox = null;
 // Cria hitbox invisível para o jogador
