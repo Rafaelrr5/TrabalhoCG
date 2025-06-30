@@ -14,9 +14,8 @@ export function createHitbox(scene) {
         return null;
     }    
     const hitboxGeometry = new THREE.BoxGeometry(CONFIG.HITBOX_WIDTH, CONFIG.PLAYER_HEIGHT, CONFIG.HITBOX_DEPTH);
-    const hitboxMaterial = setDefaultMaterial('blue');
+    const hitboxMaterial = new THREE.MeshBasicMaterial({color: 'darkgreen', transparent: true}); // Torna a hitbox invisível
     hitbox = new THREE.Mesh(hitboxGeometry, hitboxMaterial);
-    //hitbox.visible = false; // Torna a hitbox invisível
     hitbox.position.set(0.0, CONFIG.CAMERA_HEIGHT + CONFIG.PLAYER_HEIGHT/2, 0.0);
     scene.add(hitbox);
     

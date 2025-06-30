@@ -14,7 +14,7 @@ const collisionDistance = CONFIG.PROJECTILE_SIZE * 2; // Distância de colisão 
 // Cria um modelo visual de arma anexado à câmera
 export function createGun(camera) {
     const gunGeometry = new THREE.CylinderGeometry(CONFIG.GUN_RADIUS, CONFIG.GUN_RADIUS, CONFIG.GUN_LENGTH);
-    const gunMaterial = setDefaultMaterial('darkgrey');
+    const gunMaterial = new THREE.MeshLambertMaterial({color:'darkgrey'});
     gun = new THREE.Mesh(gunGeometry, gunMaterial);
     
     // Rotaciona para apontar para frente
@@ -63,7 +63,7 @@ function shoot(camera, scene) {
     
     // Cria geometria e material do projétil
     const projectileGeometry = new THREE.SphereGeometry(CONFIG.PROJECTILE_SIZE);
-    const projectileMaterial = setDefaultMaterial('lightgreen');
+    const projectileMaterial = new THREE.MeshLambertMaterial({ color: 'lightgreen' });
     const projectile = new THREE.Mesh(projectileGeometry, projectileMaterial);
     
     // Pega direção que a câmera está olhando no momento do tiro

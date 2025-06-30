@@ -10,7 +10,7 @@ export let area1KeyPlatform = null;
 
 // Cria as paredes do ambiente
 export function createWalls(scene, collidableObjects) {
-    let material = setDefaultMaterial('orange');    // Cria o chão
+    let material = new THREE.MeshLambertMaterial({ color: 'orange' });    // Cria o chão
     let plane = createGroundPlaneXZ(CONFIG.WORLD_SIZE, CONFIG.WORLD_SIZE); //utils
     plane.position.y = CONFIG.GROUND_HEIGHT;
     scene.add(plane);
@@ -48,11 +48,11 @@ export function createWalls(scene, collidableObjects) {
 export function createAreas(scene, collidableObjects) {
     // Materiais das áreas
     const materials = {
-        stair: setDefaultMaterial('blue'),
-        area1: setDefaultMaterial('lightblue'),
-        area2: setDefaultMaterial('red'),
-        area3: setDefaultMaterial('darkblue'),
-        area4: setDefaultMaterial('green')
+        stair: new THREE.MeshLambertMaterial({ color: 'blue' }),
+        area1: new THREE.MeshLambertMaterial({color: 'lightblue'}),
+        area2: new THREE.MeshLambertMaterial({color: 'red'}),
+        area3: new THREE.MeshLambertMaterial({color: 'darkblue'}),
+        area4: new THREE.MeshLambertMaterial({color: 'green'})
     };
 
     createArea1(scene, materials, collidableObjects);
