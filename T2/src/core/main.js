@@ -74,7 +74,15 @@ function setupControls() {
 
 // Configura iluminação básica para a cena
 function setupLighting() {
-    initDefaultBasicLight(scene);
+    let ambientColor = "rgb(80,80,80)";
+    let ambientLight = new THREE.AmbientLight(ambientColor, 0.8);
+    scene.add(ambientLight);
+    let lightPossition = new THREE.Vector3( -300, 300, 300);
+    let lightColor = "rgb(255,255,255)";
+    let light = new THREE.DirectionalLight(lightColor, 5.0);
+        light.position.copy(lightPossition);
+        light.castShadow = true; // Ativa sombras
+    scene.add(light);
 }
 
 // Cria o ambiente do jogo (chão, paredes, áreas e arma)
