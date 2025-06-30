@@ -35,10 +35,13 @@ function init() {
 function setupScene() {
     scene = new THREE.Scene();
     // Enable antialiasing to smooth edges and prevent black artifacts
-    renderer = new THREE.WebGLRenderer();
-    renderer.antialias = true;
+    renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        powerPreference: "high-performance"
+    });
     renderer.shadowMap.enabled = true; // Ativa sombras
     renderer.shadowMap.type = THREE.PCFShadowMap; // Define o tipo de sombra
+    renderer.shadowMap.autoUpdate = true; // Atualiza sombras automaticamente
     // Use device pixel ratio for crisp rendering on high-DPI screens
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -80,23 +83,28 @@ function setupLighting() {
     let ambientColor = "rgb(80,80,80)";
     let ambientLight = new THREE.AmbientLight(ambientColor, 0.8);
     scene.add(ambientLight);
-    let lightPossition = new THREE.Vector3( -481.86, 300, 458.45);
-    let lightColor = "rgb(255,255,255)";
-    let light = new THREE.DirectionalLight(lightColor, 8.0);
-    light.position.copy(lightPossition);
+    
+    // Configuração da luz direcional
+    let light = new THREE.DirectionalLight(0xffffff, 5.0);
+    light.position.set(-481.86, 300, 458.45);
     light.castShadow = true;
     
-    // Ajuste estas configurações para melhorar as sombras:
-    light.shadow.mapSize.width = 2048;  // Aumenta a resolução
+    // Ajuste fino do mapa de sombras
+    light.shadow.mapSize.width = 2048;
     light.shadow.mapSize.height = 2048;
     light.shadow.camera.near = 0.5;
-    light.shadow.camera.far = 500;
-    light.shadow.camera.left = -100;
-    light.shadow.camera.right = 100;
-    light.shadow.camera.top = 100;
-    light.shadow.camera.bottom = -100;
-
+    light.shadow.camera.far = 1000;
+    light.shadow.camera.left = -500;
+    light.shadow.camera.right = 500;
+    light.shadow.camera.top = 500;
+    light.shadow.camera.bottom = -500;
+    light.shadow.bias = -0.0001; // Ajuste para evitar artefatos
+    
     scene.add(light);
+    
+    // Adicione um helper para visualizar a luz (opcional, para debug)
+    const helper = new THREE.DirectionalLightHelper(light, 5);
+    scene.add(helper);
 }
 
 // Cria o ambiente do jogo (chão, paredes, áreas e arma)

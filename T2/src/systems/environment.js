@@ -12,6 +12,8 @@ export let area1KeyPlatform = null;
 export function createWalls(scene, collidableObjects) {
     let material = new THREE.MeshLambertMaterial({ color: 'orange' });    // Cria o chão
     let plane = createGroundPlaneXZ(CONFIG.WORLD_SIZE, CONFIG.WORLD_SIZE); //utils
+    plane.receiveShadow = true; // Ativa recebimento de sombras no chão
+
     plane.position.y = CONFIG.GROUND_HEIGHT;
     scene.add(plane);
     plane.receiveShadow = true; // Ativa recebimento de sombras no chão
@@ -43,8 +45,8 @@ export function createWalls(scene, collidableObjects) {
     walls.add(wall3);
     scene.add(walls);
     markCollisionObject(walls, collidableObjects);
-    castShadow(walls); // Ativa sombras nas paredes
-    receiveShadow(walls); // Ativa recebimento de sombras nas paredes
+    enableShadowsForAll(walls); // Ativa sombras para todas as paredes
+    
 }
 
 // Cria as áreas coloridas do jogo
@@ -104,10 +106,10 @@ function createArea1(scene, materials, collidableObjects) {
     scene.add(stair1);
     markCollisionObject(area1, collidableObjects);
     markCollisionObject(stair1, collidableObjects);
-    area1.castShadow = true; // Ativa sombras na área 1
-    area1.receiveShadow = true; // Ativa recebimento de sombras na área 1
-    stair1.castShadow = true; // Ativa sombras na escada
-    stair1.receiveShadow = true; // Ativa recebimento de sombras na escada
+    enableShadowsForAll(area1); // Ativa sombras na área 1
+    enableShadowsForAll(stair1); // Ativa sombras na escada
+    enableShadowsForAll(romanColumns); // Ativa sombras nas colunas romanas
+    enableShadowsForAll(keyPlatform); // Ativa sombras na plataforma da chave
 }
 
 // Cria a Área 2 (vermelha)
@@ -137,8 +139,7 @@ function createArea2(scene, materials, collidableObjects) {
     markCollisionObject(area2, collidableObjects);
     //markCollisionObject(stair2, collidableObjects);
     createElevator(scene, collidableObjects, 50.0, -66.05);
-    castShadow(area2); // Ativa sombras na área 2
-    receiveShadow(area2); // Ativa recebimento de sombras na área 2
+    enableShadowsForAll(area2); // Ativa sombras na área 2
     
 
 }
@@ -169,10 +170,8 @@ function createArea3(scene, materials, collidableObjects) {
     scene.add(stair3);
     markCollisionObject(area3, collidableObjects);
     markCollisionObject(stair3, collidableObjects);
-    castShadow(area3); // Ativa sombras na área 3
-    receiveShadow(area3);
-    castShadow(stair3); // Ativa sombras na escada
-    receiveShadow(stair3); // Ativa recebimento de sombras na escada
+    enableShadowsForAll(area3); // Ativa sombras na área 3  
+    enableShadowsForAll(stair3); // Ativa sombras na escada
 }
 
 // Cria a Área 4 (verde)
@@ -203,8 +202,8 @@ function createArea4(scene, materials, collidableObjects) {
     markCollisionObject(stair4, collidableObjects);
     area4.castShadow = true; // Ativa sombras na área 4
     stair4.castShadow = true; // Ativa sombras na escada
-    castShadow(area4); // Ativa sombras na área 4
-    receiveShadow(area4); // Ativa recebimento de sombras na área 4
+    enableShadowsForAll(area4); // Ativa sombras na área 4
+    enableShadowsForAll(stair4); // Ativa sombras na escada
 }
 
 // Cria colunas romanas ao redor da Área 1
@@ -495,18 +494,25 @@ function markCollisionObject(object, collidableObjects){
     });
 }
 
-function castShadow(object) {
+function enableShadowsForObject(object) {
     object.traverse(child => {
         if (child.isMesh) {
-            child.castShadow = true; // Ativa sombras para o objeto
+            child.castShadow = true;
+            child.receiveShadow = true;
+            
+            // Garante que os materiais sejam compatíveis com sombras
+            if (child.material) {
+                child.material.needsUpdate = true;
+            }
         }
     });
 }
 
-function receiveShadow(object) {
-    object.traverse(child => {
-        if (child.isMesh) {
-            child.receiveShadow = true; // Ativa recebimento de sombras para o objeto
+function enableShadowsForAll(scene) {
+    scene.traverse(object => {
+        if (object.isMesh) {
+            object.castShadow = true;
+            object.receiveShadow = true;
         }
     });
 }
