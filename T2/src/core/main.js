@@ -10,6 +10,7 @@ import { createEnemies, updateEnemies } from '../entities/enemies/enemy.js';
 import { setupEventListeners, updateCameraMovement } from '../systems/controls.js';
 import { applyGravity } from '../systems/collision.js';
 import { createHitbox, hitbox, updateHitbox } from '../entities/player/player.js';
+import { updateELevator } from '../systems/elevator.js';
 
 let camera, scene, renderer, controls;
 let clock = new THREE.Clock();
@@ -98,6 +99,7 @@ function animate() {
     updateArea1(delta, scene, camera);
     // Update enemy behavior
     updateEnemies(delta, scene, camera);
+    updateELevator(delta);
     
     renderer.render(scene, camera);
 }

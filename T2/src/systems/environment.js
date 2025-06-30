@@ -3,6 +3,7 @@ import { setDefaultMaterial, createGroundPlaneXZ } from "../../../libs/util/util
 import { CONFIG } from '../core/config.js';
 import { CSG } from '../../../libs/other/CSGMesh.js';
 import { enemies, areAllEnemiesDefeated, cleanupDeadEnemies } from '../entities/enemies/enemy.js';
+import {createElevator} from '../systems/elevator.js';
 
 // Variáveis globais para gerenciamento da área 1
 export let area1KeyPlatform = null;
@@ -124,10 +125,12 @@ function createArea2(scene, materials, collidableObjects) {
     area2.add(area2_left);
     area2.add(area2_right);
     scene.add(area2);
-    stair2.add(createStair(50.0, CONFIG.STAIR_HEIGHT_OFFSET, -62.8, CONFIG.AREA_HEIGHT, true, materials.stair));
-    scene.add(stair2);
+    //stair2.add(createStair(50.0, CONFIG.STAIR_HEIGHT_OFFSET, -62.8, CONFIG.AREA_HEIGHT, true, materials.stair));
+    //scene.add(stair2);
     markCollisionObject(area2, collidableObjects);
-    markCollisionObject(stair2, collidableObjects);
+    //markCollisionObject(stair2, collidableObjects);
+    createElevator(scene, collidableObjects, 50.0, -66.05);
+
 }
 
 // Cria a Área 3 (azul escuro)

@@ -53,5 +53,10 @@ export const CONFIG = {
     GUN_TIP_OFFSET: -0.75,
     
     // Configurações de posicionamento inicial
-    START_HEIGHT_OFFSET: 5
+    START_HEIGHT_OFFSET: 5,
+
+    //Cnfigurações do elevador
+    ELEVATOR_ACTIVATION_DISTANCE: 2.0,
+    ELEVEVATOR_MOVEMENT_SPEED: 1.5,
+    ELEVATOR_HEIGHT: 3.9, // Altura máxima do elevador
 };
