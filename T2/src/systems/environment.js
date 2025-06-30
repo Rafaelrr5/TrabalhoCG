@@ -14,6 +14,7 @@ export function createWalls(scene, collidableObjects) {
     let plane = createGroundPlaneXZ(CONFIG.WORLD_SIZE, CONFIG.WORLD_SIZE); //utils
     plane.position.y = CONFIG.GROUND_HEIGHT;
     scene.add(plane);
+    plane.receiveShadow = true; // Ativa recebimento de sombras no chão
     collidableObjects.push(plane);
 
     // Cria geometria das paredes
@@ -42,6 +43,8 @@ export function createWalls(scene, collidableObjects) {
     walls.add(wall3);
     scene.add(walls);
     markCollisionObject(walls, collidableObjects);
+    castShadow(walls); // Ativa sombras nas paredes
+    receiveShadow(walls); // Ativa recebimento de sombras nas paredes
 }
 
 // Cria as áreas coloridas do jogo
@@ -101,6 +104,10 @@ function createArea1(scene, materials, collidableObjects) {
     scene.add(stair1);
     markCollisionObject(area1, collidableObjects);
     markCollisionObject(stair1, collidableObjects);
+    area1.castShadow = true; // Ativa sombras na área 1
+    area1.receiveShadow = true; // Ativa recebimento de sombras na área 1
+    stair1.castShadow = true; // Ativa sombras na escada
+    stair1.receiveShadow = true; // Ativa recebimento de sombras na escada
 }
 
 // Cria a Área 2 (vermelha)
@@ -112,7 +119,7 @@ function createArea2(scene, materials, collidableObjects) {
     let area2_right = new THREE.Mesh(areaGeometry, materials.area2);
     const area2 = new THREE.Group();
     area2.name = "Area2";
-    const stair2 = new THREE.Group();
+    //const stair2 = new THREE.Group();
 
     area2_center.position.set(0.0, CONFIG.AREA_Y_POSITION, -131.0);
     area2_center.scale.set(125.0, CONFIG.AREA_HEIGHT, 125.0);
@@ -130,6 +137,9 @@ function createArea2(scene, materials, collidableObjects) {
     markCollisionObject(area2, collidableObjects);
     //markCollisionObject(stair2, collidableObjects);
     createElevator(scene, collidableObjects, 50.0, -66.05);
+    castShadow(area2); // Ativa sombras na área 2
+    receiveShadow(area2); // Ativa recebimento de sombras na área 2
+    
 
 }
 
@@ -159,6 +169,10 @@ function createArea3(scene, materials, collidableObjects) {
     scene.add(stair3);
     markCollisionObject(area3, collidableObjects);
     markCollisionObject(stair3, collidableObjects);
+    castShadow(area3); // Ativa sombras na área 3
+    receiveShadow(area3);
+    castShadow(stair3); // Ativa sombras na escada
+    receiveShadow(stair3); // Ativa recebimento de sombras na escada
 }
 
 // Cria a Área 4 (verde)
@@ -187,6 +201,10 @@ function createArea4(scene, materials, collidableObjects) {
     scene.add(stair4);
     markCollisionObject(area4, collidableObjects);
     markCollisionObject(stair4, collidableObjects);
+    area4.castShadow = true; // Ativa sombras na área 4
+    stair4.castShadow = true; // Ativa sombras na escada
+    castShadow(area4); // Ativa sombras na área 4
+    receiveShadow(area4); // Ativa recebimento de sombras na área 4
 }
 
 // Cria colunas romanas ao redor da Área 1
@@ -473,6 +491,22 @@ function markCollisionObject(object, collidableObjects){
     object.traverse(child => {
         if (child.isMesh) {
             collidableObjects.push(child);
+        }
+    });
+}
+
+function castShadow(object) {
+    object.traverse(child => {
+        if (child.isMesh) {
+            child.castShadow = true; // Ativa sombras para o objeto
+        }
+    });
+}
+
+function receiveShadow(object) {
+    object.traverse(child => {
+        if (child.isMesh) {
+            child.receiveShadow = true; // Ativa recebimento de sombras para o objeto
         }
     });
 }

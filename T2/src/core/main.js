@@ -1,6 +1,6 @@
 import * as THREE from '../../../build/three.module.js';
 import { PointerLockControls } from '../../../build/jsm/controls/PointerLockControls.js';
-import { initDefaultBasicLight } from "../../../libs/util/util.js";
+import { createLightSphere, initDefaultBasicLight } from "../../../libs/util/util.js";
 
 // Importa módulos do jogo
 import { CONFIG } from './config.js';
@@ -35,7 +35,10 @@ function init() {
 function setupScene() {
     scene = new THREE.Scene();
     // Enable antialiasing to smooth edges and prevent black artifacts
-    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer = new THREE.WebGLRenderer();
+    renderer.antialias = true;
+    renderer.shadowMap.enabled = true; // Ativa sombras
+    renderer.shadowMap.type = THREE.PCFShadowMap; // Define o tipo de sombra
     // Use device pixel ratio for crisp rendering on high-DPI screens
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -77,11 +80,22 @@ function setupLighting() {
     let ambientColor = "rgb(80,80,80)";
     let ambientLight = new THREE.AmbientLight(ambientColor, 0.8);
     scene.add(ambientLight);
-    let lightPossition = new THREE.Vector3( -300, 300, 300);
+    let lightPossition = new THREE.Vector3( -481.86, 300, 458.45);
     let lightColor = "rgb(255,255,255)";
-    let light = new THREE.DirectionalLight(lightColor, 5.0);
-        light.position.copy(lightPossition);
-        light.castShadow = true; // Ativa sombras
+    let light = new THREE.DirectionalLight(lightColor, 8.0);
+    light.position.copy(lightPossition);
+    light.castShadow = true;
+    
+    // Ajuste estas configurações para melhorar as sombras:
+    light.shadow.mapSize.width = 2048;  // Aumenta a resolução
+    light.shadow.mapSize.height = 2048;
+    light.shadow.camera.near = 0.5;
+    light.shadow.camera.far = 500;
+    light.shadow.camera.left = -100;
+    light.shadow.camera.right = 100;
+    light.shadow.camera.top = 100;
+    light.shadow.camera.bottom = -100;
+
     scene.add(light);
 }
 

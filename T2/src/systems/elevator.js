@@ -22,6 +22,8 @@ export function createElevator(scene, collidableObjects, x, z) {
     };
     scene.add(elevator);
     collidableObjects.push(elevator);
+    elevator.castShadow = true; // Ativa sombras no elevador
+    elevator.receiveShadow = true; // Ativa recebimento de sombras no elevador
 }
 
 export function updateELevator(delta) {
