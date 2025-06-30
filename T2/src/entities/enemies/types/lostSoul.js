@@ -45,6 +45,9 @@ export class LostSoul extends Enemy {
     this.isDashing = false;
     this.dashDirection = new THREE.Vector3();
 
+    // Store reference to skull model for rotation
+    this.skullModel = null;
+
     // Load skull model to replace placeholder
     this.loadSkull();
   }
@@ -69,8 +72,9 @@ export class LostSoul extends Enemy {
       const bbox = new THREE.Box3().setFromObject(model);
       const minY = bbox.min.y;
       model.position.y = -minY;
-      // Rotate skull 90 degrees to face forward correctly
-      model.rotation.y = Math.PI / 2;
+      // Reset skull rotation to neutral position
+      // The lookAt logic will handle proper orientation
+      model.rotation.set(0, 0, 0);
       // Set userData on skull model for hit detection
       model.userData.enemy = this;
       model.traverse(child => {
@@ -90,6 +94,8 @@ export class LostSoul extends Enemy {
         group.rotation.copy(oldRotation);
         // Add skull model
         group.add(model);
+        // Store reference to skull model for rotation
+        this.skullModel = model;
         // Re-add health bar group above skull
         if (this.healthBarGroup) group.add(this.healthBarGroup);
         // assign new mesh
@@ -145,8 +151,7 @@ export class LostSoul extends Enemy {
     }
     // Vertical bobbing
     this.mesh.position.y = this.originalY + Math.sin(Date.now() * 0.003 + this.floatOffset) * 0.2;
-    // Slow rotation
-    this.mesh.rotation.y += delta * 0.2;
+    // Don't rotate the entire mesh during idle - let the skull face the player
   }
 
   takeDamage(damage) {
@@ -192,9 +197,24 @@ export class LostSoul extends Enemy {
       this.updateHealthBar();
       this.healthBarGroup.lookAt(camera.position);
     }
+    
     // Make skull face the player (only Y rotation to keep upright)
-    const targetPosition = new THREE.Vector3(camera.position.x, this.mesh.position.y, camera.position.z);
-    this.mesh.lookAt(targetPosition);
+    if (this.skullModel) {
+      // Get enemy and player positions
+      const enemyPos = this.mesh.position;
+      const playerPos = camera.position;
+      
+      // Calculate direction vector (from enemy to player)
+      const deltaX = playerPos.x - enemyPos.x;
+      const deltaZ = playerPos.z - enemyPos.z;
+      
+      // Calculate angle to face the player
+      // Using atan2(deltaX, deltaZ) makes the "front" of the skull face the player
+      const targetAngle = Math.atan2(deltaX, deltaZ);
+      
+      // Apply the rotation
+      this.skullModel.rotation.y = targetAngle;
+    }
     if (isPlayerInArea1(camera)) {
       // Chase player with dash
       this.updateDash(delta, camera.position);
