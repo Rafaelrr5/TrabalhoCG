@@ -405,24 +405,6 @@ export class LostSoul extends Enemy {
     }
   }
 
-  // Skull scaling utilities
-  setSkullScale(newScale) {
-    if (!this.skullModel || newScale <= 0) return;
-    
-    // Como o skull já foi preparado com escala, aplicamos diretamente
-    this.skullModel.scale.setScalar(newScale);
-    this.config.skullScale = newScale;
-  }
-  
-  getSkullScale() {
-    return this.config.skullScale;
-  }
-  
-  adjustSkullScale(delta) {
-    const newScale = Math.max(0.1, this.config.skullScale + delta);
-    this.setSkullScale(newScale);
-  }
-
   dispose() {
     super.dispose();
   }

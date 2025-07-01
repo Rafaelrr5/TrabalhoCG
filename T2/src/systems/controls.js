@@ -73,40 +73,10 @@ function onKeyDown(event) {
             CONFIG.LOST_SOUL_ENABLE_COLLISION = !CONFIG.LOST_SOUL_ENABLE_COLLISION;
             console.log(`[DEBUG] Colisão das Lost Souls: ${CONFIG.LOST_SOUL_ENABLE_COLLISION ? 'ATIVADA' : 'DESATIVADA'}`);
             break;
-        case 'f6': // Alterna colisão das Lost Souls
+        case 'f8': // Alterna colisão das Lost Souls
             event.preventDefault();
             CONFIG.LOST_SOUL_ENABLE_COLLISION = !CONFIG.LOST_SOUL_ENABLE_COLLISION;
             console.log(`[DEBUG] Colisão das Lost Souls: ${CONFIG.LOST_SOUL_ENABLE_COLLISION ? 'ATIVADA' : 'DESATIVADA'}`);
-            break;
-        case 'f6': // Aumenta escala das skulls
-            event.preventDefault();
-            enemies.forEach(enemy => {
-                if (enemy.adjustSkullScale) {
-                    enemy.adjustSkullScale(0.1);
-                    enemy.debugSkullTransform();
-                }
-            });
-            console.log('[DEBUG] Escala das skulls aumentada em 0.1');
-            break;
-        case 'f7': // Diminui escala das skulls
-            event.preventDefault();
-            enemies.forEach(enemy => {
-                if (enemy.adjustSkullScale) {
-                    enemy.adjustSkullScale(-0.1);
-                    enemy.debugSkullTransform();
-                }
-            });
-            console.log('[DEBUG] Escala das skulls diminuída em 0.1');
-            break;
-        case 'f8': // Reset escala das skulls
-            event.preventDefault();
-            enemies.forEach(enemy => {
-                if (enemy.setSkullScale) {
-                    enemy.setSkullScale(1.0);
-                    enemy.debugSkullTransform();
-                }
-            });
-            console.log('[DEBUG] Escala das skulls resetada para 1.0');
             break;
     }
 }

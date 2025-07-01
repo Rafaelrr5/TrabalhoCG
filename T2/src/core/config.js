@@ -4,7 +4,7 @@ export const CONFIG = {
     // ============================================================================
     DEBUG_SHOW_HITBOX: false,    // Mostra/oculta a hitbox do player
     DEBUG_SHOW_CAMERA: false,    // Mostra/oculta informações da câmera
-    DEBUG_SHOW_WEAPON: false,    // Mostra/oculta informações da arma
+    DEBUG_SHOW_WEAPON: true,    // Mostra/oculta informações da arma
     DEBUG_CONSOLE_LOGS: false,   // Ativa/desativa logs de debug no console
     
     // Configurações de movimento e física
