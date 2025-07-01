@@ -1,36 +1,70 @@
-// ============================================================================
-// SISTEMA DE HITBOX DO JOGADOR
-// ============================================================================
+/**
+ * Player hitbox system for collision detection
+ */
 import * as THREE from '../../../../build/three.module.js';
-import { setDefaultMaterial } from '../../../../libs/util/util.js';
 import { CONFIG } from '../../core/config.js';
 
 export let hitbox = null;
-// Cria hitbox invisível para o jogador
+
 export function createHitbox(scene) {
-    //verificação de segurança
     if (!scene) {
-        console.error("Scene is not defined. Cannot create hitbox.");
+        console.error("Scene is required for hitbox creation");
         return null;
-    }    
-    const hitboxGeometry = new THREE.BoxGeometry(CONFIG.HITBOX_WIDTH, CONFIG.PLAYER_HEIGHT, CONFIG.HITBOX_DEPTH);
-    const hitboxMaterial = new THREE.MeshBasicMaterial({color: 'darkgreen', transparent: true}); // Torna a hitbox invisível
+    }
+    
+    const hitboxGeometry = new THREE.BoxGeometry(
+        CONFIG.HITBOX_WIDTH, 
+        CONFIG.PLAYER_HEIGHT, 
+        CONFIG.HITBOX_DEPTH
+    );
+    
+    const hitboxMaterial = new THREE.MeshBasicMaterial({
+        color: 'darkgreen', 
+        transparent: true, 
+        opacity: CONFIG.DEBUG_SHOW_HITBOX ? 0.3 : 0.0,
+        wireframe: CONFIG.DEBUG_SHOW_HITBOX
+    });
+    
     hitbox = new THREE.Mesh(hitboxGeometry, hitboxMaterial);
     hitbox.position.set(0.0, CONFIG.CAMERA_HEIGHT + CONFIG.PLAYER_HEIGHT/2, 0.0);
-    scene.add(hitbox);
+    hitbox.visible = CONFIG.DEBUG_SHOW_HITBOX;
     
+    scene.add(hitbox);
     return hitbox;
 }
 
-// Atualiza a posição da hitbox para acompanhar o jogador
 export function updateHitbox(camera) {
-    //verificação de segurança
     if (!hitbox || !camera) {
-        console.error("Hitbox or camera is not defined. Cannot update hitbox position.");
+        console.error("Hitbox or camera is missing");
         return;
     }
-    if (hitbox && camera) {
-        hitbox.position.x = camera.position.x;
-        hitbox.position.z = camera.position.z;
+    
+    hitbox.position.x = camera.position.x;
+    hitbox.position.z = camera.position.z;
+}
+
+export function toggleHitboxVisibility() {
+    if (!hitbox) return;
+    
+    hitbox.visible = !hitbox.visible;
+    hitbox.material.opacity = hitbox.visible ? 0.3 : 0.0;
+    hitbox.material.wireframe = hitbox.visible;
+    
+    CONFIG.DEBUG_SHOW_HITBOX = hitbox.visible;
+    
+    if (CONFIG.DEBUG_CONSOLE_LOGS) {
+        console.log(`[DEBUG] Player hitbox: ${hitbox.visible ? 'VISIBLE' : 'HIDDEN'}`);
+    }
+}
+
+export function setHitboxVisibility(visible) {
+    if (!hitbox) return;
+    
+    hitbox.visible = visible;
+    hitbox.material.opacity = visible ? 0.3 : 0.0;
+    hitbox.material.wireframe = visible;
+    
+    if (CONFIG.DEBUG_CONSOLE_LOGS) {
+        console.log(`[DEBUG] Player hitbox set to: ${visible ? 'VISIBLE' : 'HIDDEN'}`);
     }
 }

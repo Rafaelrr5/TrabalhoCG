@@ -22,6 +22,9 @@ export function createGun(camera) {
     // Posiciona relativo à câmera (inferior-direita da visão)
     gun.position.set(CONFIG.GUN_POSITION.x, CONFIG.GUN_POSITION.y, CONFIG.GUN_POSITION.z);
     
+    // Define visibilidade baseada nas configurações de debug
+    gun.visible = CONFIG.DEBUG_SHOW_WEAPON;
+    
     // Anexa a arma na câmera para mover com o jogador
     camera.add(gun);
     
@@ -134,7 +137,7 @@ export function updateProjectiles(delta, scene) {
                 currentObj = currentObj.parent;
             }
             if (enemy && enemy.isAlive) {
-                console.log('Hit enemy!', enemy);
+                // Hit enemy log removido para limpeza do console
                 enemy.takeDamage(10);
                 scene.remove(projectile);
                 projectiles.splice(i, 1);
@@ -163,8 +166,48 @@ export function updateProjectiles(delta, scene) {
      }
 }
 
+// ============================================================================
+// FUNÇÕES DE DEBUG PARA ARMA
+// ============================================================================
+
+// Alterna a visibilidade da arma
+export function toggleWeaponVisibility() {
+    if (gun) {
+        gun.visible = !gun.visible;
+        
+        // Atualiza a configuração global
+        CONFIG.DEBUG_SHOW_WEAPON = gun.visible;
+        
+        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+            console.log(`[DEBUG] Arma: ${gun.visible ? 'VISÍVEL' : 'OCULTA'}`);
+        }
+    }
+}
+
+// Define a visibilidade da arma programaticamente
+export function setWeaponVisibility(visible) {
+    if (gun) {
+        gun.visible = visible;
+        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+            console.log(`[DEBUG] Arma definida como: ${visible ? 'VISÍVEL' : 'OCULTA'}`);
+        }
+    }
+}
+
+// Mostra informações de debug da arma no console
+export function debugWeaponInfo(camera) {
+    if (!CONFIG.DEBUG_CONSOLE_LOGS) return;
+    
+    console.log('=== DEBUG ARMA ===');
+    console.log(`Posição da arma: (${gun?.position.x.toFixed(2)}, ${gun?.position.y.toFixed(2)}, ${gun?.position.z.toFixed(2)})`);
+    console.log(`Rotação da arma: (${gun?.rotation.x.toFixed(2)}, ${gun?.rotation.y.toFixed(2)}, ${gun?.rotation.z.toFixed(2)})`);
+    console.log(`Visível: ${gun?.visible}`);
+    console.log(`Projéteis ativos: ${projectiles.length}`);
+    console.log('================');
+}
+
 //export function weaponSwitch (now){
- //   if (now - lastSwitch < CD) return;
+//    if (now - lastSwitch < CD) return;
 
    // lastSwitch = now;
 

@@ -1,312 +1,429 @@
 import * as THREE from '../../../../../build/three.module.js';
 import { Enemy } from '../base/enemies.js';
-import { loadSkullModel, preloadSkullModel } from '../../../utils/skullLoader.js';
+import { loadSkullModel, preloadSkullModel, applyScaleWithFixedPivot } from '../../../utils/skullLoader.js';
 import { isPlayerInArea1 } from '../../../systems/environment.js';
+import { checkLostSoulCollision, applyLostSoulCollisionCorrection } from '../../../systems/collision.js';
+import { CONFIG } from '../../../core/config.js';
 
-// Lost Soul enemy class with enhanced 6DOF movement and dash ability
-// Now properly targets camera position (player's eyes) instead of weapon position
+/**
+ * Lost Soul enemy - Kamikaze attacker that dashes at player
+ */
 export class LostSoul extends Enemy {
   constructor(position = [0, 0, 0], config = {}) {
-    // Default configuration for Lost Souls
     const defaultConfig = {
       radius: 0.6,
-      color: 0x8B0000, // Dark red
+      color: 0x8B0000,
       maxHealth: 20,
-      speed: 2.0,       // normal move speed
-      dashSpeed: 15.0,  // dash speed when chasing
-      dashInterval: 3.0, // seconds between dashes
-      dashDuration: 1.0, // dash lasts 1 second
+      speed: 4.0,
+      dashSpeed: 25.0,
+      dashInterval: 1.5,
+      dashDuration: 2.0,
+      kamikazeDamage: 30,
+      collisionRadius: 1.5,
+      skullScale: 1.0,
+      skullYRotationOffset: Math.PI,
+      skullXRotationOffset: -90,
+      skullZRotationOffset: 0,
+      maintainPivotOnScale: true,
       ...config
     };
 
     super(position, defaultConfig);
+    
+    this.initializeLostSoul();
+    this.loadSkull();
+  }
 
-    // Replace placeholder sphere mesh with a container group
-    const oldMesh = this.mesh;
-    const healthBar = this.healthBarGroup;
-    // Dispose placeholder geometry and material
-    if (oldMesh.geometry) oldMesh.geometry.dispose();
-    if (oldMesh.material) oldMesh.material.dispose();
-    // Remove health bar from old mesh
-    if (healthBar && oldMesh.children.includes(healthBar)) {
-      oldMesh.remove(healthBar);
-    }
-    // Create new container group
-    const container = new THREE.Group();
-    container.position.set(position[0], position[1], position[2]);
-    // Add health bar group
-    if (healthBar) container.add(healthBar);
-    this.mesh = container;
-
-    // Dash-specific properties
+  initializeLostSoul() {
+    // Dash system properties
     this.dashSpeed = this.config.dashSpeed;
     this.dashInterval = this.config.dashInterval;
     this.dashDuration = this.config.dashDuration;
     this.timeSinceLastDash = 0;
     this.isDashing = false;
     this.dashDirection = new THREE.Vector3();
-
-    // Attack properties for close combat
-    this.isAttacking = false;
-    this.attackCooldown = 0;
-    this.attackInterval = 2.0; // seconds between attacks
-    this.attackRange = 1.2; // distance to trigger attack
-
-    // Store reference to skull model for rotation
+    
+    // Reference to skull model
     this.skullModel = null;
-
-    // Load skull model to replace placeholder
-    this.loadSkull();
+    
+    // Idle behavior
+    this.idleInitialized = false;
+    this.baseX = this.mesh.position.x;
+    this.baseY = this.mesh.position.y;
+    this.baseZ = this.mesh.position.z;
+    this.timeOffset = Math.random() * Math.PI * 2;
   }
 
   async loadSkull() {
     try {
+      
+      // Precarregar o modelo (opcional, para performance)
       await preloadSkullModel();
-      let model = await loadSkullModel();
-      // Clone model with unique materials to prevent shared material issues
-      model = model.clone();
-      // Ensure each enemy has its own materials
-      model.traverse(child => {
-        if (child.isMesh && child.material) {
-          if (Array.isArray(child.material)) {
-            child.material = child.material.map(mat => mat.clone());
-          } else {
-            child.material = child.material.clone();
+      
+      // Carregar o modelo original
+      const loadedModel = await loadSkullModel();
+      
+      // Criar um grupo wrapper para controlar o pivot point
+      const skullWrapper = new THREE.Group();
+      
+      // Clone model with unique materials
+      const clonedModel = loadedModel.clone();
+      clonedModel.traverse(child => {
+        if (child.isMesh) {
+          child.userData.enemy = this;
+          if (child.material) {
+            child.material = Array.isArray(child.material) 
+              ? child.material.map(mat => mat.clone())
+              : child.material.clone();
           }
         }
       });
       
-      // The model is already centered and properly structured from skullLoader
-      // No need to re-center it here as it's already in a wrapper group
+      // Calcular o centro geométrico do modelo
+      const box = new THREE.Box3().setFromObject(clonedModel);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
       
-      // Set userData on skull model for hit detection
-      model.userData.enemy = this;
-      model.traverse(child => {
-        if (child.isMesh) child.userData.enemy = this;
+      // Mover o modelo carregado para que seu centro fique na origem do grupo
+      clonedModel.position.sub(center);
+      
+      // Adicionar o modelo ao grupo
+      skullWrapper.add(clonedModel);
+      
+      // Aplicar configurações iniciais ao grupo (agora centralizado)
+      skullWrapper.rotation.set(
+        Math.PI / 2, // rotação X padrão
+        this.config.skullYRotationOffset,
+        this.config.skullZRotationOffset
+      );
+      skullWrapper.scale.setScalar(this.config.skullScale);
+      
+      // Habilitar sombras
+      skullWrapper.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
       });
       
-      // Remove old mesh from parent
-      if (this.mesh && this.mesh.parent) {
-        const parent = this.mesh.parent;
-        // Save old position and rotation
-        const oldPosition = this.mesh.position.clone();
-        const oldRotation = this.mesh.rotation.clone();
-        parent.remove(this.mesh);
-        
-        // Create group for model and effects
-        const group = new THREE.Group();
-        // Position group at spawn location
-        group.position.copy(oldPosition);
-        group.rotation.copy(oldRotation);
-        // Add skull model (already properly centered from loader)
-        group.add(model);
-        // Store reference to skull model for rotation
-        this.skullModel = model;
-        // Re-add health bar group above skull
-        if (this.healthBarGroup) group.add(this.healthBarGroup);
-        // assign new mesh
-        this.mesh = group;
-        // Store reference for collision/hits
-        this.mesh.userData.enemy = this;
-        // Update bounding box to match new asset
-        if (typeof this.updateBoundingBox === 'function') {
-          this.updateBoundingBox();
-        }
-        // Show the skull asset
-        this.mesh.visible = true;
-        parent.add(this.mesh);
-      }
-    } catch (e) {
-      console.warn('Failed to load Lost Soul skull model:', e);
+      
+      this.setupSkullModel(skullWrapper);
+    } catch (error) {
+      console.warn('Failed to load Lost Soul skull model:', error);
     }
   }
 
-  // Full 6DOF movement towards target (gun position - player's weapon)
-  // DIRECT APPROACH - No orbiting, skulls go straight to player's weapon/hands
-  moveTowards6DOF(targetPosition, delta) {
-    if (!this.isAlive) return;
-
-    // Calculate distance to target
-    const distanceToTarget = this.mesh.position.distanceTo(targetPosition);
+  setupSkullModel(model) {
+    if (!this.mesh || !this.mesh.parent) return;
     
-    // Calculate full 3D direction vector (including Y axis for 6DOF)
-    const direction = new THREE.Vector3();
-    direction.subVectors(targetPosition, this.mesh.position);
-    direction.normalize();
+    const parent = this.mesh.parent;
+    const oldPosition = this.mesh.position.clone();
+    const oldRotation = this.mesh.rotation.clone();
     
-    // Debug logs every 2 seconds with detailed info
-    if (!this.lastDebugTime) this.lastDebugTime = 0;
-    this.lastDebugTime += delta;
-    if (this.lastDebugTime >= 2.0) {
-      console.log(`[Lost Soul Debug]`);
-      console.log(`  Gun at: (${targetPosition.x.toFixed(2)}, ${targetPosition.y.toFixed(2)}, ${targetPosition.z.toFixed(2)})`);
-      console.log(`  Skull at:  (${this.mesh.position.x.toFixed(2)}, ${this.mesh.position.y.toFixed(2)}, ${this.mesh.position.z.toFixed(2)})`);
-      console.log(`  Distance: ${distanceToTarget.toFixed(2)}`);
-      console.log(`  Direction: (${direction.x.toFixed(2)}, ${direction.y.toFixed(2)}, ${direction.z.toFixed(2)})`);
-      if (this.skullModel) {
-        console.log(`  Skull rotation: (${this.skullModel.rotation.x.toFixed(2)}, ${this.skullModel.rotation.y.toFixed(2)}, ${this.skullModel.rotation.z.toFixed(2)})`);
-      }
-      console.log(`  Velocity: (${this.velocity.x.toFixed(2)}, ${this.velocity.y.toFixed(2)}, ${this.velocity.z.toFixed(2)})`);
-      console.log(`---`);
-      this.lastDebugTime = 0;
-    }
+    parent.remove(this.mesh);
     
-    let moveSpeed = this.config.speed;
+    // Create new group
+    const group = new THREE.Group();
+    group.position.copy(oldPosition);
+    group.rotation.copy(oldRotation);
+    group.add(model);
     
-    // MOVIMENTO NATURAL: Desaceleração gradual baseada na distância
-    if (distanceToTarget > 10.0) {
-      // Longe: velocidade total
-      this.velocity.copy(direction).multiplyScalar(moveSpeed);
-    } else if (distanceToTarget > 3.0) {
-      // Aproximando: reduzir velocidade gradualmente
-      const speedFactor = Math.max(0.3, distanceToTarget / 10.0);
-      this.velocity.copy(direction).multiplyScalar(moveSpeed * speedFactor);
-    } else {
-      // Muito perto: velocidade bem baixa para aproximação suave
-      this.velocity.copy(direction).multiplyScalar(moveSpeed * 0.15);
-    }
+    // O modelo já vem preparado com pivot centralizado, rotação e escala aplicados
+    this.skullModel = model;
     
-    // Apply movement in all 3 dimensions (6DOF) - properly scaled by delta
-    this.mesh.position.addScaledVector(this.velocity, delta);
+    // Re-add health bar
+    if (this.healthBarGroup) group.add(this.healthBarGroup);
     
-    // Full 3D orientation - skull looks at target position with smooth rotation
-    if (this.skullModel) {
-      // Smooth rotation towards target for natural look
-      this.skullModel.lookAt(targetPosition);
-      
-      // Add subtle banking/roll based on movement direction for dynamic feel
-      const bankingAmount = this.velocity.x * 0.1; // Reduced banking for subtlety
-      this.skullModel.rotation.z += bankingAmount * delta; // Scale by delta for frame-rate independence
-    }
+    this.mesh = group;
+    this.mesh.userData.enemy = this;
+    this.mesh.visible = true;
     
+    parent.add(this.mesh);
     this.updateBoundingBox();
   }
 
-  // Enhanced dash system with 6DOF movement
-  updateDash(delta, targetPosition) {
+  moveTowards6DOF(targetPosition, delta, collidableObjects = []) {
+    if (!this.isAlive || this.isDashing) return;
+
+    const distanceToTarget = this.mesh.position.distanceTo(targetPosition);
+    const direction = new THREE.Vector3()
+      .subVectors(targetPosition, this.mesh.position)
+      .normalize();
+    
+    // Adjust speed based on distance
+    const speedMultiplier = distanceToTarget > 15.0 ? 1.0 : 
+                           distanceToTarget > 8.0 ? 1.2 : 0.5;
+    
+    this.velocity.copy(direction).multiplyScalar(this.config.speed * speedMultiplier);
+    
+    // Apply collision detection if enabled
+    if (CONFIG.LOST_SOUL_ENABLE_COLLISION && collidableObjects.length > 0) {
+      const intendedPosition = this.mesh.position.clone()
+        .addScaledVector(this.velocity, delta);
+      
+      const collision = checkLostSoulCollision(
+        this.mesh.position, 
+        intendedPosition, 
+        collidableObjects, 
+        CONFIG.LOST_SOUL_COLLISION_RADIUS
+      );
+      
+      if (collision.hasCollision && collision.distance < CONFIG.LOST_SOUL_COLLISION_RADIUS * 0.7) {
+        const correction = applyLostSoulCollisionCorrection(this, collidableObjects, targetPosition);
+        if (correction.corrected) {
+          this.velocity.copy(correction.newDirection)
+            .multiplyScalar(this.config.speed * CONFIG.LOST_SOUL_WALL_AVOIDANCE);
+        }
+      }
+    }
+    
+    this.mesh.position.addScaledVector(this.velocity, delta);
+    this.orientSkull(targetPosition);
+    this.updateBoundingBox();
+  }
+
+  orientSkull(targetPosition) {
+    if (!this.skullModel) return;
+    
+    const orientationDirection = CONFIG.SKULL_ORIENT_TO_MOVEMENT && this.velocity.length() > 0.1
+      ? this.velocity.clone().normalize()
+      : new THREE.Vector3().subVectors(targetPosition, this.mesh.position).normalize();
+    
+    // Create target quaternion
+    const targetQuaternion = new THREE.Quaternion();
+    const lookAtMatrix = new THREE.Matrix4();
+    const up = new THREE.Vector3(0, 1, 0);
+    const currentPos = this.skullModel.position.clone();
+    const targetPos = currentPos.clone().add(orientationDirection);
+    
+    lookAtMatrix.lookAt(currentPos, targetPos, up);
+    targetQuaternion.setFromRotationMatrix(lookAtMatrix);
+    
+    // Apply rotation offsets
+    this.applyRotationOffsets(targetQuaternion);
+    
+    // Apply rotation
+    if (CONFIG.SKULL_SMOOTH_ROTATION) {
+      const rotationSpeed = CONFIG.SKULL_ROTATION_SPEED * 0.016; // Assuming 60fps
+      this.skullModel.quaternion.slerp(targetQuaternion, Math.min(rotationSpeed, 1.0));
+    } else {
+      this.skullModel.quaternion.copy(targetQuaternion);
+    }
+  }
+
+  applyRotationOffsets(quaternion) {
+    const offsets = [
+      { axis: new THREE.Vector3(0, 1, 0), angle: this.config.skullYRotationOffset },
+      { axis: new THREE.Vector3(1, 0, 0), angle: this.config.skullXRotationOffset },
+      { axis: new THREE.Vector3(0, 0, 1), angle: this.config.skullZRotationOffset }
+    ];
+    
+    offsets.forEach(({ axis, angle }) => {
+      if (angle !== 0) {
+        const adjustment = new THREE.Quaternion().setFromAxisAngle(axis, angle);
+        quaternion.multiplyQuaternions(quaternion, adjustment);
+      }
+    });
+  }
+
+  updateDash(delta, targetPosition, collidableObjects = []) {
     this.timeSinceLastDash += delta;
     
-    // Check distance to target for dash decision
     const distanceToTarget = this.mesh.position.distanceTo(targetPosition);
-    const DASH_TRIGGER_DISTANCE = 5.0; // Increased range for more dynamic dashes
-    const DASH_MIN_DISTANCE = 1.0;     // Don't dash if too close
+    const DASH_TRIGGER_DISTANCE = 8.0;
+    const DASH_MAX_DISTANCE = 15.0;
     
+    // Start dash
     if (!this.isDashing && 
         this.timeSinceLastDash >= this.config.dashInterval &&
-        distanceToTarget > DASH_MIN_DISTANCE && 
-        distanceToTarget < DASH_TRIGGER_DISTANCE) {
+        distanceToTarget < DASH_MAX_DISTANCE && 
+        distanceToTarget > 2.0) {
+      
       this.isDashing = true;
       this.timeSinceLastDash = 0;
+      this.dashDirection.subVectors(targetPosition, this.mesh.position).normalize();
       
-      // Prepare dash direction towards target (FULL 3D - including Y axis)
-      this.dashDirection.subVectors(targetPosition, this.mesh.position);
-      this.dashDirection.normalize();
-      
-      // Add some randomness to make dash less predictable
-      const randomOffset = new THREE.Vector3(
-        (Math.random() - 0.5) * 0.3,
-        (Math.random() - 0.5) * 0.2,
-        (Math.random() - 0.5) * 0.3
-      );
-      this.dashDirection.add(randomOffset);
-      this.dashDirection.normalize();
-      
-    } else if (this.isDashing && this.timeSinceLastDash >= this.config.dashDuration) {
+      // Kamikaze dash log removido para limpeza do console
+    }
+    
+    // End dash
+    if (this.isDashing && this.timeSinceLastDash >= this.config.dashDuration) {
       this.isDashing = false;
       this.timeSinceLastDash = 0;
     }
-  }
-
-  moveTowards(targetPosition, delta) {
-    if (!this.isAlive) return;
-
+    
+    // Execute dash movement
     if (this.isDashing) {
-      // During dash, movement is handled in updateDash
-      return;
+      const dashVelocity = this.dashDirection.clone()
+        .multiplyScalar(this.dashSpeed * 1.5);
+      
+      // Check collision during dash
+      if (collidableObjects.length > 0) {
+        const intendedPosition = this.mesh.position.clone()
+          .addScaledVector(dashVelocity, delta);
+        
+        const collision = checkLostSoulCollision(
+          this.mesh.position, 
+          intendedPosition, 
+          collidableObjects, 
+          CONFIG.LOST_SOUL_COLLISION_RADIUS * 0.8
+        );
+        
+        if (collision.hasCollision) {
+          this.isDashing = false;
+          this.timeSinceLastDash = this.config.dashInterval * 0.5;
+          return;
+        }
+      }
+      
+      this.mesh.position.addScaledVector(dashVelocity, delta);
+      this.checkPlayerCollision(targetPosition);
     }
-
-    // Use 6DOF movement instead of base class movement
-    this.moveTowards6DOF(targetPosition, delta);
   }
 
-  // Add idle behavior when player not in Area 1 (DEPRECATED - use idleBehavior6DOF)
+  moveTowards(targetPosition, delta, collidableObjects = []) {
+    if (!this.isAlive || this.isDashing) return;
+    this.moveTowards6DOF(targetPosition, delta, collidableObjects);
+  }
+
   idleBehavior(delta) {
-    // This method is kept for backward compatibility
-    // The actual implementation now uses idleBehavior6DOF
     this.idleBehavior6DOF(delta);
   }
 
-  // Enhanced idle behavior with natural 6DOF floating
   idleBehavior6DOF(delta) {
-    // Initialize float parameters once
-    if (this.idle6DOFInitialized === undefined) {
-      this.idle6DOFInitialized = true;
-      // Store natural position without artificial offsets
-      this.originalY = this.mesh.position.y;
-      this.originalX = this.mesh.position.x;
-      this.originalZ = this.mesh.position.z;
-      // Random phase offsets for natural variation
-      this.floatOffset = Math.random() * Math.PI * 2;
-      this.floatOffsetX = Math.random() * Math.PI * 2;
-      this.floatOffsetZ = Math.random() * Math.PI * 2;
+    if (!this.idleInitialized) {
+      this.idleInitialized = true;
+      this.baseX = this.mesh.position.x;
+      this.baseY = this.mesh.position.y;
+      this.baseZ = this.mesh.position.z;
+      this.timeOffset = Math.random() * Math.PI * 2;
     }
     
     const time = Date.now() * 0.001;
     
-    // Subtle multi-axis floating motion (reduced amplitude for naturalness)
-    this.mesh.position.y = this.originalY + Math.sin(time * 1.5 + this.floatOffset) * 0.15;
-    this.mesh.position.x = this.originalX + Math.sin(time * 1.2 + this.floatOffsetX) * 0.2;
-    this.mesh.position.z = this.originalZ + Math.cos(time * 1.3 + this.floatOffsetZ) * 0.15;
+    // Gentle floating motion
+    this.mesh.position.x = this.baseX + Math.sin(time * 1.2 + this.timeOffset) * 0.2;
+    this.mesh.position.y = this.baseY + Math.sin(time * 1.5 + this.timeOffset) * 0.15;
+    this.mesh.position.z = this.baseZ + Math.cos(time * 1.3 + this.timeOffset) * 0.15;
     
-    // Gentle rotational floating (reduced for subtlety)
+    // Gentle skull rotation
     if (this.skullModel) {
-      this.skullModel.rotation.x = Math.sin(time * 0.6 + this.floatOffset) * 0.05;
-      this.skullModel.rotation.y = Math.cos(time * 0.4 + this.floatOffsetX) * 0.1;
-      this.skullModel.rotation.z = Math.sin(time * 0.7 + this.floatOffsetZ) * 0.03;
+      this.skullModel.rotation.x = Math.sin(time * 0.6 + this.timeOffset) * 0.05;
+      this.skullModel.rotation.y = Math.cos(time * 0.4 + this.timeOffset) * 0.1;
+      this.skullModel.rotation.z = Math.sin(time * 0.7 + this.timeOffset) * 0.03;
     }
   }
 
-  takeDamage(damage) {
-    const died = super.takeDamage(damage);
-    if (died) {
-      // Initialize death fade-out
-      this.deathTimer = 0;
-      this.deathDuration = 2.0; // seconds
-      // Hide health bar and glow/particles immediately
-      if (this.healthBarGroup) this.healthBarGroup.visible = false;
-      if (this.glowMesh) this.glowMesh.visible = false;
-      if (this.particleSystem) this.particleSystem.visible = false;
-    }
-    return died;
+  onDeath() {
+    super.onDeath();
+    this.deathTimer = 0;
+    this.deathDuration = 2.0;
   }
 
-  // Main update method called from enemy manager
-  update(delta, camera, targetPosition) {
+  checkPlayerCollision(targetPosition) {
+    if (!this.isDashing) return false;
+    
+    const distanceToPlayer = this.mesh.position.distanceTo(targetPosition);
+    
+    if (distanceToPlayer <= this.config.collisionRadius) {
+      // Kamikaze hit log removido para limpeza do console
+      
+      this.dealDamageToPlayer(this.config.kamikazeDamage);
+      this.createExplosionEffect();
+      this.performKamikazeDeath();
+      
+      return true;
+    }
+    
+    return false;
+  }
+  
+  dealDamageToPlayer(damage) {
+    if (typeof window.playerTakeDamage === 'function') {
+      window.playerTakeDamage(damage);
+    } else {
+      console.warn('[KAMIKAZE] Player damage system not available!');
+    }
+  }
+  
+  createExplosionEffect() {
+    const explosionGeometry = new THREE.SphereGeometry(0.5, 8, 8);
+    const explosionMaterial = new THREE.MeshBasicMaterial({ 
+      color: 0xFF4444, 
+      transparent: true, 
+      opacity: 0.8 
+    });
+    const explosionMesh = new THREE.Mesh(explosionGeometry, explosionMaterial);
+    explosionMesh.position.copy(this.mesh.position);
+    
+    if (this.mesh.parent) {
+      this.mesh.parent.add(explosionMesh);
+      
+      let scale = 0.1;
+      let opacity = 0.8;
+      const animate = () => {
+        scale += 0.3;
+        opacity -= 0.1;
+        
+        explosionMesh.scale.set(scale, scale, scale);
+        explosionMaterial.opacity = opacity;
+        
+        if (opacity > 0) {
+          requestAnimationFrame(animate);
+        } else {
+          if (explosionMesh?.parent) {
+            explosionMesh.parent.remove(explosionMesh);
+          }
+          explosionGeometry.dispose();
+          explosionMaterial.dispose();
+        }
+      };
+      animate();
+    }
+  }
+  
+  performKamikazeDeath() {
+    this.isAlive = false;
+    this.mesh.visible = false;
+    
+    setTimeout(() => {
+      if (this.mesh?.parent) {
+        this.mesh.parent.remove(this.mesh);
+      }
+      this.dispose();
+    }, 100);
+  }
+
+  update(delta, camera, targetPosition, collidableObjects = []) {
     if (!this.isAlive) return;
     
-    // Update dash system
-    this.updateDash(delta, targetPosition);
+    this.updateDash(delta, targetPosition, collidableObjects);
+    this.moveTowards(targetPosition, delta, collidableObjects);
     
-    // Move towards target using 6DOF movement
-    this.moveTowards(targetPosition, delta);
-    
-    // Update health bar to face camera
     if (this.healthBarGroup && camera) {
       this.healthBarGroup.lookAt(camera.position);
     }
   }
 
-  dispose() {
-    // Clean up additional materials and geometries
-    if (this.glowMesh) {
-      this.glowMesh.geometry.dispose();
-      this.glowMesh.material.dispose();
-    }
-    if (this.particleSystem) {
-      this.particleSystem.geometry.dispose();
-      this.particleSystem.material.dispose();
-    }
+  // Skull scaling utilities
+  setSkullScale(newScale) {
+    if (!this.skullModel || newScale <= 0) return;
     
+    // Como o skull já foi preparado com escala, aplicamos diretamente
+    this.skullModel.scale.setScalar(newScale);
+    this.config.skullScale = newScale;
+  }
+  
+  getSkullScale() {
+    return this.config.skullScale;
+  }
+  
+  adjustSkullScale(delta) {
+    const newScale = Math.max(0.1, this.config.skullScale + delta);
+    this.setSkullScale(newScale);
+  }
+
+  dispose() {
     super.dispose();
   }
 }

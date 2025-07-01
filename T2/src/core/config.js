@@ -1,6 +1,14 @@
 export const CONFIG = {
+    // ============================================================================
+    // CONFIGURAÇÕES DE DEBUG
+    // ============================================================================
+    DEBUG_SHOW_HITBOX: false,    // Mostra/oculta a hitbox do player
+    DEBUG_SHOW_CAMERA: false,    // Mostra/oculta informações da câmera
+    DEBUG_SHOW_WEAPON: false,    // Mostra/oculta informações da arma
+    DEBUG_CONSOLE_LOGS: false,   // Ativa/desativa logs de debug no console
+    
     // Configurações de movimento e física
-    MOVE_SPEED: 20,
+    MOVE_SPEED: 90,
     PROJECTILE_SPEED: 150,
     PROJECTILE_LIFETIME: 3.5,
     SHOOT_RATE: 250,
@@ -47,6 +55,15 @@ export const CONFIG = {
     AREA_HEIGHT: 4.0,
     AREA_Y_POSITION: 2.0,
     
+    // ============================================================================
+    // CONFIGURAÇÕES DE COLISÃO DOS INIMIGOS
+    // ============================================================================
+    LOST_SOUL_ENABLE_COLLISION: true,       // Habilita/desabilita colisão das Lost Souls
+    LOST_SOUL_COLLISION_RADIUS: 0.6,        // Raio de colisão das Lost Souls (reduzido)
+    LOST_SOUL_COLLISION_RAYS: 3,            // Número de raycasts para detecção (reduzido)
+    LOST_SOUL_COLLISION_CORRECTION: 1.0,    // Fator de correção de colisão (reduzido)
+    LOST_SOUL_WALL_AVOIDANCE: 0.8,          // Força do desvio de paredes (aumentado para melhor fluidez)
+    
     // Configurações da arma
     GUN_RADIUS: 0.2,
     GUN_LENGTH: 1.5,
@@ -59,4 +76,19 @@ export const CONFIG = {
     ELEVATOR_ACTIVATION_DISTANCE: 2.0,
     ELEVEVATOR_MOVEMENT_SPEED: 1.5,
     ELEVATOR_HEIGHT: 3.9, // Altura máxima do elevador
+
+    // ============================================================================
+    // CONFIGURAÇÕES DE ORIENTAÇÃO DA SKULL
+    // ============================================================================
+    SKULL_ORIENT_TO_MOVEMENT: true,         // Se true, skull olha na direção do movimento; se false, sempre olha para o target
+    SKULL_SMOOTH_ROTATION: true,            // Aplica rotação suave (lerp) entre orientações
+    SKULL_ROTATION_SPEED: 5.0,              // Velocidade da rotação suave (só se SKULL_SMOOTH_ROTATION = true)
+    
+    // ============================================================================
+    // CONFIGURAÇÕES DE TRANSIÇÃO IDLE <-> ATIVO
+    // ============================================================================
+    ENEMY_SMOOTH_TRANSITION: true,          // Transição suave entre idle e ativo
+    ENEMY_TRANSITION_DEBUG: true,           // Logs de debug para transições
+    
+    // Configurações da arma
 };

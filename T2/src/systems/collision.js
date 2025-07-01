@@ -88,3 +88,109 @@ export function applyGravity(delta, collidableObjects, camera) {
     checkWallCollisions(collidableObjects, camera);
     camera.position.y = hitbox.position.y + CONFIG.PLAYER_HEIGHT/2;
 }
+
+// ============================================================================
+// SISTEMA DE COLISÃO PARA LOST SOULS
+// ============================================================================
+
+// Verifica colisão de uma Lost Soul com o ambiente
+export function checkLostSoulCollision(lostSoulPosition, targetPosition, collidableObjects, radius = 0.8) {
+    const raycaster = new THREE.Raycaster();
+    const maxDistance = radius * 1.5; // Reduzido para ser menos agressivo
+    
+    // Calcula direção do movimento - APENAS direção principal
+    const direction = new THREE.Vector3();
+    direction.subVectors(targetPosition, lostSoulPosition);
+    direction.normalize();
+    
+    // Verifica colisão apenas na direção principal do movimento
+    raycaster.set(lostSoulPosition, direction);
+    raycaster.far = maxDistance;
+    
+    const intersects = raycaster.intersectObjects(collidableObjects, true);
+    
+    if (intersects.length > 0) {
+        const hit = intersects[0];
+        if (hit.distance < maxDistance) {
+            // Retorna informações da colisão
+            return {
+                hasCollision: true,
+                point: hit.point,
+                normal: hit.face.normal,
+                distance: hit.distance,
+                object: hit.object
+            };
+        }
+    }
+    
+    return { hasCollision: false };
+}
+
+// Aplica correção de posição para evitar que a Lost Soul atravesse paredes
+export function applyLostSoulCollisionCorrection(lostSoul, collidableObjects, targetPosition) {
+    const collision = checkLostSoulCollision(lostSoul.mesh.position, targetPosition, collidableObjects, lostSoul.config.radius);
+    
+    if (collision.hasCollision) {
+        // ========================================================================
+        // SISTEMA INTELIGENTE DE DESVIO DE OBSTÁCULOS
+        // ========================================================================
+        
+        // Calcula direção original para o target
+        const originalDirection = new THREE.Vector3();
+        originalDirection.subVectors(targetPosition, lostSoul.mesh.position);
+        originalDirection.normalize();
+        
+        // Tenta encontrar uma rota alternativa usando pathfinding simples
+        const alternativeDirections = [
+            // Desvio horizontal (esquerda e direita)
+            new THREE.Vector3().crossVectors(originalDirection, new THREE.Vector3(0, 1, 0)).normalize(),
+            new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), originalDirection).normalize(),
+            // Desvio vertical (cima e baixo)
+            new THREE.Vector3().crossVectors(originalDirection, new THREE.Vector3(1, 0, 0)).normalize(),
+            new THREE.Vector3().crossVectors(new THREE.Vector3(1, 0, 0), originalDirection).normalize(),
+        ];
+        
+        // Testa cada direção alternativa para encontrar uma rota livre
+        for (const altDir of alternativeDirections) {
+            // Combina direção alternativa com direção original (80% original, 20% desvio)
+            const testDirection = originalDirection.clone().multiplyScalar(0.8);
+            testDirection.add(altDir.clone().multiplyScalar(0.2));
+            testDirection.normalize();
+            
+            // Testa se esta direção está livre
+            const testPosition = lostSoul.mesh.position.clone();
+            testPosition.addScaledVector(testDirection, lostSoul.config.radius * 2);
+            
+            const testCollision = checkLostSoulCollision(lostSoul.mesh.position, testPosition, collidableObjects, lostSoul.config.radius);
+            
+            if (!testCollision.hasCollision) {
+                // Encontrou uma rota livre!
+                return {
+                    corrected: true,
+                    newDirection: testDirection,
+                    collision: collision
+                };
+            }
+        }
+        
+        // Se nenhuma rota alternativa foi encontrada, usa deflexão baseada na normal
+        const deflectedDirection = originalDirection.clone();
+        const normal = collision.normal.clone();
+        
+        // Aplica deflexão usando a normal da superfície
+        deflectedDirection.reflect(normal);
+        
+        // Mistura direção deflectida com direção original para manter movimento em direção ao target
+        const finalDirection = originalDirection.clone().multiplyScalar(0.6);
+        finalDirection.add(deflectedDirection.multiplyScalar(0.4));
+        finalDirection.normalize();
+        
+        return {
+            corrected: true,
+            newDirection: finalDirection,
+            collision: collision
+        };
+    }
+    
+    return { corrected: false };
+}

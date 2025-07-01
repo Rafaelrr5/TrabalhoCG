@@ -176,9 +176,65 @@ export async function preloadSkullModel() {
   if (!skullModel) {
     try {
       await loadSkullModel();
-      console.log('SkullLoader: preloaded skull model');
     } catch (error) {
       console.warn('SkullLoader: preload failed', error);
     }
   }
+}
+
+// ============================================================================
+// FUNÇÕES AUXILIARES PARA CONTROLE DE ESCALA E PIVOT
+// ============================================================================
+
+// Aplica escala a um modelo mantendo o pivot point no centro
+export function applyScaleWithFixedPivot(model, scale) {
+  if (!model || scale <= 0) return;
+  
+  // Salva a posição atual
+  const originalPosition = model.position.clone();
+  
+  // Reset para escala 1.0 para calcular centro base
+  model.scale.set(1, 1, 1);
+  model.updateMatrixWorld(true);
+  
+  // Calcula centro base
+  const baseBox = new THREE.Box3().setFromObject(model);
+  const baseCenter = baseBox.getCenter(new THREE.Vector3());
+  
+  // Aplica nova escala
+  model.scale.set(scale, scale, scale);
+  model.updateMatrixWorld(true);
+  
+  // Calcula novo centro após escala
+  const scaledBox = new THREE.Box3().setFromObject(model);
+  const scaledCenter = scaledBox.getCenter(new THREE.Vector3());
+  
+  // Calcula offset necessário para manter o centro
+  const centerOffset = baseCenter.clone().sub(scaledCenter);
+  
+  // Aplica correção de posição
+  model.position.copy(originalPosition).add(centerOffset);
+  
+  return {
+    originalPosition,
+    baseCenter,
+    scaledCenter,
+    centerOffset,
+    finalPosition: model.position.clone()
+  };
+}
+
+// Verifica se um modelo está centrado corretamente
+export function verifyModelCentering(model) {
+  if (!model) return null;
+  
+  const box = new THREE.Box3().setFromObject(model);
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  
+  return {
+    center,
+    size,
+    isCentered: center.length() < 0.001 // Tolerância para considerar "centrado"
+  };
 }

@@ -1,97 +1,98 @@
 import * as THREE from '../../../../../build/three.module.js';
-import { gun } from '../../../components/weapon.js';
 import { CONFIG } from '../../../core/config.js';
-import { hitbox } from '../../player/player.js';
 
-// Base Enemy class
+// Base Enemy class with simplified configuration and cleaner structure
 export class Enemy {
   constructor(position = [0, 0, 0], config = {}) {
-    // Default configuration
     this.config = {
-      radius: 0.5,
-      color: 0xff0000,
-      maxHealth: 100,
-      speed: 0.5,
+      radius: config.radius || 0.5,
+      color: config.color || 0xff0000,
+      maxHealth: config.maxHealth || 100,
+      speed: config.speed || 0.5,
       ...config
     };
 
-    // Create enemy mesh (as container group)
+    // Create main container
     this.mesh = new THREE.Group();
-    // Position the enemy
     this.mesh.position.set(position[0], position[1], position[2]);
+    this.mesh.userData.enemy = this;
     
     // Health system
     this.maxHealth = this.config.maxHealth;
     this.currentHealth = this.maxHealth;
     this.isAlive = true;
     
-    // Physics properties for 6 degrees of freedom
-    this.velocity = new THREE.Vector3(0, 0, 0);
-    this.angularVelocity = new THREE.Vector3(0, 0, 0);
-    
-    // Collision properties
+    // Movement properties
+    this.velocity = new THREE.Vector3();
     this.boundingBox = new THREE.Box3();
-    this.updateBoundingBox();
     
-    // Create health bar
+    this.initializeEnemy();
+  }
+
+  initializeEnemy() {
     this.createHealthBar();
-    
-    // Add reference to this enemy in the mesh userData
-    this.mesh.userData.enemy = this;
+    this.updateBoundingBox();
   }
 
   createHealthBar() {
-    // Health bar background
+    // Create health bar group for better organization
+    this.healthBarGroup = new THREE.Group();
+    
+    // Background
     const bgGeometry = new THREE.PlaneGeometry(1, 0.1);
-    const bgMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.8 });
+    const bgMaterial = new THREE.MeshBasicMaterial({ 
+      color: 0x000000, 
+      transparent: true, 
+      opacity: 0.8 
+    });
     this.healthBarBg = new THREE.Mesh(bgGeometry, bgMaterial);
     
-    // Health bar fill
+    // Health fill
     const fillGeometry = new THREE.PlaneGeometry(1, 0.08);
     const fillMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
     this.healthBarFill = new THREE.Mesh(fillGeometry, fillMaterial);
+    this.healthBarFill.position.z = 0.001; // Slightly in front
     
-    // Position health bars above enemy
-    this.healthBarBg.position.set(0, this.config.radius + 0.3, 0);
-    this.healthBarFill.position.set(0, this.config.radius + 0.3, 0.001);
+    // Position above enemy
+    const yOffset = this.config.radius + 0.3;
+    this.healthBarGroup.position.set(0, yOffset, 0);
     
-    // Make health bars always face camera
-    this.healthBarBg.lookAt(0, 0, 1);
-    this.healthBarFill.lookAt(0, 0, 1);
-    
-    // Add to enemy mesh
-    this.mesh.add(this.healthBarBg);
-    this.mesh.add(this.healthBarFill);
+    this.healthBarGroup.add(this.healthBarBg);
+    this.healthBarGroup.add(this.healthBarFill);
+    this.mesh.add(this.healthBarGroup);
   }
 
   updateHealthBar() {
     if (!this.healthBarFill) return;
     
-    const healthPercent = this.currentHealth / this.maxHealth;
+    const healthPercent = Math.max(0, this.currentHealth / this.maxHealth);
     this.healthBarFill.scale.x = healthPercent;
     
-    // Change color based on health
-    if (healthPercent > 0.6) {
-      this.healthBarFill.material.color.setHex(0x00ff00); // Green
-    } else if (healthPercent > 0.3) {
-      this.healthBarFill.material.color.setHex(0xffff00); // Yellow
-    } else {
-      this.healthBarFill.material.color.setHex(0xff0000); // Red
-    }
+    // Color based on health percentage
+    const color = healthPercent > 0.6 ? 0x00ff00 : 
+                  healthPercent > 0.3 ? 0xffff00 : 0xff0000;
+    this.healthBarFill.material.color.setHex(color);
   }
 
   takeDamage(damage) {
     if (!this.isAlive) return false;
     
-    this.currentHealth -= damage;
+    this.currentHealth = Math.max(0, this.currentHealth - damage);
     this.updateHealthBar();
     
     if (this.currentHealth <= 0) {
-      this.currentHealth = 0;
       this.isAlive = false;
-      return true; // Enemy died
+      this.onDeath();
+      return true;
     }
     return false;
+  }
+
+  onDeath() {
+    // Override in subclasses for custom death behavior
+    if (this.healthBarGroup) {
+      this.healthBarGroup.visible = false;
+    }
   }
 
   updateBoundingBox() {
@@ -102,50 +103,41 @@ export class Enemy {
     return this.boundingBox.intersectsBox(otherBoundingBox);
   }
 
+  // Basic movement toward target (ground-based)
   moveTowards(targetPosition, delta) {
     if (!this.isAlive) return;
     
-    // Calculate direction to target (ignoring Y axis for ground movement)
-    const direction = new THREE.Vector3();
-    direction.subVectors(targetPosition, this.mesh.position);
-    direction.y = 0;
-    direction.normalize();
+    const direction = new THREE.Vector3()
+      .subVectors(targetPosition, this.mesh.position)
+      .setY(0) // Keep on ground
+      .normalize();
     
-    // Apply movement
     this.velocity.copy(direction).multiplyScalar(this.config.speed);
     this.mesh.position.addScaledVector(this.velocity, delta);
-    
-    // Update bounding box after movement
     this.updateBoundingBox();
   }
 
-  // Enhanced 6DOF movement method for flying enemies
+  // 6DOF movement for flying enemies
   moveTowards6DOF(targetPosition, delta) {
     if (!this.isAlive) return;
     
-    // Calculate full 3D direction vector (including Y axis)
-    const direction = new THREE.Vector3();
-    direction.subVectors(targetPosition, this.mesh.position);
-    direction.normalize();
+    const direction = new THREE.Vector3()
+      .subVectors(targetPosition, this.mesh.position)
+      .normalize();
     
-    // Apply movement in all 3 axes
     this.velocity.copy(direction).multiplyScalar(this.config.speed);
     this.mesh.position.addScaledVector(this.velocity, delta);
-    
-    // Update bounding box after movement
     this.updateBoundingBox();
   }
 
-  update(delta, gun) {
+  update(delta, camera, targetPosition) {
     if (!this.isAlive) return;
     
-    // Move towards camera/player
-    this.moveTowards(gun, delta);
+    this.moveTowards(targetPosition || camera.position, delta);
     
     // Make health bar face camera
-    if (this.healthBarBg && this.healthBarFill) {
-      this.healthBarBg.lookAt(gun.position);
-      this.healthBarFill.lookAt(gun.position);
+    if (this.healthBarGroup && camera) {
+      this.healthBarGroup.lookAt(camera.position);
     }
   }
 
@@ -162,62 +154,52 @@ export class Enemy {
   }
 }
 
-// Group to hold all enemies
-export let enemiesGroup = null;
-export let enemies = [];
+// Enemy Manager - Simplified version
+export class EnemyManager {
+  constructor() {
+    this.enemies = [];
+    this.enemiesGroup = null;
+  }
 
-// Initialize enemies and add to scene
-export function initEnemies(scene) {
-  enemiesGroup = new THREE.Group();
-  enemiesGroup.name = 'EnemiesGroup';
-  enemies = [];
+  initialize(scene) {
+    this.enemiesGroup = new THREE.Group();
+    this.enemiesGroup.name = 'EnemiesGroup';
+    scene.add(this.enemiesGroup);
+  }
 
-  // Define initial enemy positions
-  const positions = [
-    [10, 0, 10],
-    [-10, 0, 10],
-    [10, 0, -10]
-  ];
+  addEnemy(enemy) {
+    this.enemies.push(enemy);
+    this.enemiesGroup.add(enemy.mesh);
+    return enemy;
+  }
 
-  positions.forEach(pos => {
-    const enemy = new Enemy(pos);
-    enemies.push(enemy);
-    enemiesGroup.add(enemy.mesh);
-  });
+  update(delta, camera, targetPosition) {
+    this.enemies.forEach(enemy => {
+      enemy.update(delta, camera, targetPosition);
+    });
+    
+    // Remove dead enemies
+    this.enemies = this.enemies.filter(enemy => {
+      if (!enemy.isAlive) {
+        this.enemiesGroup.remove(enemy.mesh);
+        enemy.dispose();
+        return false;
+      }
+      return true;
+    });
+  }
 
-  scene.add(enemiesGroup);
-}
+  getAliveEnemies() {
+    return this.enemies.filter(enemy => enemy.isAlive);
+  }
 
-// Update all enemies
-export function updateEnemies(delta, gun) {
-  if (!enemies || enemies.length === 0) return;
-  
-  enemies.forEach(enemy => {
-    enemy.update(delta, gun);
-  });
-  
-  // Remove dead enemies
-  enemies = enemies.filter(enemy => {
-    if (!enemy.isAlive) {
-      enemiesGroup.remove(enemy.mesh);
-      enemy.dispose();
-      return false;
-    }
-    return true;
-  });
-}
+  getEnemyCount() {
+    const alive = this.getAliveEnemies().length;
+    return { total: this.enemies.length, alive, dead: this.enemies.length - alive };
+  }
 
-// Get all alive enemies
-export function getAliveEnemies() {
-  return enemies.filter(enemy => enemy.isAlive);
-}
-
-// Add new enemy to the scene
-export function addEnemy(position, config = {}) {
-  if (!enemiesGroup) return null;
-  
-  const enemy = new Enemy(position, config);
-  enemies.push(enemy);
-  enemiesGroup.add(enemy.mesh);
-  return enemy;
+  dispose() {
+    this.enemies.forEach(enemy => enemy.dispose());
+    this.enemies = [];
+  }
 }

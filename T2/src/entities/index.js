@@ -1,4 +1,4 @@
-// Index file for entities
+// Main entities export
 export * from './player/player.js';
 export * from './enemies/enemy.js';
 export * from './enemies/base/enemies.js';
