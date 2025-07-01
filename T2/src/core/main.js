@@ -9,26 +9,22 @@ import { createGun, updateProjectiles } from '../components/weapon.js';
 import { createEnemies, updateEnemies } from '../entities/enemies/enemy.js';
 import { setupEventListeners, updateCameraMovement, continuousCameraDebug } from '../systems/controls.js';
 import { applyGravity } from '../systems/collision.js';
-import { createHitbox, hitbox, updateHitbox } from '../entities/player/player.js';
+import { createHitbox, hitbox, player } from '../entities/player/player.js';
 import { updateELevator } from '../systems/elevator.js';
 
 // ============================================================================
 // PLAYER HEALTH SYSTEM for Lost Soul kamikaze attacks
 // ============================================================================
-let playerHealth = 100;
-let maxPlayerHealth = 100;
 
 // Global function to handle player damage (called by Lost Soul kamikaze attacks)
 window.playerTakeDamage = function(damage) {
-  playerHealth = Math.max(0, playerHealth - damage);
-  // Player health log removido para limpeza do console
+  const isAlive = player.takeDamage(damage);
   
   // Update HUD if it exists
   updatePlayerHealthDisplay();
   
   // Check for death
-  if (playerHealth <= 0) {
-    console.log('[PLAYER DEATH] Player died from Lost Soul kamikaze attack!');
+  if (!isAlive) {
     handlePlayerDeath();
   }
 };
@@ -37,8 +33,18 @@ window.playerTakeDamage = function(damage) {
 function updatePlayerHealthDisplay() {
   const healthDisplay = document.getElementById('player-health');
   if (healthDisplay) {
-    healthDisplay.textContent = `Health: ${playerHealth}/${maxPlayerHealth}`;
-    healthDisplay.style.color = playerHealth < 30 ? 'red' : playerHealth < 60 ? 'orange' : 'green';
+    const healthStatus = player.getHealthStatus();
+    healthDisplay.textContent = `Health: ${healthStatus.current}/${healthStatus.max}`;
+    
+    // Color coding based on health percentage
+    const healthPercentage = healthStatus.percentage;
+    if (healthPercentage < 0.3) {
+      healthDisplay.style.color = 'red';
+    } else if (healthPercentage < 0.6) {
+      healthDisplay.style.color = 'orange';
+    } else {
+      healthDisplay.style.color = 'green';
+    }
   }
 }
 
@@ -47,7 +53,7 @@ function handlePlayerDeath() {
   // Could implement respawn, game over screen, etc.
   alert('Game Over! Lost Souls defeated you!');
   // Reset for now
-  playerHealth = maxPlayerHealth;
+  player.respawn();
   updatePlayerHealthDisplay();
 }
 
@@ -63,7 +69,8 @@ function createPlayerHealthHUD() {
   healthDisplay.style.fontWeight = 'bold';
   healthDisplay.style.zIndex = '1000';
   healthDisplay.style.textShadow = '2px 2px 4px rgba(0,0,0,0.8)';
-  healthDisplay.textContent = `Health: ${playerHealth}/${maxPlayerHealth}`;
+  const healthStatus = player.getHealthStatus();
+  healthDisplay.textContent = `Health: ${healthStatus.current}/${healthStatus.max}`;
   document.body.appendChild(healthDisplay);
 }
 
@@ -166,13 +173,11 @@ function setupCamera() {
 
 //coloca camera e hitbox na posição inicial do jogador
 function resetPlayerPosition() {
-    const startHeight = CONFIG.CAMERA_HEIGHT + CONFIG.START_HEIGHT_OFFSET;
+    const startHeight = CONFIG.CAMERA_HEIGHT + (CONFIG.START_HEIGHT_OFFSET || 0);
     camera.position.set(0, startHeight, 0);
-
-    if(hitbox) {
-        hitbox.position.set(0, startHeight, 0);
-        hitbox.position.y -= 1.0;
-    }
+    
+    // Use the player class method to reset position
+    player.resetPosition();
 }
 
 // Inicializa controles de pointer lock para movimento de câmera estilo FPS
@@ -231,7 +236,7 @@ function animate() {
     
     const delta = clock.getDelta();
     
-    updateHitbox(camera);
+    player.update(delta, camera);
     applyGravity(delta, collidableObjects, camera);
     updateCameraMovement(delta, controls);
     updateProjectiles(delta, scene);

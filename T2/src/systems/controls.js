@@ -1,7 +1,7 @@
 import { CONFIG } from '../core/config.js';
 import { startShooting, stopShooting, toggleWeaponVisibility, debugWeaponInfo} from '../components/weapon.js';
 import { wallColide } from './collision.js';
-import { toggleHitboxVisibility } from '../entities/player/player.js';
+import { toggleHitboxVisibility, player } from '../entities/player/player.js';
 import { enemies } from '../entities/enemies/enemy.js';
 
 // Estados de controle de movimento (quais teclas estão ativas)
