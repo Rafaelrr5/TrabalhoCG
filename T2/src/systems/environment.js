@@ -373,39 +373,6 @@ function createRedKey() {
     return keyGroup;
 }
 
-// Cria a segunda chave azul usando CSG
-function createBlueKey() {
-    const keyGroup = new THREE.Group();
-    keyGroup.name = "BlueKey";
-    const keyMaterial = new THREE.MeshPhongMaterial({ color: 0x0066ff, shininess: 100, specular: 0x888888 });
-
-    // Base cube
-    const cubeB = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), keyMaterial);
-    // Cylindrical holes
-    const holeGeomB = new THREE.CylinderGeometry(0.25, 0.25, 1.4, 32);
-    const holeBX = new THREE.Mesh(holeGeomB, keyMaterial);
-    holeBX.rotation.z = Math.PI / 2;
-    const holeBY = new THREE.Mesh(holeGeomB, keyMaterial);
-    holeBY.rotation.x = Math.PI / 2;
-    const holeBZ = new THREE.Mesh(holeGeomB, keyMaterial);
-
-    [cubeB, holeBX, holeBY, holeBZ].forEach(mesh => mesh.updateMatrix());
-    let csgBSPB = CSG.fromMesh(cubeB)
-        .subtract(CSG.fromMesh(holeBX))
-        .subtract(CSG.fromMesh(holeBY))
-        .subtract(CSG.fromMesh(holeBZ));
-    const finalMeshB = CSG.toMesh(csgBSPB, new THREE.Matrix4());
-    finalMeshB.material = keyMaterial;
-    keyGroup.add(finalMeshB);
-    keyGroup.userData.rotationSpeed = -0.02;
-    return keyGroup;
-}
-
-// Função para obter a chave azul (para uso futuro)
-export function getBlueKey() {
-    return createBlueKey();
-}
-
 // Função para ser chamada no main.js para atualizar a área 1
 export function updateArea1(delta) {
     if (!area1KeyPlatform) return;

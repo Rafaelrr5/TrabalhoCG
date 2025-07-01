@@ -143,40 +143,22 @@ export class LostSoul extends Enemy {
   }
 
   moveTowards6DOF(targetPosition, delta, collidableObjects = []) {
-    if (!this.isAlive || this.isDashing) return;
+    if (!this.isAlive) return;
 
     const distanceToTarget = this.mesh.position.distanceTo(targetPosition);
     const direction = new THREE.Vector3()
       .subVectors(targetPosition, this.mesh.position)
       .normalize();
     
-    // Adjust speed based on distance
-    const speedMultiplier = distanceToTarget > 15.0 ? 1.0 : 
-                           distanceToTarget > 8.0 ? 1.2 : 0.5;
+    // Ajustar velocidade baseado na distância
+    let speed = this.config.speed;
+    if (distanceToTarget > 15.0) speed *= 1.0;
+    else if (distanceToTarget > 8.0) speed *= 1.2;
+    else speed *= 0.5;
     
-    this.velocity.copy(direction).multiplyScalar(this.config.speed * speedMultiplier);
+    this.velocity.copy(direction).multiplyScalar(speed);
     
-    // Apply collision detection if enabled
-    if (CONFIG.LOST_SOUL_ENABLE_COLLISION && collidableObjects.length > 0) {
-      const intendedPosition = this.mesh.position.clone()
-        .addScaledVector(this.velocity, delta);
-      
-      const collision = checkLostSoulCollision(
-        this.mesh.position, 
-        intendedPosition, 
-        collidableObjects, 
-        CONFIG.LOST_SOUL_COLLISION_RADIUS
-      );
-      
-      if (collision.hasCollision && collision.distance < CONFIG.LOST_SOUL_COLLISION_RADIUS * 0.7) {
-        const correction = applyLostSoulCollisionCorrection(this, collidableObjects, targetPosition);
-        if (correction.corrected) {
-          this.velocity.copy(correction.newDirection)
-            .multiplyScalar(this.config.speed * CONFIG.LOST_SOUL_WALL_AVOIDANCE);
-        }
-      }
-    }
-    
+    // Movimento simples - apenas move em direção ao player
     this.mesh.position.addScaledVector(this.velocity, delta);
     this.orientSkull(targetPosition);
     this.updateBoundingBox();
@@ -230,7 +212,6 @@ export class LostSoul extends Enemy {
     this.timeSinceLastDash += delta;
     
     const distanceToTarget = this.mesh.position.distanceTo(targetPosition);
-    const DASH_TRIGGER_DISTANCE = 8.0;
     const DASH_MAX_DISTANCE = 15.0;
     
     // Start dash
@@ -242,8 +223,6 @@ export class LostSoul extends Enemy {
       this.isDashing = true;
       this.timeSinceLastDash = 0;
       this.dashDirection.subVectors(targetPosition, this.mesh.position).normalize();
-      
-      // Kamikaze dash log removido para limpeza do console
     }
     
     // End dash
@@ -251,39 +230,18 @@ export class LostSoul extends Enemy {
       this.isDashing = false;
       this.timeSinceLastDash = 0;
     }
-    
-    // Execute dash movement
-    if (this.isDashing) {
-      const dashVelocity = this.dashDirection.clone()
-        .multiplyScalar(this.dashSpeed * 1.5);
-      
-      // Check collision during dash
-      if (collidableObjects.length > 0) {
-        const intendedPosition = this.mesh.position.clone()
-          .addScaledVector(dashVelocity, delta);
-        
-        const collision = checkLostSoulCollision(
-          this.mesh.position, 
-          intendedPosition, 
-          collidableObjects, 
-          CONFIG.LOST_SOUL_COLLISION_RADIUS * 0.8
-        );
-        
-        if (collision.hasCollision) {
-          this.isDashing = false;
-          this.timeSinceLastDash = this.config.dashInterval * 0.5;
-          return;
-        }
-      }
-      
-      this.mesh.position.addScaledVector(dashVelocity, delta);
-      this.checkPlayerCollision(targetPosition);
-    }
   }
 
   moveTowards(targetPosition, delta, collidableObjects = []) {
-    if (!this.isAlive || this.isDashing) return;
-    this.moveTowards6DOF(targetPosition, delta, collidableObjects);
+    if (!this.isAlive) return;
+    
+    // Durante dash, usa velocidade de dash; caso contrário, movimento normal
+    if (this.isDashing) {
+      const dashVelocity = this.dashDirection.clone().multiplyScalar(this.dashSpeed);
+      this.mesh.position.addScaledVector(dashVelocity, delta);
+    } else {
+      this.moveTowards6DOF(targetPosition, delta, collidableObjects);
+    }
   }
 
   idleBehavior(delta) {
@@ -315,22 +273,26 @@ export class LostSoul extends Enemy {
   }
 
   onDeath() {
+    // Call parent death method which handles the fade animation
     super.onDeath();
-    this.deathTimer = 0;
-    this.deathDuration = 2.0;
   }
 
   checkPlayerCollision(targetPosition) {
-    if (!this.isDashing) return false;
-    
     const distanceToPlayer = this.mesh.position.distanceTo(targetPosition);
     
     if (distanceToPlayer <= this.config.collisionRadius) {
-      // Kamikaze hit log removido para limpeza do console
+      console.log('[LostSoul] Collision detected! Distance:', distanceToPlayer.toFixed(2));
       
+      // Sempre causa dano quando encosta no player
       this.dealDamageToPlayer(this.config.kamikazeDamage);
+      
+      // Sempre cria efeito de explosão
       this.createExplosionEffect();
-      this.performKamikazeDeath();
+      
+      // Morre imediatamente
+      this.currentHealth = 0;
+      this.isAlive = false;
+      this.onDeath();
       
       return true;
     }
@@ -344,61 +306,22 @@ export class LostSoul extends Enemy {
     } else {
       console.warn('[KAMIKAZE] Player damage system not available!');
     }
-  }
-  
-  createExplosionEffect() {
-    const explosionGeometry = new THREE.SphereGeometry(0.5, 8, 8);
-    const explosionMaterial = new THREE.MeshBasicMaterial({ 
-      color: 0xFF4444, 
-      transparent: true, 
-      opacity: 0.8 
-    });
-    const explosionMesh = new THREE.Mesh(explosionGeometry, explosionMaterial);
-    explosionMesh.position.copy(this.mesh.position);
-    
-    if (this.mesh.parent) {
-      this.mesh.parent.add(explosionMesh);
-      
-      let scale = 0.1;
-      let opacity = 0.8;
-      const animate = () => {
-        scale += 0.3;
-        opacity -= 0.1;
-        
-        explosionMesh.scale.set(scale, scale, scale);
-        explosionMaterial.opacity = opacity;
-        
-        if (opacity > 0) {
-          requestAnimationFrame(animate);
-        } else {
-          if (explosionMesh?.parent) {
-            explosionMesh.parent.remove(explosionMesh);
-          }
-          explosionGeometry.dispose();
-          explosionMaterial.dispose();
-        }
-      };
-      animate();
-    }
-  }
-  
-  performKamikazeDeath() {
-    this.isAlive = false;
-    this.mesh.visible = false;
-    
-    setTimeout(() => {
-      if (this.mesh?.parent) {
-        this.mesh.parent.remove(this.mesh);
-      }
-      this.dispose();
-    }, 100);
-  }
+ }
+
+  // Sistema de cache de colisão removido para simplificar
 
   update(delta, camera, targetPosition, collidableObjects = []) {
-    if (!this.isAlive) return;
+    // Call parent update which handles death fade animation
+    super.update(delta, camera, targetPosition, collidableObjects);
+    
+    // Only process Lost Soul specific behavior if alive and not dying
+    if (!this.isAlive || this.isDying) return;
     
     this.updateDash(delta, targetPosition, collidableObjects);
     this.moveTowards(targetPosition, delta, collidableObjects);
+    
+    // Always check for player collision (both during dash and normal movement)
+    this.checkPlayerCollision(targetPosition);
     
     if (this.healthBarGroup && camera) {
       this.healthBarGroup.lookAt(camera.position);
@@ -407,5 +330,51 @@ export class LostSoul extends Enemy {
 
   dispose() {
     super.dispose();
+  }
+
+  createExplosionEffect() {
+    if (!this.mesh || !this.mesh.parent) return;
+    
+    // Efeito simples de explosão - apenas algumas partículas
+    const particleCount = 5;
+    
+    for (let i = 0; i < particleCount; i++) {
+      const particle = new THREE.Mesh(
+        new THREE.SphereGeometry(0.1, 6, 6),
+        new THREE.MeshBasicMaterial({ 
+          color: 0xff4444,
+          transparent: true,
+          opacity: 0.8
+        })
+      );
+      
+      particle.position.copy(this.mesh.position);
+      
+      // Direção aleatória
+      const direction = new THREE.Vector3(
+        (Math.random() - 0.5) * 2,
+        (Math.random() - 0.5) * 2,
+        (Math.random() - 0.5) * 2
+      ).normalize().multiplyScalar(Math.random() * 3 + 2);
+      
+      this.mesh.parent.add(particle);
+      
+      // Animar partícula
+      let life = 1.0;
+      const animate = () => {
+        if (life > 0) {
+          particle.position.add(direction.clone().multiplyScalar(0.016));
+          life -= 0.016 * 3; // Fade rápido
+          particle.material.opacity = life;
+          particle.scale.setScalar(life);
+          requestAnimationFrame(animate);
+        } else {
+          if (particle.parent) particle.parent.remove(particle);
+          particle.geometry.dispose();
+          particle.material.dispose();
+        }
+      };
+      animate();
+    }
   }
 }

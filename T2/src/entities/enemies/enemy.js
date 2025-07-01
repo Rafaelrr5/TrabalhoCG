@@ -51,8 +51,13 @@ export function updateEnemies(delta, scene, camera, gun = null, collidableObject
 export function cleanupDeadEnemies(scene) {
   for (let i = enemies.length - 1; i >= 0; i--) {
     const enemy = enemies[i];
-    if (!enemy.isAlive && enemy.mesh.visible === false) {
-      scene.remove(enemy.mesh);
+    
+    // Remove enemies that have completed their death animation
+    // or are no longer in the scene
+    if (!enemy.isAlive && (!enemy.mesh.parent || enemy.fadeCompleted)) {
+      if (enemy.mesh.parent) {
+        enemy.mesh.parent.remove(enemy.mesh);
+      }
       enemy.dispose();
       enemies.splice(i, 1);
     }

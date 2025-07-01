@@ -1,6 +1,9 @@
 import * as THREE from '../../../../../build/three.module.js';
 import { CONFIG } from '../../../core/config.js';
 
+// Import collision functions
+import { checkLostSoulCollision, applyLostSoulCollisionCorrection } from '../../../systems/collision.js';
+
 // Base Enemy class with simplified configuration and cleaner structure
 export class Enemy {
   constructor(position = [0, 0, 0], config = {}) {
@@ -21,6 +24,10 @@ export class Enemy {
     this.maxHealth = this.config.maxHealth;
     this.currentHealth = this.maxHealth;
     this.isAlive = true;
+    
+    // Death animation system
+    this.isDying = false;
+    this.fadeCompleted = false;
     
     // Movement properties
     this.velocity = new THREE.Vector3();
@@ -93,6 +100,97 @@ export class Enemy {
     if (this.healthBarGroup) {
       this.healthBarGroup.visible = false;
     }
+    
+    // Start death fade animation if enabled
+    if (CONFIG.ENEMY_DEATH_FADE_ENABLED) {
+      this.startDeathFade();
+    } else {
+      // Immediate removal if fade is disabled
+      this.removeFromScene();
+    }
+  }
+
+  startDeathFade() {
+    // Initialize death animation properties
+    this.deathStartTime = performance.now();
+    this.isDying = true;
+    this.originalOpacity = new Map();
+    this.originalScale = this.mesh.scale.clone();
+    
+    // Store original opacity values for all materials
+    this.mesh.traverse((child) => {
+      if (child.isMesh && child.material) {
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        
+        materials.forEach((material, index) => {
+          const key = `${child.uuid}_${index}`;
+          this.originalOpacity.set(key, material.opacity || 1.0);
+          
+          // Ensure material supports transparency
+          material.transparent = true;
+          material.needsUpdate = true;
+        });
+      }
+    });
+  }
+
+  updateDeathFade(currentTime) {
+    if (!this.isDying) return;
+    
+    const elapsedTime = (currentTime - this.deathStartTime) / 1000; // Convert to seconds
+    const fadeDelay = CONFIG.ENEMY_DEATH_FADE_DELAY || 0.5;
+    const fadeDuration = CONFIG.ENEMY_DEATH_FADE_DURATION || 2.0;
+    
+    if (elapsedTime < fadeDelay) {
+      // Still in delay period, no fading yet
+      return;
+    }
+    
+    const fadeElapsed = elapsedTime - fadeDelay;
+    const fadeProgress = Math.min(fadeElapsed / fadeDuration, 1.0);
+    
+    // Calculate fade factor (1.0 = fully visible, 0.0 = fully transparent)
+    const fadeFactor = 1.0 - fadeProgress;
+    
+    // Apply opacity fade
+    this.mesh.traverse((child) => {
+      if (child.isMesh && child.material) {
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        
+        materials.forEach((material, index) => {
+          const key = `${child.uuid}_${index}`;
+          const originalOpacity = this.originalOpacity.get(key) || 1.0;
+          material.opacity = originalOpacity * fadeFactor;
+        });
+      }
+    });
+    
+    // Apply scale effect if enabled
+    if (CONFIG.ENEMY_DEATH_SCALE_EFFECT) {
+      const scaleMultiplier = 1.0 + (1.0 - fadeFactor) * 0.2; // Slight growth during fade
+      this.mesh.scale.copy(this.originalScale).multiplyScalar(scaleMultiplier);
+    }
+    
+    // Apply rotation effect if enabled
+    if (CONFIG.ENEMY_DEATH_ROTATION_EFFECT) {
+      const rotationAmount = (1.0 - fadeFactor) * Math.PI * 2;
+      this.mesh.rotation.y = rotationAmount;
+    }
+    
+    // Remove from scene when fade is complete
+    if (fadeProgress >= 1.0) {
+      this.fadeCompleted = true;
+      setTimeout(() => {
+        this.removeFromScene();
+      }, (CONFIG.ENEMY_DEATH_REMOVE_DELAY || 0.2) * 1000);
+    }
+  }
+
+  removeFromScene() {
+    if (this.mesh && this.mesh.parent) {
+      this.mesh.parent.remove(this.mesh);
+    }
+    this.dispose();
   }
 
   updateBoundingBox() {
@@ -101,6 +199,40 @@ export class Enemy {
 
   checkCollision(otherBoundingBox) {
     return this.boundingBox.intersectsBox(otherBoundingBox);
+  }
+
+  // Generic collision detection for enemies
+  checkEnvironmentCollision(targetPosition, collidableObjects, delta) {
+    if (!CONFIG.LOST_SOUL_ENABLE_COLLISION || !collidableObjects.length) return null;
+    
+    const currentPosition = this.mesh.position;
+    const intendedPosition = currentPosition.clone().addScaledVector(this.velocity, delta);
+    
+    // Use Lost Soul collision system as base (works for all enemies)
+    const collision = checkLostSoulCollision(
+      currentPosition,
+      intendedPosition,
+      collidableObjects,
+      this.config.radius || CONFIG.LOST_SOUL_COLLISION_RADIUS
+    );
+    
+    return collision;
+  }
+
+  // Apply collision correction for any enemy type
+  applyCollisionCorrection(targetPosition, collidableObjects) {
+    if (!CONFIG.LOST_SOUL_ENABLE_COLLISION || !collidableObjects.length) return false;
+    
+    const correction = applyLostSoulCollisionCorrection(this, collidableObjects, targetPosition);
+    
+    if (correction.corrected) {
+      // Apply the corrected direction
+      this.velocity.copy(correction.newDirection)
+        .multiplyScalar(this.config.speed * (CONFIG.LOST_SOUL_WALL_AVOIDANCE || 1.0));
+      return true;
+    }
+    
+    return false;
   }
 
   // Basic movement toward target (ground-based)
@@ -130,7 +262,76 @@ export class Enemy {
     this.updateBoundingBox();
   }
 
-  update(delta, camera, targetPosition) {
+  // Enhanced movement with collision detection
+  moveTowardsWithCollision(targetPosition, delta, collidableObjects = []) {
+    if (!this.isAlive) return;
+    
+    const direction = new THREE.Vector3()
+      .subVectors(targetPosition, this.mesh.position)
+      .setY(0) // Keep on ground for non-flying enemies
+      .normalize();
+    
+    this.velocity.copy(direction).multiplyScalar(this.config.speed);
+    
+    // Check for collision
+    const collision = this.checkEnvironmentCollision(targetPosition, collidableObjects, delta);
+    
+    if (collision && collision.hasCollision) {
+      const safeDistance = CONFIG.LOST_SOUL_COLLISION_DISTANCE || 2.0;
+      
+      if (collision.distance < safeDistance) {
+        // Try to apply collision correction
+        const corrected = this.applyCollisionCorrection(targetPosition, collidableObjects);
+        
+        if (!corrected) {
+          // If no correction possible, slow down movement
+          this.velocity.multiplyScalar(0.2);
+        }
+      }
+    }
+    
+    this.mesh.position.addScaledVector(this.velocity, delta);
+    this.updateBoundingBox();
+  }
+
+  // Enhanced 6DOF movement with collision detection  
+  moveTowards6DOFWithCollision(targetPosition, delta, collidableObjects = []) {
+    if (!this.isAlive) return;
+    
+    const direction = new THREE.Vector3()
+      .subVectors(targetPosition, this.mesh.position)
+      .normalize();
+    
+    this.velocity.copy(direction).multiplyScalar(this.config.speed);
+    
+    // Check for collision
+    const collision = this.checkEnvironmentCollision(targetPosition, collidableObjects, delta);
+    
+    if (collision && collision.hasCollision) {
+      const safeDistance = CONFIG.LOST_SOUL_COLLISION_DISTANCE || 2.0;
+      
+      if (collision.distance < safeDistance) {
+        // Try to apply collision correction
+        const corrected = this.applyCollisionCorrection(targetPosition, collidableObjects);
+        
+        if (!corrected) {
+          // If no correction possible, slow down movement
+          this.velocity.multiplyScalar(0.2);
+        }
+      }
+    }
+    
+    this.mesh.position.addScaledVector(this.velocity, delta);
+    this.updateBoundingBox();
+  }
+
+  update(delta, camera, targetPosition, collidableObjects = []) {
+    // Update death fade animation if dying
+    if (this.isDying) {
+      this.updateDeathFade(performance.now());
+      return; // Don't process normal behavior while dying
+    }
+    
     if (!this.isAlive) return;
     
     this.moveTowards(targetPosition || camera.position, delta);
