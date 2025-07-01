@@ -119,6 +119,23 @@ export class Enemy {
     this.updateBoundingBox();
   }
 
+  // Enhanced 6DOF movement method for flying enemies
+  moveTowards6DOF(targetPosition, delta) {
+    if (!this.isAlive) return;
+    
+    // Calculate full 3D direction vector (including Y axis)
+    const direction = new THREE.Vector3();
+    direction.subVectors(targetPosition, this.mesh.position);
+    direction.normalize();
+    
+    // Apply movement in all 3 axes
+    this.velocity.copy(direction).multiplyScalar(this.config.speed);
+    this.mesh.position.addScaledVector(this.velocity, delta);
+    
+    // Update bounding box after movement
+    this.updateBoundingBox();
+  }
+
   update(delta, gun) {
     if (!this.isAlive) return;
     

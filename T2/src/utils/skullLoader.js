@@ -26,6 +26,10 @@ export function fixMaterial(material) {
 
 // Simple fallback skull creation if model loading fails
 export function createFallbackSkull() {
+  // Create a wrapper group to handle pivot point correctly
+  const wrapperGroup = new THREE.Group();
+  
+  // Create the skull components
   const group = new THREE.Group();
   const skullGeometry = new THREE.SphereGeometry(0.8, 16, 16);
   const skullMaterial = new THREE.MeshLambertMaterial({ color: 0xdddddd, side: THREE.DoubleSide });
@@ -47,8 +51,21 @@ export function createFallbackSkull() {
   nose.rotation.x = Math.PI;
   group.add(nose);
 
-  group.scale.set(0.3, 0.3, 0.3);
-  return group;
+  // Calculate center and adjust positioning
+  const box = new THREE.Box3().setFromObject(group);
+  const center = box.getCenter(new THREE.Vector3());
+  group.position.sub(center); // Center the skull at origin
+  
+  // Apply rotation to the skull components
+  group.rotation.x = Math.PI / 2;
+  
+  // Add centered group to wrapper
+  wrapperGroup.add(group);
+  
+  // Apply scale to the wrapper group
+  wrapperGroup.scale.set(0.3, 0.3, 0.3);
+  
+  return wrapperGroup;
 }
 
 // Fallback OBJ loader without materials
@@ -64,10 +81,31 @@ function loadWithoutMaterials(resolve, reject) {
         fixMaterial(child.material);
       }
     });
-    object.scale.set(0.3, 0.3, 0.3);
+    
+    // Create a wrapper group to handle pivot point correctly
+    const wrapperGroup = new THREE.Group();
+    
+    // Calculate the center of the loaded model
+    const box = new THREE.Box3().setFromObject(object);
+    const center = box.getCenter(new THREE.Vector3());
+    
+    // Move the model so its center is at the wrapper's origin
+    object.position.sub(center);
+    
+    // Apply rotation to the model
     object.rotation.x = Math.PI / 2;
-    skullModel = object.clone();
-    resolve(object);
+    
+    // Add the centered and rotated model to the wrapper
+    wrapperGroup.add(object);
+    
+    // Apply scale to the wrapper group
+    wrapperGroup.scale.set(0.3, 0.3, 0.3);
+    
+    // Force matrix updates
+    wrapperGroup.updateMatrixWorld(true);
+    
+    skullModel = wrapperGroup.clone();
+    resolve(wrapperGroup);
   }, undefined, (error) => {
     console.warn('SkullLoader: failed without materials, using fallback', error);
     const fallback = createFallbackSkull();
@@ -96,10 +134,31 @@ export function loadSkullModel() {
               mats.forEach(fixMaterial);
             }
           });
-          object.scale.set(0.3, 0.3, 0.3);
+          
+          // Create a wrapper group to handle pivot point correctly
+          const wrapperGroup = new THREE.Group();
+          
+          // Calculate the center of the loaded model
+          const box = new THREE.Box3().setFromObject(object);
+          const center = box.getCenter(new THREE.Vector3());
+          
+          // Move the model so its center is at the wrapper's origin
+          object.position.sub(center);
+          
+          // Apply rotation to the model
           object.rotation.x = Math.PI / 2;
-          skullModel = object.clone();
-          resolve(object);
+          
+          // Add the centered and rotated model to the wrapper
+          wrapperGroup.add(object);
+          
+          // Apply scale to the wrapper group
+          wrapperGroup.scale.set(0.3, 0.3, 0.3);
+          
+          // Force matrix updates
+          wrapperGroup.updateMatrixWorld(true);
+          
+          skullModel = wrapperGroup.clone();
+          resolve(wrapperGroup);
         }, undefined, (err) => loadWithoutMaterials(resolve, reject));
       } catch (err) {
         console.warn('SkullLoader: mtl preload failed, fallback', err);

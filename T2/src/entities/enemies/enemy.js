@@ -1,6 +1,7 @@
 // ============================================================================
 // Enemy implementation for Lost Soul-like behavior in Area 1
 // ============================================================================
+import * as THREE from '../../../../build/three.module.js';
 import { LostSoul } from './types/lostSoul.js';
 import { preloadSkullModel } from '../../utils/skullLoader.js';
 import { CONFIG } from '../../core/config.js';
@@ -17,7 +18,7 @@ export async function preloadEnemies() {
 // Create Lost Soul enemies at predefined positions
 export async function createEnemies(scene) {
   await preloadEnemies();
-  const y = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT / 2 + 1.0;
+  const y = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT / 2 + 20.0; // Significantly increased spawn height
   const positions = [
     [-170, y, -140],
     [-160, y, -130],
@@ -33,12 +34,23 @@ export async function createEnemies(scene) {
 }
 
 // Update all enemies; fade out dead ones
-export function updateEnemies(delta, scene, camera) {
+export function updateEnemies(delta, scene, camera, gun = null) {
+  // Use camera position as target for Lost Souls - they chase the player's eyes/head
+  const targetPosition = camera.position;
+  
+  // Debug log every 3 seconds
+  if (!updateEnemies.lastDebugTime) updateEnemies.lastDebugTime = 0;
+  updateEnemies.lastDebugTime += delta;
+  if (updateEnemies.lastDebugTime >= 3.0) {
+    console.log(`[Enemy Manager] Camera position: (${targetPosition.x.toFixed(2)}, ${targetPosition.y.toFixed(2)}, ${targetPosition.z.toFixed(2)})`);
+    updateEnemies.lastDebugTime = 0;
+  }
+
   // Update all enemies; they handle idle vs chase internally
   enemies.forEach(enemy => {
     if (isPlayerInArea1(camera)) {
-      // Active behavior: chase with dashes
-      enemy.update(delta, camera);
+      // Active behavior: chase with dashes towards camera position
+      enemy.update(delta, camera, targetPosition);
     } else if (typeof enemy.idleBehavior === 'function') {
       // Idle floating outside area
       enemy.idleBehavior(delta);

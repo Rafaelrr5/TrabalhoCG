@@ -18,6 +18,47 @@
                 font-size: 24px;
                 pointer-events: none;
             }
+            
+            /* Controles de teste de escala */
+            #scale-test-controls {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 15px;
+                border-radius: 10px;
+                font-family: Arial, sans-serif;
+                font-size: 14px;
+                z-index: 1000;
+                min-width: 200px;
+            }
+            
+            #scale-test-controls h4 {
+                margin: 0 0 10px 0;
+                color: #ff6b6b;
+            }
+            
+            #scale-test-controls button {
+                background: #333;
+                color: white;
+                border: none;
+                padding: 5px 10px;
+                margin: 2px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 12px;
+            }
+            
+            #scale-test-controls button:hover {
+                background: #555;
+            }
+            
+            #scale-test-controls .scale-info {
+                color: #ccc;
+                font-size: 12px;
+                margin-top: 10px;
+            }
         </style>
    </head>
    <body>
@@ -26,6 +67,28 @@
          {"imports": {"three": "../build/three.module.js"}} 
       </script>  
       <div id="crosshair">+</div>
+      
+      <!-- Controles de teste de escala das skulls -->
+      <div id="scale-test-controls">
+          <h4>🦴 Teste Escala Skulls</h4>
+          <div>
+              <button onclick="window.setSkullScale && window.setSkullScale(0.05)">0.05</button>
+              <button onclick="window.setSkullScale && window.setSkullScale(0.1)">0.1</button>
+              <button onclick="window.setSkullScale && window.setSkullScale(0.2)">0.2</button>
+              <button onclick="window.setSkullScale && window.setSkullScale(0.3)">0.3</button>
+              <button onclick="window.setSkullScale && window.setSkullScale(0.5)">0.5</button>
+              <button onclick="window.setSkullScale && window.setSkullScale(1.0)">1.0</button>
+          </div>
+          <div style="margin-top: 10px;">
+              <button onclick="window.testSkullMovement && window.testSkullMovement()">Testar Movimento</button>
+              <button onclick="window.resetSkullTest && window.resetSkullTest()">Reset</button>
+          </div>
+          <div class="scale-info">
+              <div>Escala atual: <span id="current-scale">0.3</span></div>
+              <div>Skulls ativas: <span id="active-skulls">0</span></div>
+          </div>
+      </div>
+      
       <div id="webgl-output">     
          <script type="module" src="src/core/main.js"></script>
       </div>
