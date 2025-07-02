@@ -9,8 +9,7 @@ import {
   cleanupDeadCacodemons, 
   preloadCacodemons,
   createCacodemons,
-  getCacodeemonCount,
-  testCreateSingleCacodemon
+  getCacodeemonCount
 } from './cacodemonManager.js';
 
 export const enemies = [];
@@ -40,15 +39,6 @@ export async function createEnemies(scene) {
     scene.add(enemy.mesh);
   });
   console.log(`Created ${enemies.length} Lost Souls`);
-  
-  // Test: Create a single Cacodemon first
-  console.log('=== TESTING SINGLE CACODEMON ===');
-  const testCacodemon = testCreateSingleCacodemon(scene);
-  if (testCacodemon) {
-    console.log('Test Cacodemon creation successful!');
-  } else {
-    console.error('Test Cacodemon creation failed!');
-  }
   
   // Create Cacodemons for Area 2
   console.log('About to create Cacodemons...');

@@ -14,7 +14,20 @@ console.log('CACODEMON_CONFIG:', CACODEMON_CONFIG);
 
 export const cacodemons = [];
 
-// Global function to access cacodemons for debugging
+// Safety check: Ensure no more than 3 cacodemons are ever created
+const MAX_CACODEMONS = 3;
+
+// Override push method to enforce limit
+const originalPush = cacodemons.push;
+cacodemons.push = function(...args) {
+  if (this.length >= MAX_CACODEMONS) {
+    console.warn(`[CacodeemonManager] SAFETY BLOCK: Attempted to create cacodemon #${this.length + 1}, but maximum is ${MAX_CACODEMONS}`);
+    return this.length;
+  }
+  return originalPush.apply(this, args);
+};
+
+// Debug functions for cacodemon management
 if (typeof window !== 'undefined') {
   window.getCacodemons = () => cacodemons;
   window.debugCacodemons = () => {
@@ -45,59 +58,31 @@ if (typeof window !== 'undefined') {
       console.log(`Cacodemon ${index + 1} reset to spawn position:`, cacodemon.spawnPosition);
     });
   };
-}
-
-// Test function to force create a single Cacodemon
-export function testCreateSingleCacodemon(scene) {
-  console.log('=== TESTING: Creating single Cacodemon ===');
-  try {
-    const testPosition = [0, 10, -100]; // Visible test position
-    console.log('Creating test Cacodemon at:', testPosition);
-    
-    const cacodemon = new Cacodemon(testPosition);
-    console.log('Cacodemon created:', cacodemon);
-    
-    cacodemons.push(cacodemon);
-    scene.add(cacodemon.mesh);
-    
-    console.log('Test Cacodemon added to scene and array');
-    console.log('Current cacodemons count:', cacodemons.length);
-    console.log('=== TEST COMPLETE ===');
-    
-    return cacodemon;
-  } catch (error) {
-    console.error('Error creating test Cacodemon:', error);
-    return null;
-  }
-}
-
-// Test function to create multiple Cacodemons for movement testing
-export function testCreateMultipleCacodemons(scene, count = 3) {
-  console.log(`=== TESTING: Creating ${count} Cacodemons for movement testing ===`);
   
-  const testPositions = [
-    [0, 15, -80],    // Front center
-    [-20, 15, -100], // Left side
-    [20, 15, -100]   // Right side
-  ];
-  
-  for (let i = 0; i < Math.min(count, testPositions.length); i++) {
-    try {
-      const position = testPositions[i];
-      console.log(`Creating test Cacodemon ${i + 1} at:`, position);
-      
-      const cacodemon = new Cacodemon(position);
-      cacodemons.push(cacodemon);
-      scene.add(cacodemon.mesh);
-      
-      console.log(`Test Cacodemon ${i + 1} added successfully`);
-    } catch (error) {
-      console.error(`Error creating test Cacodemon ${i + 1}:`, error);
+  // Function to fix cacodemon count if there are more than 3
+  window.fixCacodeemonCount = (scene) => {
+    console.log('=== FIXING CACODEMON COUNT ===');
+    console.log('Current count:', cacodemons.length);
+    
+    if (cacodemons.length > 3) {
+      console.log('Too many cacodemons detected, removing extras...');
+      // Remove extra cacodemons (keep first 3)
+      const extraCacodemons = cacodemons.splice(3);
+      extraCacodemons.forEach((cacodemon, index) => {
+        console.log(`Removing extra cacodemon ${index + 4}`);
+        if (cacodemon.mesh.parent) {
+          cacodemon.mesh.parent.remove(cacodemon.mesh);
+        }
+        if (cacodemon.dispose) {
+          cacodemon.dispose();
+        }
+      });
+      console.log(`Removed ${extraCacodemons.length} extra cacodemons`);
     }
-  }
-  
-  console.log(`=== TEST COMPLETE: ${cacodemons.length} Cacodemons created ===`);
-  return cacodemons.length;
+    
+    console.log('Final count:', cacodemons.length);
+    console.log('=== FIX COMPLETE ===');
+  };
 }
 
 // Debug function to check smooth movement
@@ -126,26 +111,56 @@ export async function preloadCacodemons() {
 
 export async function createCacodemons(scene, area = 'area2') {
   console.log(`[CacodeemonManager] Creating Cacodemons for ${area}...`);
+  console.log(`[CacodeemonManager] Current cacodemon count before creation: ${cacodemons.length}`);
+  
+  // Check if we already have cacodemons to prevent duplicates
+  if (cacodemons.length > 0) {
+    console.log(`[CacodeemonManager] Cacodemons already exist (${cacodemons.length}), skipping creation`);
+    return;
+  }
+  
   await preloadCacodemons();
   
   // TODO: Configure positions based on specific area when details are provided
   const positions = getCacodeemonPositions(area);
   console.log(`[CacodeemonManager] Cacodemon spawn positions for ${area}:`, positions);
   
-  positions.forEach(([x, y, z], index) => {
+  // Ensure we only create exactly 3 Cacodemons maximum - STRICT LIMIT
+  const maxCacodemons = 3;
+  const positionsToUse = positions.slice(0, maxCacodemons);
+  
+  console.log(`[CacodeemonManager] Creating ${positionsToUse.length} Cacodemons (max: ${maxCacodemons})`);
+  console.log(`[CacodeemonManager] STRICT CHECK: Will not create more than ${maxCacodemons} total cacodemons`);
+  
+  let createdCount = 0;
+  positionsToUse.forEach(([x, y, z], index) => {
+    // Double check to never exceed 3 cacodemons total
+    if (cacodemons.length >= maxCacodemons) {
+      console.warn(`[CacodeemonManager] SAFETY LIMIT: Already have ${cacodemons.length} cacodemons, stopping creation`);
+      return;
+    }
+    
     console.log(`[CacodeemonManager] Creating Cacodemon ${index + 1} at position [${x}, ${y}, ${z}]`);
     try {
       const cacodemon = new Cacodemon([x, y, z]);
       cacodemons.push(cacodemon);
       scene.add(cacodemon.mesh);
+      createdCount++;
       console.log(`[CacodeemonManager] Cacodemon ${index + 1} successfully added to scene`);
       console.log(`[CacodeemonManager] Mesh position:`, cacodemon.mesh.position);
+      console.log(`[CacodeemonManager] Total cacodemons now: ${cacodemons.length}`);
     } catch (error) {
       console.error(`[CacodeemonManager] Error creating Cacodemon ${index + 1}:`, error);
     }
   });
   
-  console.log(`[CacodeemonManager] Created ${cacodemons.length} Cacodemons in ${area}`);
+  console.log(`[CacodeemonManager] FINAL RESULT: Created ${createdCount} new Cacodemons`);
+  console.log(`[CacodeemonManager] FINAL COUNT: ${cacodemons.length} total Cacodemons in ${area}`);
+  
+  // Final safety check
+  if (cacodemons.length > maxCacodemons) {
+    console.error(`[CacodeemonManager] CRITICAL ERROR: Created ${cacodemons.length} cacodemons, exceeds maximum of ${maxCacodemons}!`);
+  }
 }
 
 function getCacodeemonPositions(area) {
