@@ -1,16 +1,5 @@
-/**
- * Centralized Lighting System
- * 
- * This module handles all lighting setup and configuration for the game.
- * It provides a unified interface for managing ambient lighting, directional lighting,
- * shadows, and light helpers.
- */
-
 import * as THREE from '../../../build/three.module.js';
 
-/**
- * Configuration for the lighting system
- */
 const LIGHTING_CONFIG = {
     ambient: {
         color: "rgb(80,80,80)",
@@ -40,9 +29,6 @@ const LIGHTING_CONFIG = {
     }
 };
 
-/**
- * Main lighting system class
- */
 class LightingSystem {
     constructor() {
         this.ambientLight = null;
@@ -52,12 +38,6 @@ class LightingSystem {
         this.helpers = [];
     }
 
-    /**
-     * Initialize the complete lighting system for a scene
-     * @param {THREE.Scene} scene - The Three.js scene to add lights to
-     * @param {THREE.WebGLRenderer} renderer - The Three.js renderer for shadow configuration
-     * @param {Object} options - Optional configuration overrides
-     */
     init(scene, renderer, options = {}) {
         // Merge options with default config
         const config = this._mergeConfig(LIGHTING_CONFIG, options);
@@ -79,32 +59,18 @@ class LightingSystem {
         console.log('Lighting system initialized');
     }
 
-    /**
-     * Configure renderer shadow settings
-     * @param {THREE.WebGLRenderer} renderer 
-     */
     _setupShadows(renderer) {
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFShadowMap;
         renderer.shadowMap.autoUpdate = true;
     }
 
-    /**
-     * Setup ambient lighting
-     * @param {THREE.Scene} scene 
-     * @param {Object} config 
-     */
     _setupAmbientLight(scene, config) {
         this.ambientLight = new THREE.AmbientLight(config.color, config.intensity);
         scene.add(this.ambientLight);
         this.lights.push(this.ambientLight);
     }
 
-    /**
-     * Setup directional lighting with shadows
-     * @param {THREE.Scene} scene 
-     * @param {Object} config 
-     */
     _setupDirectionalLight(scene, config) {
         this.directionalLight = new THREE.DirectionalLight(config.color, config.intensity);
         
@@ -141,11 +107,6 @@ class LightingSystem {
         this.lights.push(this.directionalLight);
     }
 
-    /**
-     * Setup light helpers for debugging
-     * @param {THREE.Scene} scene 
-     * @param {Object} config 
-     */
     _setupLightHelpers(scene, config) {
         if (this.directionalLight) {
             this.directionalLightHelper = new THREE.DirectionalLightHelper(
@@ -157,12 +118,6 @@ class LightingSystem {
         }
     }
 
-    /**
-     * Merge configuration objects recursively
-     * @param {Object} defaultConfig 
-     * @param {Object} userConfig 
-     * @returns {Object}
-     */
     _mergeConfig(defaultConfig, userConfig) {
         const result = { ...defaultConfig };
         
@@ -177,11 +132,6 @@ class LightingSystem {
         return result;
     }
 
-    /**
-     * Update ambient light color and intensity
-     * @param {string|number} color - Light color
-     * @param {number} intensity - Light intensity
-     */
     updateAmbientLight(color, intensity) {
         if (this.ambientLight) {
             this.ambientLight.color.set(color);
@@ -189,10 +139,6 @@ class LightingSystem {
         }
     }
 
-    /**
-     * Update directional light properties
-     * @param {Object} options - Light properties to update
-     */
     updateDirectionalLight(options = {}) {
         if (!this.directionalLight) return;
         
@@ -213,20 +159,12 @@ class LightingSystem {
         }
     }
 
-    /**
-     * Show or hide light helpers
-     * @param {boolean} visible 
-     */
     setHelpersVisible(visible) {
         this.helpers.forEach(helper => {
             helper.visible = visible;
         });
     }
 
-    /**
-     * Enable shadows for all meshes in a scene or object
-     * @param {THREE.Scene|THREE.Object3D} object - Scene or object to enable shadows for
-     */
     enableShadowsForAll(object) {
         object.traverse(child => {
             if (child.isMesh) {
@@ -236,9 +174,6 @@ class LightingSystem {
         });
     }
 
-    /**
-     * Dispose of all lights and helpers
-     */
     dispose() {
         // Dispose lights
         this.lights.forEach(light => {
@@ -260,7 +195,6 @@ class LightingSystem {
             }
         });
         
-        // Clear arrays
         this.lights = [];
         this.helpers = [];
         this.ambientLight = null;
@@ -268,19 +202,10 @@ class LightingSystem {
         this.directionalLightHelper = null;
     }
 
-    /**
-     * Get all lights in the system
-     * @returns {Array<THREE.Light>}
-     */
     getAllLights() {
         return [...this.lights];
     }
 
-    /**
-     * Get specific light by type
-     * @param {string} type - 'ambient' or 'directional'
-     * @returns {THREE.Light|null}
-     */
     getLight(type) {
         switch (type.toLowerCase()) {
             case 'ambient':
