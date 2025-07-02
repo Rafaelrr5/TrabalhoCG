@@ -134,7 +134,6 @@ export class CacodeemonProjectile {
   
   createHitEffect(position) {
     // TODO: Implement hit particle effect
-    console.log('Creating hit effect at:', position);
   }
   
   updateEffects(delta) {
