@@ -178,7 +178,10 @@ export class Cacodemon extends Enemy {
     // Call parent update first to handle death fade animation
     super.update(delta, camera, playerHitbox, collidableObjects);
     
-    // Only process Cacodemon specific behavior if alive and not dying
+    // Always update projectiles, even when dying, so they continue moving
+    this.updateProjectiles(delta, collidableObjects);
+    
+    // Only process other Cacodemon specific behavior if alive and not dying
     if (!this.isAlive || this.isDying) return;
 
     // Update floating animation
@@ -186,9 +189,6 @@ export class Cacodemon extends Enemy {
     
     // Update attack system
     this.updateAttackSystem(delta, camera, playerHitbox);
-    
-    // Update projectiles
-    this.updateProjectiles(delta, collidableObjects);
     
     // Apply movement and collision
     this.updateMovement(delta, collidableObjects, camera);
