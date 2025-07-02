@@ -85,11 +85,15 @@ export class Cacodemon extends Enemy {
       
       this.mesh.add(this.model);
       
+      // Ensure health bar is positioned correctly above the model
+      this.repositionHealthBar();
+      
       this.modelLoaded = true;
       
     } catch (error) {
       console.error('Failed to load Cacodemon GLB model:', error);
       this.createPlaceholderGeometry();
+      this.repositionHealthBar();
       this.modelLoaded = false;
     }
   }
@@ -116,36 +120,40 @@ export class Cacodemon extends Enemy {
   }
 
   createPlaceholderGeometry() {
-    if (this.modelLoaded) {
-      return;
-    }
-    // modelLoaded já é inicializado no initializeCacodemon
-    
-    const fallbackConfig = {
-      scale: 1.0,
-      fallback: {
-        type: 'sphere',
-        radius: this.config.radius,
-        color: this.config.color
-      }
-    };
-    
-    const fallbackModel = createFallbackModel(fallbackConfig);
-    
-    fallbackModel.traverse((child) => {
-      if (child.isMesh && child.material) {
-        child.material.transparent = true;
-        child.material.opacity = 0.8;
-      }
+    const geometry = new THREE.SphereGeometry(this.config.radius, 16, 12);
+    const material = new THREE.MeshLambertMaterial({ 
+      color: this.config.color,
+      transparent: true,
+      opacity: 0.8
     });
     
-    this.placeholderMesh = fallbackModel;
+    this.placeholderMesh = new THREE.Mesh(geometry, material);
+    this.placeholderMesh.castShadow = true;
+    this.placeholderMesh.receiveShadow = true;
+    
     this.mesh.add(this.placeholderMesh);
     
-    this.createPlaceholderDetails();
+    // Create spikes for more menacing appearance
+    this.createSpikes();
   }
 
-  createPlaceholderDetails() {
+  repositionHealthBar() {
+    if (!this.healthBarGroup) return;
+    
+    // Get the height of the model to position health bar above it
+    let modelHeight = this.config.radius * 2; // Default fallback
+    
+    if (this.model) {
+      const box = new THREE.Box3().setFromObject(this.model);
+      modelHeight = box.max.y - box.min.y;
+    }
+    
+    // Position health bar above the model with some padding
+    const yOffset = modelHeight / 2 + 0.5;
+    this.healthBarGroup.position.set(0, yOffset, 0);
+  }
+
+  createSpikes() {
     const spikeGeometry = new THREE.ConeGeometry(0.1, 0.5, 6);
     const spikeMaterial = new THREE.MeshLambertMaterial({ color: 0x660000 });
     
@@ -185,8 +193,11 @@ export class Cacodemon extends Enemy {
     // Apply movement and collision
     this.updateMovement(delta, collidableObjects, camera);
     
-    // Update health bar
+    // Update health bar and make it face camera
     this.updateHealthBar();
+    if (this.healthBarGroup && camera) {
+      this.healthBarGroup.lookAt(camera.position);
+    }
     
     // Update bounding box
     this.updateBoundingBox();
