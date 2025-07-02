@@ -226,6 +226,7 @@ function createEnvironment() {
     createWalls(scene, collidableObjects);
     createAreas(scene, collidableObjects);
     gun = createGun(camera); // Captura a referência da arma
+    gun.init(scene); // Inicializa a arma com a cena
     // Spawn Lost Soul enemies (they will idle until Area 1 entry)
     createEnemies(scene);
 }
