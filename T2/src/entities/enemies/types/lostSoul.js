@@ -51,17 +51,10 @@ export class LostSoul extends Enemy {
 
   async loadSkull() {
     try {
-      
-      // Precarregar o modelo (opcional, para performance)
       await preloadSkullModel();
-      
-      // Carregar o modelo original
-      const loadedModel = await loadSkullModel();
-      
-      // Criar um grupo wrapper para controlar o pivot point
+      const loadedModel = await loadSkullModel()
       const skullWrapper = new THREE.Group();
       
-      // Clone model with unique materials
       const clonedModel = loadedModel.clone();
       clonedModel.traverse(child => {
         if (child.isMesh) {
@@ -77,15 +70,11 @@ export class LostSoul extends Enemy {
       // Calcular o centro geométrico do modelo
       const box = new THREE.Box3().setFromObject(clonedModel);
       const center = box.getCenter(new THREE.Vector3());
-      const size = box.getSize(new THREE.Vector3());
       
-      // Mover o modelo carregado para que seu centro fique na origem do grupo
       clonedModel.position.sub(center);
       
-      // Adicionar o modelo ao grupo
       skullWrapper.add(clonedModel);
       
-      // Aplicar configurações iniciais ao grupo (agora centralizado)
       skullWrapper.rotation.set(
         Math.PI / 2, // rotação X padrão
         this.config.skullYRotationOffset,
@@ -93,7 +82,6 @@ export class LostSoul extends Enemy {
       );
       skullWrapper.scale.setScalar(this.config.skullScale);
       
-      // Habilitar sombras
       skullWrapper.traverse((child) => {
         if (child.isMesh) {
           child.castShadow = true;

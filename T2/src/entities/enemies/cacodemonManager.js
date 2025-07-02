@@ -85,10 +85,6 @@ export async function createCacodemons(scene, area = 'area2') {
       console.error(`[CacodeemonManager] Error creating Cacodemon ${index + 1}:`, error);
     }
   });
-  
-  if (cacodemons.length > maxCacodemons) {
-    console.error(`[CacodeemonManager] CRITICAL ERROR: Created ${cacodemons.length} cacodemons, exceeds maximum of ${maxCacodemons}!`);
-  }
 }
 
 function getCacodeemonPositions(area) {
