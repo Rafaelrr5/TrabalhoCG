@@ -1,13 +1,8 @@
 import * as THREE from '../../../../../build/three.module.js';
 import { Enemy } from '../base/enemies.js';
-import { loadSkullModel, preloadSkullModel, applyScaleWithFixedPivot } from '../../../utils/skullLoader.js';
-import { isPlayerInArea1 } from '../../../systems/environment.js';
-import { checkLostSoulCollision, applyLostSoulCollisionCorrection } from '../../../systems/collision.js';
+import { loadSkullModel, preloadSkullModel } from '../../../utils/skullLoader.js';
 import { CONFIG } from '../../../core/config.js';
 
-/**
- * Lost Soul enemy - Kamikaze attacker that dashes at player
- */
 export class LostSoul extends Enemy {
   constructor(position = [0, 0, 0], config = {}) {
     const defaultConfig = {

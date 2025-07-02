@@ -1,5 +1,5 @@
 import * as THREE from '../../../../../build/three.module.js';
-import { GLTFLoader } from '../../../../../build/jsm/loaders/GLTFLoader.js';
+import { loadGLTFModel, createFallbackModel } from '../../../utils/modelLoader.js';
 import { Enemy } from '../base/enemies.js';
 import { CONFIG } from '../../../core/config.js';
 import { CACODEMON_CONFIG, getCacodeemonConfig } from '../config/cacodeemonConfig.js';
@@ -7,9 +7,6 @@ import { CacodeemonProjectile, createCacodeemonProjectile } from '../systems/cac
 
 export class Cacodemon extends Enemy {
   constructor(position = [0, 0, 0], config = {}) {
-    console.log(`Creating Cacodemon at position:`, position);
-    
-    // Get default configuration with difficulty scaling
     const defaultConfig = getCacodeemonConfig(config.difficulty || 'normal');
     
     const finalConfig = {
@@ -19,12 +16,8 @@ export class Cacodemon extends Enemy {
 
     super(position, finalConfig);
     
-    console.log(`Cacodemon constructor: position set to`, this.mesh.position);
-    
     this.initializeCacodemon();
     this.loadModel();
-    
-    console.log(`Cacodemon created successfully at`, this.mesh.position);
   }
 
   initializeCacodemon() {
@@ -81,146 +74,96 @@ export class Cacodemon extends Enemy {
     
     // Projectile array (for cleanup)
     this.activeProjectiles = [];
-    
-    console.log(`Cacodemon initialized at spawn position:`, this.spawnPosition);
   }
 
   async loadModel() {
-    console.log('Loading Cacodemon GLB model...');
-    
     try {
-      const loader = new GLTFLoader();
-      const gltf = await new Promise((resolve, reject) => {
-        loader.load(
-          './assets/models/cacodemon.glb',
-          (gltf) => {
-            console.log('GLB file loaded successfully:', gltf);
-            resolve(gltf);
-          },
-          (progress) => {
-            console.log('Loading progress:', (progress.loaded / progress.total * 100) + '%');
-          },
-          (error) => {
-            console.error('Error loading GLB:', error);
-            reject(error);
-          }
-        );
-      });
-      
-      console.log('Cacodemon GLB loaded successfully, scene:', gltf.scene);
-      
-      // Remove placeholder if it exists
-      if (this.placeholderMesh) {
-        console.log('Removing placeholder mesh...');
-        this.mesh.remove(this.placeholderMesh);
-        this.placeholderMesh.geometry.dispose();
-        this.placeholderMesh.material.dispose();
-        this.placeholderMesh = null;
-      }
-      
-      // Clean up any existing spikes from placeholder
-      const spikesToRemove = [];
-      this.mesh.children.forEach(child => {
-        if (child.geometry && child.geometry.type === 'ConeGeometry') {
-          spikesToRemove.push(child);
+      const modelConfig = {
+        scale: 0.005,
+        position: { x: 0, y: 0, z: 0 },
+        rotation: { x: 0, y: 0, z: 0 },
+        pivotAtCenter: true,
+        castShadow: true,
+        receiveShadow: true,
+        materialConfig: {
+          transparent: false,
+          opacity: 1.0,
+          visible: true,
+          side: THREE.DoubleSide
+        },
+        fallback: {
+          type: 'sphere',
+          radius: this.config.radius,
+          color: this.config.color
         }
-      });
-      spikesToRemove.forEach(spike => {
-        this.mesh.remove(spike);
-        spike.geometry.dispose();
-        spike.material.dispose();
-      });
+      };
+
+      this.removePlaceholder();
       
-      // Setup the loaded model
-      this.model = gltf.scene;
+      this.model = await loadGLTFModel('./assets/models/cacodemon.glb', modelConfig);
       
-      // Scale the model to appropriate size (larger to be visible)
-      const scale = 0.005; // Fixed larger scale
-      this.model.scale.set(scale, scale, scale);
-      
-      // Position the model correctly
-      this.model.position.set(0, 0, 0);
-      this.model.rotation.set(0, 0, 0);
-      
-      // Ensure the model is visible
-      this.model.visible = true;
-      
-      // Enable shadows and configure materials for all meshes in the model
-      this.model.traverse((child) => {
-        if (child.isMesh) {
-          child.castShadow = true;
-          child.receiveShadow = true;
-          child.visible = true;
-          
-          console.log('Configuring mesh:', child.name, 'Material:', child.material);
-          
-          // Ensure materials are properly configured
-          if (child.material) {
-            if (Array.isArray(child.material)) {
-              child.material.forEach(mat => {
-                mat.transparent = false;
-                mat.opacity = 1.0;
-                mat.visible = true;
-                mat.needsUpdate = true;
-              });
-            } else {
-              child.material.transparent = false;
-              child.material.opacity = 1.0;
-              child.material.visible = true;
-              child.material.needsUpdate = true;
-            }
-          }
-        }
-      });
-      
-      // Add the model to the mesh
       this.mesh.add(this.model);
       
-      console.log('Cacodemon model added to mesh successfully. Children count:', this.mesh.children.length);
-      
-      // Mark that model is loaded
       this.modelLoaded = true;
       
     } catch (error) {
       console.error('Failed to load Cacodemon GLB model:', error);
-      console.log('Falling back to placeholder geometry');
-      
-      // Fallback to placeholder if model loading fails
       this.createPlaceholderGeometry();
       this.modelLoaded = false;
     }
   }
 
+  removePlaceholder() {
+    if (this.placeholderMesh) {
+      this.mesh.remove(this.placeholderMesh);
+      this.placeholderMesh.geometry.dispose();
+      this.placeholderMesh.material.dispose();
+      this.placeholderMesh = null;
+    }
+    
+    const spikesToRemove = [];
+    this.mesh.children.forEach(child => {
+      if (child.geometry && child.geometry.type === 'ConeGeometry') {
+        spikesToRemove.push(child);
+      }
+    });
+    spikesToRemove.forEach(spike => {
+      this.mesh.remove(spike);
+      spike.geometry.dispose();
+      spike.material.dispose();
+    });
+  }
+
   createPlaceholderGeometry() {
-    // Don't create placeholder if model is already loaded
     if (this.modelLoaded) {
-      console.log('Model already loaded, skipping placeholder creation');
       return;
     }
     
-    console.log('Creating Cacodemon placeholder geometry...');
+    const fallbackConfig = {
+      scale: 1.0,
+      fallback: {
+        type: 'sphere',
+        radius: this.config.radius,
+        color: this.config.color
+      }
+    };
     
-    // Temporary placeholder - sphere with different color
-    const geometry = new THREE.SphereGeometry(this.config.radius, 16, 16);
-    const material = new THREE.MeshLambertMaterial({ 
-      color: this.config.color,
-      transparent: true,
-      opacity: 0.8
+    const fallbackModel = createFallbackModel(fallbackConfig);
+    
+    fallbackModel.traverse((child) => {
+      if (child.isMesh && child.material) {
+        child.material.transparent = true;
+        child.material.opacity = 0.8;
+      }
     });
     
-    this.placeholderMesh = new THREE.Mesh(geometry, material);
+    this.placeholderMesh = fallbackModel;
     this.mesh.add(this.placeholderMesh);
     
-    console.log('Cacodemon main sphere created, adding details...');
-    
-    // Add some visual distinction (spikes or something)
     this.createPlaceholderDetails();
-    
-    console.log('Cacodemon placeholder geometry complete');
   }
 
   createPlaceholderDetails() {
-    // Add some spikes or details to distinguish from other enemies
     const spikeGeometry = new THREE.ConeGeometry(0.1, 0.5, 6);
     const spikeMaterial = new THREE.MeshLambertMaterial({ color: 0x660000 });
     
@@ -343,16 +286,14 @@ export class Cacodemon extends Enemy {
   }
 
   attemptAttack(playerPosition) {
-    // TODO: Implement actual projectile attack
     this.isAttacking = true;
     this.timeSinceLastAttack = 0;
     
-    // Create and fire projectile
     const startPosition = this.mesh.position.clone();
-    startPosition.y += 1.0; // Fire from slightly above center
+    startPosition.y += 1.0;
     
     const projectile = createCacodeemonProjectile(
-      this.mesh.parent, // scene
+      this.mesh.parent,
       startPosition,
       playerPosition,
       {
@@ -366,8 +307,6 @@ export class Cacodemon extends Enemy {
     setTimeout(() => {
       this.isAttacking = false;
     }, 500);
-    
-    console.log('Cacodemon fired projectile');
   }
 
   updateProjectiles(delta, collidableObjects) {
@@ -424,7 +363,6 @@ export class Cacodemon extends Enemy {
       case 'IDLE':
         if (distanceToPlayer <= this.activationDistance) {
           this.changeState('ACTIVATED');
-          console.log(`Cacodemon activated! Player distance: ${distanceToPlayer.toFixed(2)}`);
         }
         break;
         
@@ -459,7 +397,6 @@ export class Cacodemon extends Enemy {
   }
 
   changeState(newState) {
-    console.log(`Cacodemon changing state: ${this.aiState} -> ${newState}`);
     this.aiState = newState;
     this.stateChangeTime = 0;
   }
@@ -518,16 +455,9 @@ export class Cacodemon extends Enemy {
     
     const targetWithVariation = playerPosition.clone().add(variation);
     
-    // Use smooth movement towards player
     this.smoothMoveTowards(targetWithVariation, pursuitSpeed, delta);
     
-    // Smooth rotation towards player
     this.smoothLookAt(playerPosition, 4.0, delta);
-    
-    // Debug log (reduced frequency)
-    if (Math.random() < 0.005) {
-      console.log(`Cacodemon pursuing player. Distance: ${distanceToPlayer.toFixed(2)}, Speed: ${pursuitSpeed.toFixed(2)}`);
-    }
   }
 
   executeAttackingBehavior(playerPosition, delta) {
@@ -669,9 +599,7 @@ export class Cacodemon extends Enemy {
     });
     this.activeProjectiles = [];
     
-    // Clean up model and materials
     if (this.model) {
-      console.log('Disposing Cacodemon GLB model...');
       this.model.traverse((child) => {
         if (child.isMesh) {
           if (child.geometry) {

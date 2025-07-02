@@ -32,18 +32,12 @@ export async function createEnemies(scene) {
     [-140, y, -145]
   ];
   
-  console.log('Creating Lost Souls...');
   positions.forEach(([x, py, z]) => {
     const enemy = new LostSoul([x, py, z]);
     enemies.push(enemy);
     scene.add(enemy.mesh);
   });
-  console.log(`Created ${enemies.length} Lost Souls`);
-  
-  // Create Cacodemons for Area 2
-  console.log('About to create Cacodemons...');
   await createCacodemons(scene, 'area2');
-  console.log('Cacodemons creation complete');
 }
 
 export function updateEnemies(delta, scene, camera, gun = null, collidableObjects = []) {
@@ -68,9 +62,6 @@ export function updateEnemies(delta, scene, camera, gun = null, collidableObject
 export function cleanupDeadEnemies(scene) {
   for (let i = enemies.length - 1; i >= 0; i--) {
     const enemy = enemies[i];
-    
-    // Remove enemies that have completed their death animation
-    // or are no longer in the scene
     if (!enemy.isAlive && (!enemy.mesh.parent || enemy.fadeCompleted)) {
       if (enemy.mesh.parent) {
         enemy.mesh.parent.remove(enemy.mesh);
@@ -80,7 +71,6 @@ export function cleanupDeadEnemies(scene) {
     }
   }
   
-  // Cleanup dead Cacodemons
   cleanupDeadCacodemons(scene);
 }
 
