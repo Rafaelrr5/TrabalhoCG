@@ -2,7 +2,7 @@ import * as THREE from '../../../build/three.module.js';
 import { setDefaultMaterial, createGroundPlaneXZ } from "../../../libs/util/util.js";
 import { CONFIG } from '../core/config.js';
 import { CSG } from '../../../libs/other/CSGMesh.js';
-import { enemies, areAllEnemiesDefeated, cleanupDeadEnemies } from '../entities/enemies/enemy.js';
+import { enemies, areAllEnemiesDefeated, areAllArea1EnemiesDefeated, cleanupDeadEnemies } from '../entities/enemies/enemy.js';
 import {createElevator} from '../systems/elevator.js';
 import { enableShadowsForAll } from './lights.js';
 
@@ -379,9 +379,9 @@ export function updateArea1(delta) {
     if (!area1KeyPlatform) return;
     const key = area1KeyPlatform.userData.key;
     if (key) key.rotation.y += key.userData.rotationSpeed;
-    // Trigger raise only when all enemies are defeated
-    if (!area1KeyPlatform.userData.shouldRaise && areAllEnemiesDefeated()) {
-        console.log('Todos inimigos derrotados! Subindo plataforma.');
+    // Trigger raise only when all Lost Souls from area 1 are defeated
+    if (!area1KeyPlatform.userData.shouldRaise && areAllArea1EnemiesDefeated()) {
+        console.log('Todas Lost Souls da área 1 derrotadas! Subindo plataforma.');
         area1KeyPlatform.userData.shouldRaise = true;
         // Clean up dead enemies after the platform starts rising
         setTimeout(() => {

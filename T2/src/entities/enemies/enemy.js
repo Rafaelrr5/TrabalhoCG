@@ -33,6 +33,7 @@ export async function createEnemies(scene) {
   
   positions.forEach(([x, py, z]) => {
     const enemy = new LostSoul([x, py, z]);
+    enemy.area = 'area1';
     enemies.push(enemy);
     scene.add(enemy.mesh);
   });
@@ -77,6 +78,12 @@ export function areAllEnemiesDefeated() {
   const lostSoulsDefeated = enemies.length > 0 && enemies.every(e => !e.isAlive);
   const cacodemonsDefeated = cacodemons.length === 0 || cacodemons.every(c => !c.isAlive);
   return lostSoulsDefeated && cacodemonsDefeated;
+}
+
+export function areAllArea1EnemiesDefeated() {
+  // Verifica apenas as Lost Souls da área 1
+  const area1LostSouls = enemies.filter(e => e.area === 'area1');
+  return area1LostSouls.length > 0 && area1LostSouls.every(e => !e.isAlive);
 }
 
 export function getAliveEnemies() {
