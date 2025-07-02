@@ -53,7 +53,7 @@ export class CacodeemonProjectile {
     this.mesh.add(this.glowMesh);
   }
   
-  update(delta, collidableObjects = []) {
+  update(delta, collidableObjects = [], camera = null) {
     if (!this.isActive) return false;
     
     // Move projectile
@@ -67,8 +67,8 @@ export class CacodeemonProjectile {
       return false;
     }
     
-    // TODO: Implement collision detection with environment and player
-    const hit = this.checkCollisions(collidableObjects);
+    // Check collisions with environment and player
+    const hit = this.checkCollisions(collidableObjects, camera);
     if (hit) {
       this.onHit(hit);
       return false;
@@ -80,14 +80,13 @@ export class CacodeemonProjectile {
     return true;
   }
   
-  checkCollisions(collidableObjects) {
+  checkCollisions(collidableObjects, camera = null) {
     const projectilePosition = this.mesh.position;
     const projectileRadius = this.config.radius;
     
     // Check collision with player (camera)
-    // Assuming camera represents player position
-    if (typeof window !== 'undefined' && window.camera) {
-      const playerPosition = window.camera.position;
+    if (camera && camera.position) {
+      const playerPosition = camera.position;
       const distanceToPlayer = projectilePosition.distanceTo(playerPosition);
       
       if (distanceToPlayer <= projectileRadius + 1.0) { // Player collision radius
@@ -117,13 +116,8 @@ export class CacodeemonProjectile {
   }
   
   onHit(hitInfo) {
-    
-    // Create hit effect
     this.createHitEffect(hitInfo.point);
-    
-    // Apply damage if hit object is player
     if (hitInfo.object && hitInfo.object.userData && hitInfo.object.userData.isPlayer) {
-      // Use the global player damage function
       if (typeof window !== 'undefined' && typeof window.playerTakeDamage === 'function') {
         window.playerTakeDamage(this.config.damage);
       }

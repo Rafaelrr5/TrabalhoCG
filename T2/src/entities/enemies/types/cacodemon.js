@@ -179,7 +179,7 @@ export class Cacodemon extends Enemy {
     super.update(delta, camera, playerHitbox, collidableObjects);
     
     // Always update projectiles, even when dying, so they continue moving
-    this.updateProjectiles(delta, collidableObjects);
+    this.updateProjectiles(delta, collidableObjects, camera);
     
     // Only process other Cacodemon specific behavior if alive and not dying
     if (!this.isAlive || this.isDying) return;
@@ -303,12 +303,12 @@ export class Cacodemon extends Enemy {
     }, 500);
   }
 
-  updateProjectiles(delta, collidableObjects) {
+  updateProjectiles(delta, collidableObjects, camera = null) {
     // Update all active projectiles
     for (let i = this.activeProjectiles.length - 1; i >= 0; i--) {
       const projectile = this.activeProjectiles[i];
       
-      if (!projectile.update(delta, collidableObjects)) {
+      if (!projectile.update(delta, collidableObjects, camera)) {
         // Remove inactive projectiles
         this.activeProjectiles.splice(i, 1);
       }
