@@ -86,6 +86,12 @@ export function areAllArea1EnemiesDefeated() {
   return area1LostSouls.length > 0 && area1LostSouls.every(e => !e.isAlive);
 }
 
+export function areAllArea2EnemiesDefeated() {
+  // Verifica apenas os Cacodemons da área 2
+  const cacodeemonCount = getCacodeemonCount();
+  return cacodeemonCount.total > 0 && cacodeemonCount.alive === 0;
+}
+
 export function getAliveEnemies() {
   return enemies.filter(e => e.isAlive);
 }

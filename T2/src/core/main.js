@@ -1,7 +1,7 @@
 import * as THREE from '../../../build/three.module.js';
 import { PointerLockControls } from '../../../build/jsm/controls/PointerLockControls.js';
 import { CONFIG } from './config.js';
-import { createWalls, createAreas, updateArea1 } from '../systems/environment.js';
+import { createWalls, createAreas, updateArea1, updateArea2 } from '../systems/environment.js';
 import { createGun, updateProjectiles } from '../components/weapon.js';
 import { createEnemies, updateEnemies } from '../entities/enemies/enemy.js';
 import { setupEventListeners, updateCameraMovement, continuousCameraDebug } from '../systems/controls.js';
@@ -250,6 +250,7 @@ function animate() {
     updateCameraMovement(delta, controls);
     updateProjectiles(delta, scene);
     updateArea1(delta);
+    updateArea2(delta);
     
     updateEnemies(delta, scene, camera, gun, collidableObjects);
     updateELevator(delta);
