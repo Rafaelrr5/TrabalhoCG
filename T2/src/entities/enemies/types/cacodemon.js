@@ -21,58 +21,39 @@ export class Cacodemon extends Enemy {
   }
 
   initializeCacodemon() {
-    // Attack system properties
     this.projectileSpeed = this.config.projectileSpeed;
     this.attackRange = this.config.attackRange;
     this.attackCooldown = this.config.attackCooldown;
     this.projectileDamage = this.config.projectileDamage;
     this.timeSinceLastAttack = 0;
     this.isAttacking = false;
-    
-    // Floating behavior properties
     this.floatAmplitude = this.config.floatAmplitude;
     this.floatFrequency = this.config.floatFrequency;
     this.floatTime = Math.random() * Math.PI * 2; // Random start phase
-    this.baseY = this.mesh.position.y;
-    this.originalSpawnY = this.mesh.position.y; // Store original spawn height
-    
-    // AI State system
     this.aiState = 'IDLE'; // IDLE, ACTIVATED, PURSUING, ATTACKING, CIRCLING
     this.stateChangeTime = 0;
     this.activationDistance = this.config.activationDistance || 50.0; // Distance to activate from spawn
     this.optimalAttackDistance = this.config.optimalAttackDistance || 18.0; // Preferred distance for attacking
     this.maxAttackDistance = this.config.maxAttackDistance || 25.0; // Maximum attack distance
-    
-    // Smooth movement properties (similar to lost souls)
     this.velocity = new THREE.Vector3();
     this.targetVelocity = new THREE.Vector3();
     this.acceleration = this.config.acceleration || 8.0; // How quickly it reaches target velocity
     this.maxSpeed = this.config.moveSpeed || 3.5;
     this.smoothing = 0.95; // Velocity smoothing factor
     this.rotationSpeed = this.config.rotationSpeed || 2.0; // Base rotation speed
-    
-    // Movement properties
     this.spawnPosition = new THREE.Vector3().copy(this.mesh.position);
     this.targetPosition = new THREE.Vector3().copy(this.mesh.position);
     this.moveSpeed = this.config.moveSpeed || 3.5;
     this.circleRadius = 8.0; // Radius for circling behavior
     this.circleAngle = Math.random() * Math.PI * 2; // Random start angle
     this.circleSpeed = 1.0; // Speed of circling
-    
-    // Reference to model
     this.model = null;
     this.modelLoaded = false;
-    
-    // Idle behavior
     this.idleInitialized = false;
     this.idleRotationSpeed = 0.5;
     this.targetRotation = 0;
-    
-    // Line of sight and targeting
     this.hasLineOfSight = false;
     this.lastKnownPlayerPosition = new THREE.Vector3();
-    
-    // Projectile array (for cleanup)
     this.activeProjectiles = [];
   }
 
@@ -138,6 +119,7 @@ export class Cacodemon extends Enemy {
     if (this.modelLoaded) {
       return;
     }
+    // modelLoaded já é inicializado no initializeCacodemon
     
     const fallbackConfig = {
       scale: 1.0,
@@ -210,16 +192,16 @@ export class Cacodemon extends Enemy {
   }
 
   updateFloatingBehavior(delta) {
-    // Implement floating up and down motion
+    // Floating up and down motion
     this.floatTime += delta * this.floatFrequency;
     const floatOffset = Math.sin(this.floatTime) * this.floatAmplitude;
-    
+
     // Store the base Y position (position without floating effect)
     if (!this.hasStoredBaseY) {
       this.originalBaseY = this.mesh.position.y;
       this.hasStoredBaseY = true;
     }
-    
+
     // Apply floating motion on top of the base Y position
     this.mesh.position.y = this.originalBaseY + floatOffset;
   }
@@ -434,18 +416,15 @@ export class Cacodemon extends Enemy {
   }
 
   executePursuingBehavior(playerPosition, delta, collidableObjects) {
-    // Calculate distance and adjust speed accordingly
     const distanceToPlayer = this.mesh.position.distanceTo(playerPosition);
     let pursuitSpeed = this.maxSpeed;
     
-    // Adjust speed based on distance (closer = slower for better control)
     if (distanceToPlayer < 10.0) {
       pursuitSpeed *= 0.7;
     } else if (distanceToPlayer > 20.0) {
       pursuitSpeed *= 1.3;
     }
     
-    // Add subtle movement variation to avoid predictable patterns
     const time = Date.now() * 0.001;
     const variation = new THREE.Vector3(
       Math.sin(time * 1.3) * 0.8,
@@ -509,9 +488,7 @@ export class Cacodemon extends Enemy {
   }
 
   checkCollision(newPosition, collidableObjects) {
-    // Basic collision detection (can be improved)
-    // For now, just check if position is reasonable
-    return false; // No collision detected
+    return false;
   }
 
   idleBehavior(delta) {
@@ -566,13 +543,12 @@ export class Cacodemon extends Enemy {
   }
 
   startDeathAnimation() {
-    // TODO: Implement specific death animation
-    // For now, just fade out
-    const originalMaterial = this.placeholderMesh?.material;
-    if (originalMaterial) {
+    // Fade out effect for death (aplica opacidade no material do placeholder)
+    const fadeMaterial = this.placeholderMesh?.material;
+    if (fadeMaterial) {
       const fadeOut = () => {
-        if (originalMaterial.opacity > 0) {
-          originalMaterial.opacity -= 0.02;
+        if (fadeMaterial.opacity > 0) {
+          fadeMaterial.opacity = Math.max(0, fadeMaterial.opacity - 0.02);
           requestAnimationFrame(fadeOut);
         } else {
           this.fadeCompleted = true;
@@ -629,7 +605,6 @@ export class Cacodemon extends Enemy {
     super.dispose();
   }
 
-  // Getters for external systems
   getAttackRange() {
     return this.attackRange;
   }

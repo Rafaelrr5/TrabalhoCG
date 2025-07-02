@@ -1,7 +1,5 @@
 import * as THREE from '../../../build/three.module.js';
 import { PointerLockControls } from '../../../build/jsm/controls/PointerLockControls.js';
-
-// Importa módulos do jogo
 import { CONFIG } from './config.js';
 import { createWalls, createAreas, updateArea1 } from '../systems/environment.js';
 import { createGun, updateProjectiles } from '../components/weapon.js';
@@ -12,18 +10,12 @@ import { applyGravity } from '../systems/collision.js';
 import { createHitbox, hitbox, player } from '../entities/player/player.js';
 import { updateELevator } from '../systems/elevator.js';
 
-// ============================================================================
-// PLAYER HEALTH SYSTEM for Lost Soul kamikaze attacks
-// ============================================================================
-
 // Global function to handle player damage (called by Lost Soul kamikaze attacks)
 window.playerTakeDamage = function(damage) {
   const isAlive = player.takeDamage(damage);
   
-  // Update HUD if it exists
   updatePlayerHealthDisplay();
   
-  // Check for death
   if (!isAlive) {
     handlePlayerDeath();
   }
@@ -123,21 +115,10 @@ function updateDebugHUD() {
   }
 }
 
-// Função global para atualizar o HUD (pode ser chamada de outros arquivos)
 window.updateDebugHUD = updateDebugHUD;
-
-// ============================================================================
-// SISTEMA DE DEBUG
-// ============================================================================
-
-// Mostra as instruções de debug no console
 function showDebugInstructions() {
     // Debug instructions removed
 }
-
-// ============================================================================
-// GAME VARIABLES AND INITIALIZATION
-// ============================================================================
 
 let camera, scene, renderer, controls, gun;
 let clock = new THREE.Clock();
@@ -146,7 +127,6 @@ let collidableObjects = [];
 init();
 animate();
 
-// Função principal de inicialização - configura todos os componentes do jogo
 function init() {
     setupScene();
     setupCamera();
@@ -156,14 +136,13 @@ function init() {
     resetPlayerPosition();
     setupControls();
     setupEventListeners(camera, scene);
-    createPlayerHealthHUD(); // Create health display for kamikaze attacks
-    createDebugHUD(); // Create debug status HUD
+    createPlayerHealthHUD();
+    createDebugHUD();
     
     // Mostra instruções de debug
     showDebugInstructions();
 }
 
-// Cria a cena principal e o renderizador WebGL, ajustando os tamanhos
 function setupScene() {
     scene = new THREE.Scene();
     // Enable antialiasing to smooth edges and prevent black artifacts
@@ -178,22 +157,20 @@ function setupScene() {
     container.appendChild(renderer.domElement);
 }
 
-// Configura a câmera do jogo
 function setupCamera() {
     camera = new THREE.PerspectiveCamera(CONFIG.CAMERA_FOV, window.innerWidth/window.innerHeight, CONFIG.CAMERA_NEAR, CONFIG.CAMERA_FAR);
     camera.position.y = CONFIG.CAMERA_HEIGHT;
+    // Adiciona listener de áudio à câmera para sons 3D
+    window.listener = new THREE.AudioListener();
+    camera.add(window.listener);
 }
 
-//coloca camera e hitbox na posição inicial do jogador
 function resetPlayerPosition() {
     const startHeight = CONFIG.CAMERA_HEIGHT + (CONFIG.START_HEIGHT_OFFSET || 0);
     camera.position.set(0, startHeight, 0);
-    
-    // Use the player class method to reset position
     player.resetPosition();
 }
 
-// Inicializa controles de pointer lock para movimento de câmera estilo FPS
 function setupControls() {
     controls = new PointerLockControls(camera, document.body);
 
@@ -205,7 +182,6 @@ function setupControls() {
     window.addEventListener('resize', onWindowResize);
 }
 
-// Cria o ambiente do jogo (chão, paredes, áreas e arma)
 function createEnvironment() {
     createWalls(scene, collidableObjects);
     createAreas(scene, collidableObjects);
@@ -215,7 +191,6 @@ function createEnvironment() {
     createEnemies(scene);
 }
 
-// Loop principal de animação
 function animate() {
     requestAnimationFrame(animate);
     
@@ -226,20 +201,12 @@ function animate() {
     updateCameraMovement(delta, controls);
     updateProjectiles(delta, scene);
     updateArea1(delta, scene, camera);
-    // Update enemy behavior - now targets the gun position WITH collision detection
     updateEnemies(delta, scene, camera, gun, collidableObjects);
     updateELevator(delta);
-    
-    // Debug da câmera (se ativado)
+  
     continuousCameraDebug(camera, controls, delta);
-    
     renderer.render(scene, camera);
 }
-
-// Lida com redimensionamento da janela
-// ============================================================================
-// SISTEMA DE WINDOW RESIZE
-// ============================================================================
 
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;

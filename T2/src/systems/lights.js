@@ -39,24 +39,13 @@ class LightingSystem {
     }
 
     init(scene, renderer, options = {}) {
-        // Merge options with default config
         const config = this._mergeConfig(LIGHTING_CONFIG, options);
-        
-        // Configure renderer for shadows
         this._setupShadows(renderer);
-        
-        // Setup ambient lighting
         this._setupAmbientLight(scene, config.ambient);
-        
-        // Setup directional lighting
         this._setupDirectionalLight(scene, config.directional);
-        
-        // Setup light helpers if enabled
         if (config.helpers.enabled) {
             this._setupLightHelpers(scene, config.helpers);
         }
-        
-        console.log('Lighting system initialized');
     }
 
     _setupShadows(renderer) {
@@ -73,24 +62,16 @@ class LightingSystem {
 
     _setupDirectionalLight(scene, config) {
         this.directionalLight = new THREE.DirectionalLight(config.color, config.intensity);
-        
-        // Position
         this.directionalLight.position.set(
             config.position.x,
             config.position.y,
             config.position.z
         );
-        
-        // Shadow configuration
         if (config.castShadow) {
             this.directionalLight.castShadow = true;
-            
-            // Shadow map configuration
             const shadow = this.directionalLight.shadow;
             shadow.mapSize.width = config.shadow.mapSize.width;
             shadow.mapSize.height = config.shadow.mapSize.height;
-            
-            // Shadow camera configuration
             const camera = shadow.camera;
             camera.near = config.shadow.camera.near;
             camera.far = config.shadow.camera.far;
@@ -98,11 +79,8 @@ class LightingSystem {
             camera.right = config.shadow.camera.right;
             camera.top = config.shadow.camera.top;
             camera.bottom = config.shadow.camera.bottom;
-            
-            // Shadow bias to reduce artifacts
             shadow.bias = config.shadow.bias;
         }
-        
         scene.add(this.directionalLight);
         this.lights.push(this.directionalLight);
     }
@@ -120,7 +98,6 @@ class LightingSystem {
 
     _mergeConfig(defaultConfig, userConfig) {
         const result = { ...defaultConfig };
-        
         for (const key in userConfig) {
             if (typeof userConfig[key] === 'object' && userConfig[key] !== null && !Array.isArray(userConfig[key])) {
                 result[key] = this._mergeConfig(result[key] || {}, userConfig[key]);
@@ -128,7 +105,6 @@ class LightingSystem {
                 result[key] = userConfig[key];
             }
         }
-        
         return result;
     }
 
@@ -141,15 +117,12 @@ class LightingSystem {
 
     updateDirectionalLight(options = {}) {
         if (!this.directionalLight) return;
-        
         if (options.color !== undefined) {
             this.directionalLight.color.set(options.color);
         }
-        
         if (options.intensity !== undefined) {
             this.directionalLight.intensity = options.intensity;
         }
-        
         if (options.position) {
             this.directionalLight.position.set(
                 options.position.x || this.directionalLight.position.x,
@@ -175,7 +148,6 @@ class LightingSystem {
     }
 
     dispose() {
-        // Dispose lights
         this.lights.forEach(light => {
             if (light.parent) {
                 light.parent.remove(light);
@@ -184,8 +156,6 @@ class LightingSystem {
                 light.dispose();
             }
         });
-        
-        // Dispose helpers
         this.helpers.forEach(helper => {
             if (helper.parent) {
                 helper.parent.remove(helper);
@@ -194,7 +164,6 @@ class LightingSystem {
                 helper.dispose();
             }
         });
-        
         this.lights = [];
         this.helpers = [];
         this.ambientLight = null;

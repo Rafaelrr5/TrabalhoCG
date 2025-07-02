@@ -20,7 +20,6 @@ export async function preloadEnemies() {
 }
 
 export async function createEnemies(scene) {
-  console.log('Creating enemies...');
   await preloadEnemies();
   
   const y = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT / 2 + 8.0;

@@ -1,7 +1,3 @@
-/**
- * Cacodemon Projectile System
- * TODO: Implement specific projectile behavior when details are provided
- */
 import * as THREE from '../../../../../build/three.module.js';
 import { CACODEMON_CONFIG } from '../config/cacodeemonConfig.js';
 
@@ -121,7 +117,6 @@ export class CacodeemonProjectile {
   }
   
   onHit(hitInfo) {
-    console.log('Cacodemon projectile hit:', hitInfo);
     
     // Create hit effect
     this.createHitEffect(hitInfo.point);
@@ -131,7 +126,6 @@ export class CacodeemonProjectile {
       // Use the global player damage function
       if (typeof window !== 'undefined' && typeof window.playerTakeDamage === 'function') {
         window.playerTakeDamage(this.config.damage);
-        console.log(`Player hit by Cacodemon projectile for ${this.config.damage} damage`);
       }
     }
     
