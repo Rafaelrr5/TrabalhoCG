@@ -1,6 +1,5 @@
 import * as THREE from '../../../build/three.module.js';
 import { PointerLockControls } from '../../../build/jsm/controls/PointerLockControls.js';
-import { createLightSphere, initDefaultBasicLight } from "../../../libs/util/util.js";
 
 // Importa módulos do jogo
 import { CONFIG } from './config.js';
@@ -8,6 +7,7 @@ import { createWalls, createAreas, updateArea1 } from '../systems/environment.js
 import { createGun, updateProjectiles } from '../components/weapon.js';
 import { createEnemies, updateEnemies } from '../entities/enemies/enemy.js';
 import { setupEventListeners, updateCameraMovement, continuousCameraDebug } from '../systems/controls.js';
+import { lightingSystem } from '../systems/lights.js';
 import { applyGravity } from '../systems/collision.js';
 import { createHitbox, hitbox, player } from '../entities/player/player.js';
 import { updateELevator } from '../systems/elevator.js';
@@ -134,7 +134,7 @@ animate();
 function init() {
     setupScene();
     setupCamera();
-    setupLighting();
+    lightingSystem.init(scene, renderer);
     createEnvironment();
     createHitbox(scene);
     resetPlayerPosition();
@@ -155,9 +155,6 @@ function setupScene() {
         antialias: true,
         powerPreference: "high-performance"
     });
-    renderer.shadowMap.enabled = true; // Ativa sombras
-    renderer.shadowMap.type = THREE.PCFShadowMap; // Define o tipo de sombra
-    renderer.shadowMap.autoUpdate = true; // Atualiza sombras automaticamente
     // Use device pixel ratio for crisp rendering on high-DPI screens
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -190,35 +187,6 @@ function setupControls() {
     
     // Adiciona handler de resize específico do main.js
     window.addEventListener('resize', onWindowResize);
-}
-
-// Configura iluminação básica para a cena
-function setupLighting() {
-    let ambientColor = "rgb(80,80,80)";
-    let ambientLight = new THREE.AmbientLight(ambientColor, 0.8);
-    scene.add(ambientLight);
-    
-    // Configuração da luz direcional
-    let light = new THREE.DirectionalLight(0xffffff, 5.0);
-    light.position.set(481.86, 300, -458.45);
-    light.castShadow = true;
-    
-    // Ajuste fino do mapa de sombras
-    light.shadow.mapSize.width = 2048;
-    light.shadow.mapSize.height = 2048;
-    light.shadow.camera.near = 0.5;
-    light.shadow.camera.far = 1000;
-    light.shadow.camera.left = -500;
-    light.shadow.camera.right = 500;
-    light.shadow.camera.top = 500;
-    light.shadow.camera.bottom = -500;
-    light.shadow.bias = -0.0001; // Ajuste para evitar artefatos
-    
-    scene.add(light);
-    
-    // Adicione um helper para visualizar a luz (opcional, para debug)
-    const helper = new THREE.DirectionalLightHelper(light, 5);
-    scene.add(helper);
 }
 
 // Cria o ambiente do jogo (chão, paredes, áreas e arma)

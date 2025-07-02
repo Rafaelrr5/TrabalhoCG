@@ -4,6 +4,7 @@ import { CONFIG } from '../core/config.js';
 import { CSG } from '../../../libs/other/CSGMesh.js';
 import { enemies, areAllEnemiesDefeated, cleanupDeadEnemies } from '../entities/enemies/enemy.js';
 import {createElevator} from '../systems/elevator.js';
+import { enableShadowsForAll } from './lights.js';
 
 // Variáveis globais para gerenciamento da área 1
 export let area1KeyPlatform = null;
@@ -490,29 +491,6 @@ function markCollisionObject(object, collidableObjects){
     object.traverse(child => {
         if (child.isMesh) {
             collidableObjects.push(child);
-        }
-    });
-}
-
-function enableShadowsForObject(object) {
-    object.traverse(child => {
-        if (child.isMesh) {
-            child.castShadow = true;
-            child.receiveShadow = true;
-            
-            // Garante que os materiais sejam compatíveis com sombras
-            if (child.material) {
-                child.material.needsUpdate = true;
-            }
-        }
-    });
-}
-
-function enableShadowsForAll(scene) {
-    scene.traverse(object => {
-        if (object.isMesh) {
-            object.castShadow = true;
-            object.receiveShadow = true;
         }
     });
 }
