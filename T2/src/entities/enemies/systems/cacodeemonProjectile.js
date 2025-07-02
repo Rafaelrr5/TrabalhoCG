@@ -28,7 +28,7 @@ export class CacodeemonProjectile {
   createMesh() {
     // Create main projectile sphere (yellow)
     const geometry = new THREE.SphereGeometry(this.config.radius, 12, 12);
-    const material = new THREE.MeshBasicMaterial({ 
+    const material = new THREE.MeshLambertMaterial({ 
       color: this.config.color,
       transparent: false,
       emissive: this.config.color,

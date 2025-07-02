@@ -1,12 +1,8 @@
-/**
- * Lost Soul enemy manager for Area 1
- */
 import * as THREE from '../../../../build/three.module.js';
 import { LostSoul } from './types/lostSoul.js';
 import { preloadSkullModel } from '../../utils/skullLoader.js';
 import { CONFIG } from '../../core/config.js';
 import { isPlayerInArea1 } from '../../systems/environment.js';
-// Import Cacodemon management functions
 import { 
   cacodemons, 
   updateCacodemons, 
@@ -21,7 +17,6 @@ export const enemies = [];
 
 export async function preloadEnemies() {
   await preloadSkullModel();
-  // Preload Cacodemon assets for Area 2
   await preloadCacodemons();
 }
 

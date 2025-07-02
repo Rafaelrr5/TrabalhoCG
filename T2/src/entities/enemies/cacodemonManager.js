@@ -23,9 +23,96 @@ if (typeof window !== 'undefined') {
     cacodemons.forEach((cacodemon, index) => {
       console.log(`Cacodemon ${index + 1}:`, {
         position: cacodemon.mesh.position,
+        spawnPosition: cacodemon.spawnPosition,
+        aiState: cacodemon.aiState,
         isAlive: cacodemon.isAlive,
         health: cacodemon.currentHealth,
-        maxHealth: cacodemon.maxHealth
+        maxHealth: cacodemon.maxHealth,
+        activationDistance: cacodemon.activationDistance,
+        optimalAttackDistance: cacodemon.optimalAttackDistance
+      });
+    });
+  };
+  
+  // Add function to reset cacodemon positions
+  window.resetCacodemons = () => {
+    console.log('Resetting Cacodemon positions...');
+    cacodemons.forEach((cacodemon, index) => {
+      cacodemon.mesh.position.copy(cacodemon.spawnPosition);
+      cacodemon.baseY = cacodemon.originalSpawnY;
+      cacodemon.aiState = 'IDLE';
+      cacodemon.stateChangeTime = 0;
+      console.log(`Cacodemon ${index + 1} reset to spawn position:`, cacodemon.spawnPosition);
+    });
+  };
+}
+
+// Test function to force create a single Cacodemon
+export function testCreateSingleCacodemon(scene) {
+  console.log('=== TESTING: Creating single Cacodemon ===');
+  try {
+    const testPosition = [0, 10, -100]; // Visible test position
+    console.log('Creating test Cacodemon at:', testPosition);
+    
+    const cacodemon = new Cacodemon(testPosition);
+    console.log('Cacodemon created:', cacodemon);
+    
+    cacodemons.push(cacodemon);
+    scene.add(cacodemon.mesh);
+    
+    console.log('Test Cacodemon added to scene and array');
+    console.log('Current cacodemons count:', cacodemons.length);
+    console.log('=== TEST COMPLETE ===');
+    
+    return cacodemon;
+  } catch (error) {
+    console.error('Error creating test Cacodemon:', error);
+    return null;
+  }
+}
+
+// Test function to create multiple Cacodemons for movement testing
+export function testCreateMultipleCacodemons(scene, count = 3) {
+  console.log(`=== TESTING: Creating ${count} Cacodemons for movement testing ===`);
+  
+  const testPositions = [
+    [0, 15, -80],    // Front center
+    [-20, 15, -100], // Left side
+    [20, 15, -100]   // Right side
+  ];
+  
+  for (let i = 0; i < Math.min(count, testPositions.length); i++) {
+    try {
+      const position = testPositions[i];
+      console.log(`Creating test Cacodemon ${i + 1} at:`, position);
+      
+      const cacodemon = new Cacodemon(position);
+      cacodemons.push(cacodemon);
+      scene.add(cacodemon.mesh);
+      
+      console.log(`Test Cacodemon ${i + 1} added successfully`);
+    } catch (error) {
+      console.error(`Error creating test Cacodemon ${i + 1}:`, error);
+    }
+  }
+  
+  console.log(`=== TEST COMPLETE: ${cacodemons.length} Cacodemons created ===`);
+  return cacodemons.length;
+}
+
+// Debug function to check smooth movement
+if (typeof window !== 'undefined') {
+  window.testCacodeemonMovement = () => {
+    console.log('=== CACODEMON MOVEMENT TEST ===');
+    cacodemons.forEach((cacodemon, index) => {
+      console.log(`Cacodemon ${index + 1}:`, {
+        position: cacodemon.mesh.position,
+        velocity: cacodemon.velocity,
+        targetVelocity: cacodemon.targetVelocity,
+        acceleration: cacodemon.acceleration,
+        maxSpeed: cacodemon.maxSpeed,
+        aiState: cacodemon.aiState,
+        smoothing: cacodemon.smoothing
       });
     });
   };
@@ -197,28 +284,4 @@ export async function spawnCacodemonsInArea(scene, areaName, count = 1) {
 export function removeCacodemonsFromArea(scene, areaName) {
   // TODO: Implement area-specific removal logic
   console.log(`TODO: Remove Cacodemons from ${areaName}`);
-}
-
-// Test function to force create a single Cacodemon
-export function testCreateSingleCacodemon(scene) {
-  console.log('=== TESTING: Creating single Cacodemon ===');
-  try {
-    const testPosition = [0, 10, -100]; // Visible test position
-    console.log('Creating test Cacodemon at:', testPosition);
-    
-    const cacodemon = new Cacodemon(testPosition);
-    console.log('Cacodemon created:', cacodemon);
-    
-    cacodemons.push(cacodemon);
-    scene.add(cacodemon.mesh);
-    
-    console.log('Test Cacodemon added to scene and array');
-    console.log('Current cacodemons count:', cacodemons.length);
-    console.log('=== TEST COMPLETE ===');
-    
-    return cacodemon;
-  } catch (error) {
-    console.error('Error creating test Cacodemon:', error);
-    return null;
-  }
 }

@@ -8,7 +8,7 @@ export const CACODEMON_CONFIG = {
   RADIUS: 1.2,
   COLOR: 0x8B0000, // Dark red
   MAX_HEALTH: 50, // Updated to 50 HP as specified
-  SPEED: 2.0, // Slower since they're ranged attackers
+  SPEED: 3.5, // Adjusted for smoother movement
   
   // Combat Properties
   ATTACK_RANGE: 40.0, // Good range for area combat
@@ -18,10 +18,10 @@ export const CACODEMON_CONFIG = {
   PROJECTILE_RADIUS: 0.4, // Slightly larger for visibility
   PROJECTILE_COLOR: 0xFFFF00, // Yellow as specified
   
-  // Floating Behavior
-  FLOAT_AMPLITUDE: 2.0,
-  FLOAT_FREQUENCY: 1.0,
-  IDLE_ROTATION_SPEED: 0.5,
+  // Floating Behavior - adjusted for smoother movement
+  FLOAT_AMPLITUDE: 1.5, // Reduced for less jarring movement
+  FLOAT_FREQUENCY: 0.8, // Slightly slower floating
+  IDLE_ROTATION_SPEED: 0.3, // Slower rotation for smoother feel
   
   // Model Properties (to be configured)
   MODEL_SCALE: 1.0,
@@ -35,10 +35,16 @@ export const CACODEMON_CONFIG = {
   DEATH_ANIMATION_DURATION: 2.0,
   FADE_OUT_SPEED: 0.02,
   
-  // AI Properties
+  // AI Properties - adjusted for smooth movement
   LINE_OF_SIGHT_RANGE: 60.0,
   AGGRO_RANGE: 40.0,
-  PATROL_RADIUS: 10.0,
+  PATROL_RADIUS: 8.0, // Reduced for tighter movement
+  PURSUIT_RANGE: 45.0, // Range within which they pursue the player
+  MIN_DISTANCE_TO_PLAYER: 12.0, // Minimum distance to maintain from player
+  MOVE_SPEED: 3.5, // Consistent with SPEED
+  ACTIVATION_DISTANCE: 50.0, // Distance to start following player
+  OPTIMAL_ATTACK_DISTANCE: 16.0, // Slightly closer for better targeting
+  MAX_ATTACK_DISTANCE: 22.0, // Adjusted to work with optimal distance
   
   // Spawn Properties
   SPAWN_AREAS: {
@@ -129,25 +135,31 @@ export const CACODEMON_AREAS = {
   }
 };
 
-// Difficulty scaling
+// Difficulty scaling - adjusted for smooth movement
 export const CACODEMON_DIFFICULTY = {
   easy: {
     healthMultiplier: 0.7,
     damageMultiplier: 0.8,
-    speedMultiplier: 0.9,
-    attackCooldownMultiplier: 1.2
+    speedMultiplier: 0.8, // Slower for easier difficulty
+    attackCooldownMultiplier: 1.3, // Longer cooldowns
+    accelerationMultiplier: 0.7, // Slower acceleration
+    rotationSpeedMultiplier: 0.8 // Slower turning
   },
   normal: {
     healthMultiplier: 1.0,
     damageMultiplier: 1.0,
     speedMultiplier: 1.0,
-    attackCooldownMultiplier: 1.0
+    attackCooldownMultiplier: 1.0,
+    accelerationMultiplier: 1.0,
+    rotationSpeedMultiplier: 1.0
   },
   hard: {
     healthMultiplier: 1.5,
     damageMultiplier: 1.3,
-    speedMultiplier: 1.2,
-    attackCooldownMultiplier: 0.8
+    speedMultiplier: 1.3, // Faster for harder difficulty
+    attackCooldownMultiplier: 0.7, // Shorter cooldowns
+    accelerationMultiplier: 1.4, // Faster acceleration
+    rotationSpeedMultiplier: 1.3 // Faster turning
   }
 };
 
@@ -161,6 +173,23 @@ export function getCacodeemonConfig(difficulty = 'normal') {
     maxHealth: Math.round(baseConfig.MAX_HEALTH * difficultyConfig.healthMultiplier),
     projectileDamage: Math.round(baseConfig.PROJECTILE_DAMAGE * difficultyConfig.damageMultiplier),
     speed: baseConfig.SPEED * difficultyConfig.speedMultiplier,
-    attackCooldown: baseConfig.ATTACK_COOLDOWN * difficultyConfig.attackCooldownMultiplier
+    moveSpeed: baseConfig.MOVE_SPEED * difficultyConfig.speedMultiplier,
+    attackCooldown: baseConfig.ATTACK_COOLDOWN * difficultyConfig.attackCooldownMultiplier,
+    // Smooth movement properties
+    acceleration: 8.0 * (difficultyConfig.accelerationMultiplier || 1.0),
+    rotationSpeed: 2.0 * (difficultyConfig.rotationSpeedMultiplier || 1.0),
+    pursuitRange: baseConfig.PURSUIT_RANGE,
+    minDistanceToPlayer: baseConfig.MIN_DISTANCE_TO_PLAYER,
+    activationDistance: baseConfig.ACTIVATION_DISTANCE,
+    optimalAttackDistance: baseConfig.OPTIMAL_ATTACK_DISTANCE,
+    maxAttackDistance: baseConfig.MAX_ATTACK_DISTANCE,
+    // Combat properties
+    radius: baseConfig.RADIUS,
+    color: baseConfig.COLOR,
+    attackRange: baseConfig.ATTACK_RANGE,
+    projectileSpeed: baseConfig.PROJECTILE_SPEED,
+    // Floating behavior
+    floatAmplitude: baseConfig.FLOAT_AMPLITUDE,
+    floatFrequency: baseConfig.FLOAT_FREQUENCY
   };
 }

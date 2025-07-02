@@ -19,7 +19,10 @@ export function fixMaterial(material) {
   if (!material.roughnessMap) material.roughnessMap = null;
   if (!material.metalnessMap) material.metalnessMap = null;
   if (!material.emissiveMap) material.emissiveMap = null;
-  if (!material.emissive) material.emissive = new THREE.Color(0x000000);
+  // Only set emissive property for materials that support it (not MeshBasicMaterial)
+  if (!material.isMeshBasicMaterial && !material.emissive) {
+    material.emissive = new THREE.Color(0x000000);
+  }
   material.side = THREE.DoubleSide;
   material.needsUpdate = true;
 }
