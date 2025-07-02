@@ -167,10 +167,11 @@ export class Cacodemon extends Enemy {
   }
 
   update(delta, camera, playerHitbox, collidableObjects = []) {
-    if (!this.isAlive) {
-      this.handleDeathAnimation(delta);
-      return;
-    }
+    // Call parent update first to handle death fade animation
+    super.update(delta, camera, playerHitbox, collidableObjects);
+    
+    // Only process Cacodemon specific behavior if alive and not dying
+    if (!this.isAlive || this.isDying) return;
 
     // Update floating animation
     this.updateFloatingBehavior(delta);
@@ -519,51 +520,28 @@ export class Cacodemon extends Enemy {
   }
 
   takeDamage(damage) {
-    if (!this.isAlive || this.isDying) return false;
-    
-    this.currentHealth -= damage;
-    
-    if (this.currentHealth <= 0) {
-      this.currentHealth = 0;
-      this.die();
-      return true;
-    }
-    
-    return false;
+    // Use the parent takeDamage method which handles death properly
+    return super.takeDamage(damage);
   }
 
   die() {
     if (this.isDying) return;
     
-    this.isDying = true;
     this.isAlive = false;
-    
-    // TODO: Implement death animation and effects
-    this.startDeathAnimation();
-  }
-
-  startDeathAnimation() {
-    // Fade out effect for death (aplica opacidade no material do placeholder)
-    const fadeMaterial = this.placeholderMesh?.material;
-    if (fadeMaterial) {
-      const fadeOut = () => {
-        if (fadeMaterial.opacity > 0) {
-          fadeMaterial.opacity = Math.max(0, fadeMaterial.opacity - 0.02);
-          requestAnimationFrame(fadeOut);
-        } else {
-          this.fadeCompleted = true;
-        }
-      };
-      fadeOut();
-    }
+    this.onDeath(); // This will call super.onDeath() which handles the fade
   }
 
   handleDeathAnimation(delta) {
-    // TODO: Implement death animation handling
-    // For now, just check if fade is completed
+    // This method is no longer needed as we use the parent class fade system
+    // Keeping for backward compatibility
     if (this.fadeCompleted) {
       return;
     }
+  }
+
+  onDeath() {
+    // Call parent death method which handles the fade animation
+    super.onDeath();
   }
 
   dispose() {

@@ -112,6 +112,23 @@ export function configureLoadedModel(model, options = {}) {
   return wrapper;
 }
 
+// Função para clonar modelo com materiais únicos
+function cloneModelWithUniqueMaterials(model) {
+  const clonedModel = model.clone();
+  
+  clonedModel.traverse((child) => {
+    if (child.isMesh && child.material) {
+      if (Array.isArray(child.material)) {
+        child.material = child.material.map(mat => mat.clone());
+      } else {
+        child.material = child.material.clone();
+      }
+    }
+  });
+  
+  return clonedModel;
+}
+
 export async function loadGLTFModel(path, options = {}) {
   if (!path || typeof path !== 'string') {
     throw new Error('Valid path is required for GLTF loading');
@@ -125,12 +142,12 @@ export async function loadGLTFModel(path, options = {}) {
   })}`;
   
   if (modelCache.has(cacheKey)) {
-    return modelCache.get(cacheKey).clone();
+    return cloneModelWithUniqueMaterials(modelCache.get(cacheKey));
   }
   
   if (loadingPromises.has(cacheKey)) {
     const cachedModel = await loadingPromises.get(cacheKey);
-    return cachedModel.clone();
+    return cloneModelWithUniqueMaterials(cachedModel);
   }
   
   initializeLoaders();

@@ -114,16 +114,19 @@ export class Enemy {
   }
 
   startDeathFade() {
+    if (this.isDying) return; // Evita reinicialização
+    
     this.deathStartTime = performance.now();
     this.isDying = true;
     this.originalOpacity = new Map();
     this.originalScale = this.mesh.scale.clone();
+    
     this.mesh.traverse((child) => {
       if (child.isMesh && child.material) {
         const materials = Array.isArray(child.material) ? child.material : [child.material];
         materials.forEach((material, index) => {
           const key = `${child.uuid}_${index}`;
-          this.originalOpacity.set(key, material.opacity || 1.0);
+          this.originalOpacity.set(key, material.opacity !== undefined ? material.opacity : 1.0);
           material.transparent = true;
           material.needsUpdate = true;
         });
@@ -132,7 +135,7 @@ export class Enemy {
   }
 
   updateDeathFade(currentTime) {
-    if (!this.isDying) return;
+    if (!this.isDying || !this.originalOpacity) return;
     const elapsedTime = (currentTime - this.deathStartTime) / 1000;
     const fadeDelay = CONFIG.ENEMY_DEATH_FADE_DELAY || 0.5;
     const fadeDuration = CONFIG.ENEMY_DEATH_FADE_DURATION || 2.0;
