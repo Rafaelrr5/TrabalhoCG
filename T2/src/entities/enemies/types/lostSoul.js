@@ -400,12 +400,13 @@ export class LostSoul extends Enemy {
         this.isDashing = false;
         this.dashCooldown = this.config.dashInterval * 0.5;
         
+        let correctedVelocity = new THREE.Vector3();
         if (collisionResult.newDirection) {
           this.dashDirection.copy(collisionResult.newDirection);
-          const correctedVelocity = collisionResult.newDirection.multiplyScalar(this.config.speed);
+          correctedVelocity = collisionResult.newDirection.multiplyScalar(this.config.speed);
           this.mesh.position.addScaledVector(correctedVelocity, delta);
         }
-        return correctedVelocity || new THREE.Vector3();
+        return correctedVelocity;
       }
     }
     
