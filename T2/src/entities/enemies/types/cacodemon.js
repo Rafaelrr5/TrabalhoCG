@@ -1,4 +1,5 @@
 import * as THREE from '../../../../../build/three.module.js';
+import { GLTFLoader } from '../../../../../build/jsm/loaders/GLTFLoader.js';
 import { Enemy } from '../base/enemies.js';
 import { CONFIG } from '../../../core/config.js';
 import { CACODEMON_CONFIG, getCacodeemonConfig } from '../config/cacodeemonConfig.js';
@@ -67,6 +68,7 @@ export class Cacodemon extends Enemy {
     
     // Reference to model
     this.model = null;
+    this.modelLoaded = false;
     
     // Idle behavior
     this.idleInitialized = false;
@@ -84,12 +86,118 @@ export class Cacodemon extends Enemy {
   }
 
   async loadModel() {
-    // TODO: Implement model loading when model details are provided
-    // For now, create a placeholder geometry
-    this.createPlaceholderGeometry();
+    console.log('Loading Cacodemon GLB model...');
+    
+    try {
+      const loader = new GLTFLoader();
+      const gltf = await new Promise((resolve, reject) => {
+        loader.load(
+          './assets/models/cacodemon.glb',
+          (gltf) => {
+            console.log('GLB file loaded successfully:', gltf);
+            resolve(gltf);
+          },
+          (progress) => {
+            console.log('Loading progress:', (progress.loaded / progress.total * 100) + '%');
+          },
+          (error) => {
+            console.error('Error loading GLB:', error);
+            reject(error);
+          }
+        );
+      });
+      
+      console.log('Cacodemon GLB loaded successfully, scene:', gltf.scene);
+      
+      // Remove placeholder if it exists
+      if (this.placeholderMesh) {
+        console.log('Removing placeholder mesh...');
+        this.mesh.remove(this.placeholderMesh);
+        this.placeholderMesh.geometry.dispose();
+        this.placeholderMesh.material.dispose();
+        this.placeholderMesh = null;
+      }
+      
+      // Clean up any existing spikes from placeholder
+      const spikesToRemove = [];
+      this.mesh.children.forEach(child => {
+        if (child.geometry && child.geometry.type === 'ConeGeometry') {
+          spikesToRemove.push(child);
+        }
+      });
+      spikesToRemove.forEach(spike => {
+        this.mesh.remove(spike);
+        spike.geometry.dispose();
+        spike.material.dispose();
+      });
+      
+      // Setup the loaded model
+      this.model = gltf.scene;
+      
+      // Scale the model to appropriate size (larger to be visible)
+      const scale = 0.005; // Fixed larger scale
+      this.model.scale.set(scale, scale, scale);
+      
+      // Position the model correctly
+      this.model.position.set(0, 0, 0);
+      this.model.rotation.set(0, 0, 0);
+      
+      // Ensure the model is visible
+      this.model.visible = true;
+      
+      // Enable shadows and configure materials for all meshes in the model
+      this.model.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+          child.visible = true;
+          
+          console.log('Configuring mesh:', child.name, 'Material:', child.material);
+          
+          // Ensure materials are properly configured
+          if (child.material) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach(mat => {
+                mat.transparent = false;
+                mat.opacity = 1.0;
+                mat.visible = true;
+                mat.needsUpdate = true;
+              });
+            } else {
+              child.material.transparent = false;
+              child.material.opacity = 1.0;
+              child.material.visible = true;
+              child.material.needsUpdate = true;
+            }
+          }
+        }
+      });
+      
+      // Add the model to the mesh
+      this.mesh.add(this.model);
+      
+      console.log('Cacodemon model added to mesh successfully. Children count:', this.mesh.children.length);
+      
+      // Mark that model is loaded
+      this.modelLoaded = true;
+      
+    } catch (error) {
+      console.error('Failed to load Cacodemon GLB model:', error);
+      console.log('Falling back to placeholder geometry');
+      
+      // Fallback to placeholder if model loading fails
+      this.createPlaceholderGeometry();
+      this.modelLoaded = false;
+    }
   }
 
   createPlaceholderGeometry() {
+    // Don't create placeholder if model is already loaded
+    if (this.modelLoaded) {
+      console.log('Model already loaded, skipping placeholder creation');
+      return;
+    }
+    
     console.log('Creating Cacodemon placeholder geometry...');
     
     // Temporary placeholder - sphere with different color
@@ -563,12 +671,30 @@ export class Cacodemon extends Enemy {
     
     // Clean up model and materials
     if (this.model) {
-      // TODO: Proper model cleanup when implemented
+      console.log('Disposing Cacodemon GLB model...');
+      this.model.traverse((child) => {
+        if (child.isMesh) {
+          if (child.geometry) {
+            child.geometry.dispose();
+          }
+          if (child.material) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach(mat => mat.dispose());
+            } else {
+              child.material.dispose();
+            }
+          }
+        }
+      });
+      this.mesh.remove(this.model);
+      this.model = null;
     }
     
     if (this.placeholderMesh) {
       this.placeholderMesh.geometry.dispose();
       this.placeholderMesh.material.dispose();
+      this.mesh.remove(this.placeholderMesh);
+      this.placeholderMesh = null;
     }
     
     // Call parent cleanup
