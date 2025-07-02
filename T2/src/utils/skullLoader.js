@@ -182,10 +182,6 @@ export async function preloadSkullModel() {
   }
 }
 
-// ============================================================================
-// FUNÇÕES AUXILIARES PARA CONTROLE DE ESCALA E PIVOT
-// ============================================================================
-
 // Aplica escala a um modelo mantendo o pivot point no centro
 export function applyScaleWithFixedPivot(model, scale) {
   if (!model || scale <= 0) return;

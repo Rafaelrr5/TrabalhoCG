@@ -1,21 +1,5 @@
 import * as THREE from '../../../build/three.module.js';
 
-/**
- * Prepara um modelo 3D para uso em cena:
- * - Centraliza o pivot no centro geométrico
- * - Aplica rotação inicial
- * - Aplica escala uniforme
- * - Habilita sombras nos meshes
- * 
- * @param {THREE.Object3D} object3D O modelo a ser preparado
- * @param {Object} options
- * @param {boolean} [options.pivotAtCenter=true] Se deve centralizar pivot
- * @param {Object} [options.rotation={x:0,y:0,z:0}] Rotação inicial em radianos
- * @param {number} [options.scale=1] Escala uniforme
- * @param {boolean} [options.castShadow=true]
- * @param {boolean} [options.receiveShadow=true]
- * @returns {THREE.Group} Wrapper contendo o modelo preparado
- */
 export function prepareAssetModel(
   object3D,
   {
