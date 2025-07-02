@@ -61,10 +61,6 @@ export class Player {
         this.hitbox.material.wireframe = this.hitbox.visible;
         
         CONFIG.DEBUG_SHOW_HITBOX = this.hitbox.visible;
-        
-        if (CONFIG.DEBUG_CONSOLE_LOGS) {
-            console.log(`[DEBUG] Player hitbox: ${this.hitbox.visible ? 'VISIBLE' : 'HIDDEN'}`);
-        }
     }
 
     setHitboxVisibility(visible) {
@@ -73,10 +69,6 @@ export class Player {
         this.hitbox.visible = visible;
         this.hitbox.material.opacity = visible ? 0.3 : 0.0;
         this.hitbox.material.wireframe = visible;
-        
-        if (CONFIG.DEBUG_CONSOLE_LOGS) {
-            console.log(`[DEBUG] Player hitbox set to: ${visible ? 'VISIBLE' : 'HIDDEN'}`);
-        }
     }
 
     resetPosition() {

@@ -1,5 +1,6 @@
 import * as THREE from '../../../../build/three.module.js';
 import { CONFIG } from '../../core/config.js';
+import { CSG } from '../../../../libs/other/CSGMesh.js';
 
 export class Key {
     constructor(keyType = 'red', position = new THREE.Vector3(0, 0, 0)) {
@@ -38,10 +39,6 @@ export class Key {
         
         this.createKeyMesh();
         scene.add(this.mesh);
-        
-        if (CONFIG.DEBUG_CONSOLE_LOGS) {
-            console.log(`[KEY] ${this.keyType} key created at position:`, this.position);
-        }
         
         return true;
     }
@@ -83,7 +80,6 @@ export class Key {
             keyGroup.add(finalMesh);
         } else {
             // Fallback: simple key shape without holes
-            console.warn('[KEY] CSG library not available, using simplified key mesh');
             keyGroup.add(cube);
         }
 
@@ -105,13 +101,15 @@ export class Key {
         // Rotate the key
         this.mesh.rotation.y += this.rotationSpeed;
 
-        // Float animation
+        // Float animation (apenas local)
         this.floatOffset += this.floatSpeed * delta;
         const floatY = this.originalY + Math.sin(this.floatOffset) * this.floatAmplitude;
         this.mesh.position.y = floatY;
         
-        // Update position reference
-        this.position.copy(this.mesh.position);
+        // Update position reference usando posição global no mundo
+        const worldPosition = new THREE.Vector3();
+        this.mesh.getWorldPosition(worldPosition);
+        this.position.copy(worldPosition);
     }
 
     checkCollision(playerPosition, collectionDistance = null) {

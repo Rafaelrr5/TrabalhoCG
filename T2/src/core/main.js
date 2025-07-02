@@ -9,6 +9,7 @@ import { lightingSystem } from '../systems/lights.js';
 import { applyGravity } from '../systems/collision.js';
 import { createHitbox, hitbox, player } from '../entities/player/player.js';
 import { updateELevator } from '../systems/elevator.js';
+import { keyManager } from '../entities/items/key.js';
 
 // Global function to handle player damage (called by Lost Soul kamikaze attacks)
 window.playerTakeDamage = function(damage) {
@@ -51,19 +52,58 @@ function handlePlayerDeath() {
 
 // Create simple health HUD
 function createPlayerHealthHUD() {
-  const healthDisplay = document.createElement('div');
-  healthDisplay.id = 'player-health';
-  healthDisplay.style.position = 'fixed';
-  healthDisplay.style.top = '20px';
-  healthDisplay.style.left = '20px';
-  healthDisplay.style.color = 'green';
-  healthDisplay.style.fontSize = '20px';
-  healthDisplay.style.fontWeight = 'bold';
-  healthDisplay.style.zIndex = '1000';
-  healthDisplay.style.textShadow = '2px 2px 4px rgba(0,0,0,0.8)';
-  const healthStatus = player.getHealthStatus();
-  healthDisplay.textContent = `Health: ${healthStatus.current}/${healthStatus.max}`;
-  document.body.appendChild(healthDisplay);
+    const healthDisplay = document.createElement('div');
+    healthDisplay.id = 'player-health';
+    healthDisplay.style.position = 'fixed';
+    healthDisplay.style.top = '20px';
+    healthDisplay.style.left = '20px';
+    healthDisplay.style.color = 'green';
+    healthDisplay.style.fontSize = '20px';
+    healthDisplay.style.fontWeight = 'bold';
+    healthDisplay.style.zIndex = '1000';
+    healthDisplay.style.textShadow = '2px 2px 4px rgba(0,0,0,0.8)';
+    const healthStatus = player.getHealthStatus();
+    healthDisplay.textContent = `Health: ${healthStatus.current}/${healthStatus.max}`;
+    document.body.appendChild(healthDisplay);
+}
+
+// Create keys HUD
+function createKeysHUD() {
+    const keysDisplay = document.createElement('div');
+    keysDisplay.id = 'keys-display';
+    keysDisplay.style.position = 'fixed';
+    keysDisplay.style.top = '50px';
+    keysDisplay.style.left = '20px';
+    keysDisplay.style.color = 'gold';
+    keysDisplay.style.fontSize = '16px';
+    keysDisplay.style.fontWeight = 'bold';
+    keysDisplay.style.zIndex = '1000';
+    keysDisplay.style.textShadow = '2px 2px 4px rgba(0,0,0,0.8)';
+    keysDisplay.textContent = 'Keys: None'; // Estado inicial sem chamar updateKeysDisplay()
+    document.body.appendChild(keysDisplay);
+}
+
+// Update keys display
+function updateKeysDisplay() {
+    const keysDisplay = document.getElementById('keys-display');
+    if (keysDisplay) {
+        const collectedKeys = keyManager.getCollectedKeys();
+        
+        const keyColors = {
+            red: '🔴',
+            blue: '🔵', 
+            green: '🟢',
+            yellow: '🟡',
+            gold: '🟠'
+        };
+        
+        if (collectedKeys.length === 0) {
+            keysDisplay.textContent = 'Keys: None';
+        } else {
+            const keyIcons = collectedKeys.map(keyType => keyColors[keyType] || '🔑').join(' ');
+            keysDisplay.textContent = `Keys: ${keyIcons} (${collectedKeys.length})`;
+        }
+    }
 }
 
 // Cria HUD para mostrar status do debug
@@ -137,10 +177,13 @@ function init() {
     setupControls();
     setupEventListeners(camera, scene);
     createPlayerHealthHUD();
+    createKeysHUD();
     createDebugHUD();
     
-    // Mostra instruções de debug
-    showDebugInstructions();
+    // Atualizar HUD das chaves após criar o ambiente
+    setTimeout(() => {
+        updateKeysDisplay();
+    }, 100);
 }
 
 function setupScene() {
@@ -183,6 +226,12 @@ function setupControls() {
 }
 
 function createEnvironment() {
+    // Limpar estado anterior das chaves
+    keyManager.clearAll();
+    
+    // Temporariamente comentando o reset para debug
+    // resetAllEnemies();
+    
     createWalls(scene, collidableObjects);
     createAreas(scene, collidableObjects);
     gun = createGun(camera); // Captura a referência da arma
@@ -200,9 +249,19 @@ function animate() {
     applyGravity(delta, collidableObjects, camera);
     updateCameraMovement(delta, controls);
     updateProjectiles(delta, scene);
-    updateArea1(delta, scene, camera);
+    updateArea1(delta);
+    
     updateEnemies(delta, scene, camera, gun, collidableObjects);
     updateELevator(delta);
+    
+    // Temporariamente comentando atualização de chaves para debug
+    // keyManager.updateKeys(delta);
+    
+    // Verificar coletas de chaves (reduzir distância para 1.5)
+    // const collectedKeys = keyManager.checkCollisions(camera.position, 1.5);
+    // if (collectedKeys.length > 0) {
+    //     updateKeysDisplay(); // Atualizar display das chaves
+    // }
   
     continuousCameraDebug(camera, controls, delta);
     renderer.render(scene, camera);
