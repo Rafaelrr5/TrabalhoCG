@@ -6,14 +6,27 @@ import { LostSoul } from './types/lostSoul.js';
 import { preloadSkullModel } from '../../utils/skullLoader.js';
 import { CONFIG } from '../../core/config.js';
 import { isPlayerInArea1 } from '../../systems/environment.js';
+// Import Cacodemon management functions
+import { 
+  cacodemons, 
+  updateCacodemons, 
+  cleanupDeadCacodemons, 
+  preloadCacodemons,
+  createCacodemons,
+  getCacodeemonCount,
+  testCreateSingleCacodemon
+} from './cacodemonManager.js';
 
 export const enemies = [];
 
 export async function preloadEnemies() {
   await preloadSkullModel();
+  // Preload Cacodemon assets for Area 2
+  await preloadCacodemons();
 }
 
 export async function createEnemies(scene) {
+  console.log('Creating enemies...');
   await preloadEnemies();
   
   const y = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT / 2 + 8.0;
@@ -25,11 +38,27 @@ export async function createEnemies(scene) {
     [-140, y, -145]
   ];
   
+  console.log('Creating Lost Souls...');
   positions.forEach(([x, py, z]) => {
     const enemy = new LostSoul([x, py, z]);
     enemies.push(enemy);
     scene.add(enemy.mesh);
   });
+  console.log(`Created ${enemies.length} Lost Souls`);
+  
+  // Test: Create a single Cacodemon first
+  console.log('=== TESTING SINGLE CACODEMON ===');
+  const testCacodemon = testCreateSingleCacodemon(scene);
+  if (testCacodemon) {
+    console.log('Test Cacodemon creation successful!');
+  } else {
+    console.error('Test Cacodemon creation failed!');
+  }
+  
+  // Create Cacodemons for Area 2
+  console.log('About to create Cacodemons...');
+  await createCacodemons(scene, 'area2');
+  console.log('Cacodemons creation complete');
 }
 
 export function updateEnemies(delta, scene, camera, gun = null, collidableObjects = []) {
@@ -46,6 +75,9 @@ export function updateEnemies(delta, scene, camera, gun = null, collidableObject
       enemy.idleBehavior(delta);
     }
   });
+  
+  // Update Cacodemons
+  updateCacodemons(delta, scene, camera, gun, collidableObjects);
 }
 
 export function cleanupDeadEnemies(scene) {
@@ -62,10 +94,15 @@ export function cleanupDeadEnemies(scene) {
       enemies.splice(i, 1);
     }
   }
+  
+  // Cleanup dead Cacodemons
+  cleanupDeadCacodemons(scene);
 }
 
 export function areAllEnemiesDefeated() {
-  return enemies.length > 0 && enemies.every(e => !e.isAlive);
+  const lostSoulsDefeated = enemies.length > 0 && enemies.every(e => !e.isAlive);
+  const cacodemonsDefeated = cacodemons.length === 0 || cacodemons.every(c => !c.isAlive);
+  return lostSoulsDefeated && cacodemonsDefeated;
 }
 
 export function getAliveEnemies() {
@@ -87,5 +124,16 @@ export function damageEnemiesInArea(center, radius, damage) {
 
 export function getEnemyCount() {
   const alive = getAliveEnemies().length;
-  return { total: enemies.length, alive, dead: enemies.length - alive };
+  const lostSoulCount = { total: enemies.length, alive, dead: enemies.length - alive };
+  
+  const cacodeemonCount = getCacodeemonCount();
+  return {
+    lostSouls: lostSoulCount,
+    cacodemons: cacodeemonCount,
+    total: {
+      total: lostSoulCount.total + cacodeemonCount.total,
+      alive: lostSoulCount.alive + cacodeemonCount.alive,
+      dead: lostSoulCount.dead + cacodeemonCount.dead
+    }
+  };
 }

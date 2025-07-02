@@ -2,6 +2,7 @@ import * as THREE from '../../../build/three.module.js';
 import { setDefaultMaterial } from '../../../libs/util/util.js';
 import { CONFIG } from '../core/config.js';
 import { enemies } from '../entities/enemies/enemy.js';
+import { cacodemons } from '../entities/enemies/cacodemonManager.js';
 
 export class Gun {
     constructor(camera) {
@@ -170,9 +171,14 @@ export class Gun {
                         enemy = currentObj.userData.enemy;
                         break;
                     }
-                    // Also check if this object IS an enemy mesh
+                    // Check Lost Souls
                     enemy = enemies.find(e => e.mesh === currentObj);
                     if (enemy) break;
+                    
+                    // Check Cacodemons
+                    enemy = cacodemons.find(c => c.mesh === currentObj);
+                    if (enemy) break;
+                    
                     // Traverse up the hierarchy
                     currentObj = currentObj.parent;
                 }

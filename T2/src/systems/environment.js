@@ -436,6 +436,49 @@ export function isPlayerInArea1(camera) {
     return inCenter || inLeft || inRight;
 }
 
+// Verifica se o jogador está dentro da Área 2
+export function isPlayerInArea2(camera) {
+    if (!camera) return false;
+    
+    const playerX = camera.position.x;
+    const playerZ = camera.position.z;
+    
+    // Área 2 - posições baseadas nas definições em createArea2
+    // Centro: (0.0, -131.0) com escala (125.0, 125.0)
+    // Esquerda: (-10.0, -66.0) com escala (105.0, 6.0)
+    // Direita: (60.0, -66.0) com escala (5.0, 6.0)
+    
+    // Centro da área 2
+    const centerMinX = 0.0 - 125.0/2;     // -62.5
+    const centerMaxX = 0.0 + 125.0/2;     // 62.5
+    const centerMinZ = -131.0 - 125.0/2;  // -193.5
+    const centerMaxZ = -131.0 + 125.0/2;  // -68.5
+    
+    // Parte esquerda
+    const leftMinX = -10.0 - 105.0/2;     // -62.5
+    const leftMaxX = -10.0 + 105.0/2;     // 42.5
+    const leftMinZ = -66.0 - 6.0/2;       // -69.0
+    const leftMaxZ = -66.0 + 6.0/2;       // -63.0
+    
+    // Parte direita
+    const rightMinX = 60.0 - 5.0/2;       // 57.5
+    const rightMaxX = 60.0 + 5.0/2;       // 62.5
+    const rightMinZ = -66.0 - 6.0/2;      // -69.0
+    const rightMaxZ = -66.0 + 6.0/2;      // -63.0
+    
+    // Verifica se está em alguma das partes da Área 2
+    const inCenter = playerX >= centerMinX && playerX <= centerMaxX && 
+                     playerZ >= centerMinZ && playerZ <= centerMaxZ;
+                     
+    const inLeft = playerX >= leftMinX && playerX <= leftMaxX && 
+                   playerZ >= leftMinZ && playerZ <= leftMaxZ;
+                   
+    const inRight = playerX >= rightMinX && playerX <= rightMaxX && 
+                    playerZ >= rightMinZ && playerZ <= rightMaxZ;
+    
+    return inCenter || inLeft || inRight;
+}
+
 // Anima a subida suave da plataforma
 function raisePlatform(platformGroup, delta) {
     const platform = platformGroup.userData.platform;

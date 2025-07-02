@@ -97,12 +97,28 @@ function createDebugHUD() {
 function updateDebugHUD() {
   const debugHUD = document.getElementById('debug-hud');
   if (debugHUD) {
+    // Import cacodemons array (if available)
+    let cacodemons = [];
+    try {
+      if (window.getCacodemons) {
+        cacodemons = window.getCacodemons();
+      }
+    } catch (e) {
+      // Ignore error if function not available
+    }
+
     debugHUD.innerHTML = `
       <strong>DEBUG STATUS</strong><br>
       F1 - Hitbox: ${CONFIG.DEBUG_SHOW_HITBOX ? '<span style="color:lime">ON</span>' : '<span style="color:red">OFF</span>'}<br>
       F2 - Arma: ${CONFIG.DEBUG_SHOW_WEAPON ? '<span style="color:lime">ON</span>' : '<span style="color:red">OFF</span>'}<br>
       F3 - Câmera: ${CONFIG.DEBUG_SHOW_CAMERA ? '<span style="color:lime">ON</span>' : '<span style="color:red">OFF</span>'}<br>
       F4 - Console: ${CONFIG.DEBUG_CONSOLE_LOGS ? '<span style="color:lime">ON</span>' : '<span style="color:red">OFF</span>'}
+      <br><br>
+      <strong>CACODEMONS</strong><br>
+      Total: <span style="color:yellow">${cacodemons.length}</span><br>
+      ${cacodemons.slice(0, 3).map((c, i) => 
+        `#${i+1}: [${c.mesh.position.x.toFixed(1)}, ${c.mesh.position.y.toFixed(1)}, ${c.mesh.position.z.toFixed(1)}]<br>`
+      ).join('')}
     `;
   }
 }
