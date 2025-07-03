@@ -1,7 +1,7 @@
 import * as THREE from '../../../../../build/three.module.js';
 import { CONFIG } from '../../../core/config.js';
-
 import { checkLostSoulCollision, applyLostSoulCollisionCorrection } from '../../../systems/collision.js';
+import { getEnemySoundConfig, ENEMY_AUDIO_CONFIG, debugAudioPaths, validateAudioPaths } from '../config/audioConfig.js';
 
 export class Enemy {
   constructor(position = [0, 0, 0], config = {}) {
@@ -49,149 +49,116 @@ export class Enemy {
   }
 
   initSounds() {
-    // Check if audio listener is available
     if (!window.listener) {
       console.warn('[ENEMY] Audio listener not available, skipping sound initialization');
       return;
     }
     
-    // Carrega e vincula sons específicos conforme o tipo de inimigo
-    // Use regular Audio instead of PositionalAudio for better compatibility
-    this.hitSound = new THREE.Audio(window.listener);
-    this.deathSound = new THREE.Audio(window.listener);
-    this.attackSound = new THREE.Audio(window.listener);
-    this.nearbySound = new THREE.Audio(window.listener);
-    this.sightSound = new THREE.Audio(window.listener);
+    this.sounds = {};
+    this.audioState = {
+      lastNearbyTime: 0,
+      nearbyPlaying: false,
+      hasSightedPlayer: false
+    };
     
-    const loader = new THREE.AudioLoader();
-    const type = this.constructor.name;
-    let hitPath, deathPath, attackPath, nearbyPath, sightPath;
-    
-    if (type === 'LostSoul') {
-      hitPath = '/T2/assets/sounds/lost_soul/lost_soul_injured.wav';
-      deathPath = '/T2/assets/sounds/lost_soul/lost_soul_death.wav';
-      attackPath = '/T2/assets/sounds/lost_soul/lost_soul_attack.wav';
-      nearbyPath = '/T2/assets/sounds/lost_soul/lost_soul_nearby.wav';
-      // Lost Soul não tem som de sight separado, usar nearby
-      sightPath = '/T2/assets/sounds/lost_soul/lost_soul_nearby.wav';
-    } else if (type === 'Cacodemon') {
-      hitPath = '/T2/assets/sounds/cacodemon/cacodemon_injured.wav';
-      deathPath = '/T2/assets/sounds/cacodemon/cacodemon_death.wav';
-      attackPath = '/T2/assets/sounds/cacodemon/cacodemon_attack.wav';
-      nearbyPath = '/T2/assets/sounds/cacodemon/cacodemon_nearby.wav';
-      sightPath = '/T2/assets/sounds/cacodemon/cacodemon_sight.wav';
-    } else {
-      return;
-    }
-    
-    // Carrega todos os sons
-    loader.load(hitPath, buffer => {
-      this.hitSound.setBuffer(buffer);
-      this.hitSound.setVolume(0.25); // Lower volume for enemy sounds
-      console.log(`[ENEMY] Loaded hit sound for ${type}`);
-    });
-    loader.load(deathPath, buffer => {
-      this.deathSound.setBuffer(buffer);
-      this.deathSound.setVolume(0.3); // Slightly higher for death sound
-      console.log(`[ENEMY] Loaded death sound for ${type}`);
-    });
-    loader.load(attackPath, buffer => {
-      this.attackSound.setBuffer(buffer);
-      this.attackSound.setVolume(0.35); // Medium volume for attack sound
-      console.log(`[ENEMY] Loaded attack sound for ${type}`);
-    });
-    loader.load(nearbyPath, buffer => {
-      this.nearbySound.setBuffer(buffer);
-      this.nearbySound.setVolume(0.15); // Very low for ambient nearby sound
-      this.nearbySound.setLoop(true); // Som de proximidade em loop
-      console.log(`[ENEMY] Loaded nearby sound for ${type}`);
-    });
-    loader.load(sightPath, buffer => {
-      this.sightSound.setBuffer(buffer);
-      this.sightSound.setVolume(0.4); // Noticeable but not overpowering
-      console.log(`[ENEMY] Loaded sight sound for ${type}`);
-    });
-    
-    // Adiciona todos os sons ao mesh
-    this.mesh.add(this.hitSound);
-    this.mesh.add(this.deathSound);
-    this.mesh.add(this.attackSound);
-    this.mesh.add(this.nearbySound);
-    this.mesh.add(this.sightSound);
-    
-    // Controle de estado dos sons
-    this.lastNearbyTime = 0;
-    this.nearbyPlaying = false;
-    this.hasSightedPlayer = false;
+    this.loadEnemySounds();
   }
 
-  // Audio control methods
-  playAttackSound() {
-    if (this.attackSound && this.attackSound.buffer && !this.attackSound.isPlaying) {
-      try {
-        this.attackSound.play();
-        console.log('[ENEMY] Playing attack sound');
-      } catch (error) {
-        console.debug('[AUDIO] Attack sound play error:', error.message);
-      }
-    } else {
-      console.debug('[AUDIO] Attack sound not available or already playing');
+  loadEnemySounds() {
+    const soundConfig = this.getSoundConfig();
+    if (!soundConfig) return;
+    
+    const loader = new THREE.AudioLoader();
+    
+    Object.entries(soundConfig).forEach(([soundType, config]) => {
+      this.sounds[soundType] = new THREE.Audio(window.listener);
+      
+      loader.load(
+        config.path, 
+        buffer => {
+          this.sounds[soundType].setBuffer(buffer);
+          this.sounds[soundType].setVolume(config.volume);
+          if (config.loop) this.sounds[soundType].setLoop(true);
+          this.mesh.add(this.sounds[soundType]);
+          console.log(`[ENEMY] Loaded ${soundType} sound for ${this.constructor.name}`);
+        },
+        progress => {
+          // Optional: Handle loading progress
+        },
+        error => {
+          console.warn(`[ENEMY] Failed to load ${soundType} sound for ${this.constructor.name}:`, error);
+          console.warn(`[ENEMY] Path attempted: ${config.path}`);
+          // Remove the failed sound from sounds object to prevent errors
+          delete this.sounds[soundType];
+        }
+      );
+    });
+  }
+
+  getSoundConfig() {
+    const type = this.constructor.name;
+    return getEnemySoundConfig(type);
+  }
+
+  playSound(soundType) {
+    const sound = this.sounds[soundType];
+    if (!sound || !sound.buffer || sound.isPlaying) return;
+    
+    try {
+      sound.play();
+      console.log(`[ENEMY] Playing ${soundType} sound`);
+    } catch (error) {
+      console.debug(`[AUDIO] ${soundType} sound play error:`, error.message);
     }
   }
+
+  stopSound(soundType) {
+    const sound = this.sounds[soundType];
+    if (!sound || !sound.isPlaying) return;
+    
+    try {
+      sound.stop();
+      console.log(`[ENEMY] Stopping ${soundType} sound`);
+    } catch (error) {
+      console.debug(`[AUDIO] ${soundType} sound stop error:`, error.message);
+    }
+  }
+
+  // Simplified audio control methods
+  playAttackSound() { this.playSound('attack'); }
   
   playSightSound() {
-    if (this.sightSound && this.sightSound.buffer && !this.sightSound.isPlaying && !this.hasSightedPlayer) {
-      try {
-        this.sightSound.play();
-        this.hasSightedPlayer = true;
-        console.log('[ENEMY] Playing sight sound');
-      } catch (error) {
-        console.debug('[AUDIO] Sight sound play error:', error.message);
-      }
+    if (!this.audioState.hasSightedPlayer) {
+      this.playSound('sight');
+      this.audioState.hasSightedPlayer = true;
     }
   }
   
   playNearbySound() {
-    if (this.nearbySound && this.nearbySound.buffer && !this.nearbySound.isPlaying) {
-      try {
-        this.nearbySound.play();
-        this.nearbyPlaying = true;
-        console.log('[ENEMY] Playing nearby sound');
-      } catch (error) {
-        console.debug('[AUDIO] Nearby sound play error:', error.message);
-      }
+    if (!this.audioState.nearbyPlaying) {
+      this.playSound('nearby');
+      this.audioState.nearbyPlaying = true;
     }
   }
   
   stopNearbySound() {
-    if (this.nearbySound && this.nearbySound.isPlaying) {
-      try {
-        this.nearbySound.stop();
-        this.nearbyPlaying = false;
-        console.log('[ENEMY] Stopping nearby sound');
-      } catch (error) {
-        console.debug('[AUDIO] Nearby sound stop error:', error.message);
-      }
+    if (this.audioState.nearbyPlaying) {
+      this.stopSound('nearby');
+      this.audioState.nearbyPlaying = false;
     }
   }
-  
-  updateProximityAudio(playerPosition, activationDistance = 15.0, nearbyDistance = 8.0) {
+
+  updateProximityAudio(playerPosition, activationDistance = ENEMY_AUDIO_CONFIG.DISTANCES.ACTIVATION, nearbyDistance = ENEMY_AUDIO_CONFIG.DISTANCES.NEARBY) {
     const distanceToPlayer = this.mesh.position.distanceTo(playerPosition);
     
-    // Som de avistamento (apenas uma vez quando vê o jogador pela primeira vez)
-    if (distanceToPlayer <= activationDistance && !this.hasSightedPlayer) {
+    if (distanceToPlayer <= activationDistance && !this.audioState.hasSightedPlayer) {
       this.playSightSound();
     }
     
-    // Som de proximidade (quando está muito perto)
     if (distanceToPlayer <= nearbyDistance) {
-      if (!this.nearbyPlaying) {
-        this.playNearbySound();
-      }
+      this.playNearbySound();
     } else {
-      if (this.nearbyPlaying) {
-        this.stopNearbySound();
-      }
+      this.stopNearbySound();
     }
   }
 
@@ -208,17 +175,7 @@ export class Enemy {
     this.currentHealth = Math.max(0, this.currentHealth - damage);
     this.updateHealthBar();
     
-    // Play hit sound with additional checks
-    if (this.hitSound && this.hitSound.buffer) {
-      if (!this.hitSound.isPlaying) {
-        try {
-          this.hitSound.play();
-          console.log('[ENEMY] Playing hit sound');
-        } catch (error) {
-          console.debug('[AUDIO] Hit sound play error:', error.message);
-        }
-      }
-    }
+    this.playSound('hit');
     
     if (this.currentHealth <= 0) {
       this.isAlive = false;
@@ -233,17 +190,7 @@ export class Enemy {
       this.healthBarGroup.visible = false;
     }
     
-    // Play death sound with additional checks
-    if (this.deathSound && this.deathSound.buffer) {
-      if (!this.deathSound.isPlaying) {
-        try {
-          this.deathSound.play();
-          console.log('[ENEMY] Playing death sound');
-        } catch (error) {
-          console.debug('[AUDIO] Death sound play error:', error.message);
-        }
-      }
-    }
+    this.playSound('death');
     
     if (CONFIG.ENEMY_DEATH_FADE_ENABLED) {
       this.startDeathFade();
@@ -310,8 +257,7 @@ export class Enemy {
 
   removeFromScene() {
     // Stop any playing audio before removing (safely)
-    const sounds = [this.hitSound, this.deathSound, this.attackSound, this.nearbySound, this.sightSound];
-    sounds.forEach(sound => {
+    Object.values(this.sounds || {}).forEach(sound => {
       if (sound && sound.isPlaying) {
         try {
           sound.stop();
@@ -469,20 +415,15 @@ export class Enemy {
   }
 
   dispose() {
-    // Stop and clean up all audio safely
-    const sounds = [this.hitSound, this.deathSound, this.attackSound, this.nearbySound, this.sightSound];
-    sounds.forEach(sound => {
+    // Clean up all sounds
+    Object.values(this.sounds || {}).forEach(sound => {
       if (sound) {
         try {
-          if (sound.isPlaying) {
-            sound.stop();
-          }
-          // Only disconnect if the sound is actually connected
+          if (sound.isPlaying) sound.stop();
           if (sound.source && sound.context && sound.context.state !== 'closed') {
             sound.disconnect();
           }
         } catch (error) {
-          // Silently handle disconnect errors - they're not critical
           console.debug('[AUDIO] Audio disconnect error (non-critical):', error.message);
         }
       }
@@ -498,6 +439,23 @@ export class Enemy {
       this.healthBarFill.material.dispose();
     }
   }
+}
+
+// Global debug functions for audio testing
+if (typeof window !== 'undefined') {
+  window.debugEnemyAudio = debugAudioPaths;
+  window.validateEnemyAudio = validateAudioPaths;
+  
+  window.testEnemyAudioPath = async function(path) {
+    try {
+      const response = await fetch(path, { method: 'HEAD' });
+      console.log(`[AUDIO_TEST] Path: ${path} - Status: ${response.status} - OK: ${response.ok}`);
+      return response.ok;
+    } catch (error) {
+      console.error(`[AUDIO_TEST] Failed to test path: ${path}`, error);
+      return false;
+    }
+  };
 }
 
 // Enemy Manager - Simplified version

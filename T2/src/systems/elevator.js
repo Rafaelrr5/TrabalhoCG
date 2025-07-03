@@ -4,9 +4,9 @@ import { hitbox } from '../entities/player/player.js';
 import { gameAudioManager } from './index.js';
 
 export let elevator = null;
-const returnDistance = CONFIG.ELEVATOR_ACTIVATION_DISTANCE; // Distância para o elevador voltar
+const returnDistance = CONFIG.ELEVATOR_ACTIVATION_DISTANCE;
 const riseSpeed = CONFIG.ELEVEVATOR_MOVEMENT_SPEED;
-const elevatorHeight = CONFIG.ELEVATOR_HEIGHT; // Altura máxima do elevador
+const elevatorHeight = CONFIG.ELEVATOR_HEIGHT;
 
 export function createElevator(scene, collidableObjects, x, z) {
     let elevatorMaterial = new THREE.MeshLambertMaterial({ color: 0xA9A9A9 });
