@@ -5,6 +5,7 @@ import { CSG } from '../../../libs/other/CSGMesh.js';
 import { enemies, areAllEnemiesDefeated, areAllArea1EnemiesDefeated, areAllArea2EnemiesDefeated, cleanupDeadEnemies } from '../entities/enemies/enemy.js';
 import {createElevator} from '../systems/elevator.js';
 import { enableShadowsForAll } from './lights.js';
+import { keyManager, Key } from '../entities/items/key.js';
 
 // Variáveis globais para gerenciamento da área 1
 export let area1KeyPlatform = null;
@@ -347,13 +348,26 @@ function createKeyPlatform(scene) {
     platform.position.set(-152.25, CONFIG.AREA_Y_POSITION - 2, -131.0); // Começa subterrânea
     platformGroup.add(platform);
     
-    // Chave vermelha (CSG)
-    const redKey = createRedKey();
-    redKey.position.set(-152.25, CONFIG.AREA_Y_POSITION - 1.0, -131.0);
-    platformGroup.add(redKey);
-      // Armazena referências globais para animação
+    // Criar chave vermelha usando o sistema Key
+    const keyPosition = new THREE.Vector3(-152.25, CONFIG.AREA_Y_POSITION - 1.0, -131.0);
+    const redKeyInstance = new Key('red', keyPosition);
+    
+    // Adicionar a chave ao keyManager e à cena
+    if (keyManager.addKey(redKeyInstance, scene)) {
+        console.log('[ENVIRONMENT] Red key added to KeyManager successfully');
+        // Esconder a chave inicialmente (será mostrada quando a plataforma subir)
+        if (redKeyInstance.getMesh()) {
+            redKeyInstance.getMesh().visible = false;
+            // Posicionar inicialmente abaixo do chão com a plataforma
+            redKeyInstance.getMesh().position.set(-152.25, CONFIG.AREA_Y_POSITION - 1.0, -131.0);
+            redKeyInstance.position.copy(redKeyInstance.getMesh().position);
+            redKeyInstance.originalY = CONFIG.AREA_Y_POSITION - 1.0;
+        }
+    }
+    
+    // Armazena referências globais para animação
     platformGroup.userData.platform = platform;
-    platformGroup.userData.key = redKey;
+    platformGroup.userData.keyInstance = redKeyInstance; // Referência para o objeto Key
     platformGroup.userData.isRaised = false;
     platformGroup.userData.targetY = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + 0.5;
     
@@ -402,14 +416,26 @@ function createBlueKeyPlatform(scene) {
     platform.position.set(0.0, CONFIG.AREA_Y_POSITION - 2, -131.0); // Começa subterrânea
     platformGroup.add(platform);
     
-    // Chave azul (CSG)
-    const blueKey = createBlueKey();
-    blueKey.position.set(0.0, CONFIG.AREA_Y_POSITION - 1.0, -131.0);
-    platformGroup.add(blueKey);
+    // Criar chave azul usando o sistema Key
+    const keyPosition = new THREE.Vector3(0.0, CONFIG.AREA_Y_POSITION - 1.0, -131.0);
+    const blueKeyInstance = new Key('blue', keyPosition);
+    
+    // Adicionar a chave ao keyManager e à cena
+    if (keyManager.addKey(blueKeyInstance, scene)) {
+        console.log('[ENVIRONMENT] Blue key added to KeyManager successfully');
+        // Esconder a chave inicialmente (será mostrada quando a plataforma subir)
+        if (blueKeyInstance.getMesh()) {
+            blueKeyInstance.getMesh().visible = false;
+            // Posicionar inicialmente abaixo do chão com a plataforma
+            blueKeyInstance.getMesh().position.set(0.0, CONFIG.AREA_Y_POSITION - 1.0, -131.0);
+            blueKeyInstance.position.copy(blueKeyInstance.getMesh().position);
+            blueKeyInstance.originalY = CONFIG.AREA_Y_POSITION - 1.0;
+        }
+    }
     
     // Armazena referências globais para animação
     platformGroup.userData.platform = platform;
-    platformGroup.userData.key = blueKey;
+    platformGroup.userData.keyInstance = blueKeyInstance; // Referência para o objeto Key
     platformGroup.userData.isRaised = false;
     platformGroup.userData.shouldRaise = false;
     platformGroup.userData.targetY = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + 0.5;
@@ -448,8 +474,7 @@ function createBlueKey() {
 // Função para ser chamada no main.js para atualizar a área 1
 export function updateArea1(delta) {
     if (!area1KeyPlatform) return;
-    const key = area1KeyPlatform.userData.key;
-    if (key) key.rotation.y += key.userData.rotationSpeed;
+    
     // Trigger raise only when all Lost Souls from area 1 are defeated
     if (!area1KeyPlatform.userData.shouldRaise && areAllArea1EnemiesDefeated()) {
         console.log('Todas Lost Souls da área 1 derrotadas! Subindo plataforma.');
@@ -467,8 +492,7 @@ export function updateArea1(delta) {
 // Função para ser chamada no main.js para atualizar a área 2
 export function updateArea2(delta) {
     if (!area2KeyPlatform) return;
-    const key = area2KeyPlatform.userData.key;
-    if (key) key.rotation.y += key.userData.rotationSpeed;
+    
     // Trigger raise only when all Cacodemons from area 2 are defeated
     if (!area2KeyPlatform.userData.shouldRaise && areAllArea2EnemiesDefeated()) {
         console.log('Todos Cacodemons da área 2 derrotados! Subindo plataforma.');
@@ -572,19 +596,45 @@ export function isPlayerInArea2(camera) {
 // Anima a subida suave da plataforma
 function raisePlatform(platformGroup, delta) {
     const platform = platformGroup.userData.platform;
-    const key = platformGroup.userData.key;
+    const keyInstance = platformGroup.userData.keyInstance; // Agora é uma instância de Key
     const targetY = platformGroup.userData.targetY;
     
     if (platform.position.y < targetY) {
         const riseSpeed = 2; // Velocidade de subida
-        platform.position.y += riseSpeed * delta;
-        key.position.y += riseSpeed * delta;
+        const deltaY = riseSpeed * delta;
+        
+        // Mover a plataforma
+        platform.position.y += deltaY;
+        
+        // Atualizar posição da chave Key instance para acompanhar a plataforma
+        if (keyInstance && keyInstance.getMesh()) {
+            const keyMesh = keyInstance.getMesh();
+            
+            // Manter a chave sempre 1 unidade acima da plataforma
+            keyMesh.position.y = platform.position.y + 1.0;
+            
+            // Atualizar a posição interna da instância Key também
+            keyInstance.position.y = keyMesh.position.y;
+            keyInstance.originalY = keyMesh.position.y; // Atualizar Y base para flutuação
+            
+            // Tornar a chave visível quando a plataforma começar a subir
+            if (!keyMesh.visible) {
+                keyMesh.visible = true;
+                console.log(`[ENVIRONMENT] ${keyInstance.getType()} key is now visible!`);
+            }
+        }
         
         if (platform.position.y >= targetY) {
             platform.position.y = targetY;
             // Position key further above the raised platform
-            key.position.y = targetY + 1.0;
+            if (keyInstance && keyInstance.getMesh()) {
+                const finalKeyY = targetY + 1.0;
+                keyInstance.getMesh().position.y = finalKeyY;
+                keyInstance.position.y = finalKeyY;
+                keyInstance.originalY = finalKeyY;
+            }
             platformGroup.userData.isRaised = true;
+            console.log(`[ENVIRONMENT] Platform fully raised with ${keyInstance ? keyInstance.getType() : 'unknown'} key!`);
         }
     }
 }

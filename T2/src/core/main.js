@@ -384,14 +384,19 @@ function animate() {
     updateEnemies(delta, scene, camera, gun, collidableObjects);
     updateELevator(delta);
     
-    // Temporariamente comentando atualização de chaves para debug
-    // keyManager.updateKeys(delta);
+    // Atualizar sistema de chaves
+    keyManager.updateKeys(delta);
     
-    // Verificar coletas de chaves (reduzir distância para 1.5)
-    // const collectedKeys = keyManager.checkCollisions(camera.position, 1.5);
-    // if (collectedKeys.length > 0) {
-    //     updateKeysDisplay(); // Atualizar display das chaves
-    // }
+    // Verificar coletas de chaves
+    const collectedKeys = keyManager.checkCollisions(camera.position, 1.5);
+    if (collectedKeys.length > 0) {
+        updateKeysDisplay(); // Atualizar display das chaves
+        console.log(`[KEYS] Collected ${collectedKeys.length} key(s):`, collectedKeys.map(k => k.getType()));
+        
+        // Log adicional para debug
+        console.log(`[KEYS] Total keys collected: ${keyManager.getCollectedKeyCount()}`);
+        console.log(`[KEYS] Available key types:`, keyManager.getCollectedKeys());
+    }
   
     continuousCameraDebug(camera, controls, delta);
     renderer.render(scene, camera);
@@ -467,13 +472,14 @@ async function resetGameAreas() {
       
       // Move platform back down
       const platform = area1KeyPlatform.userData.platform;
-      const key = area1KeyPlatform.userData.key;
+      const keyInstance = area1KeyPlatform.userData.keyInstance;
       
       if (platform) {
         platform.position.y = CONFIG.AREA_Y_POSITION - 2;
       }
-      if (key) {
-        key.position.y = CONFIG.AREA_Y_POSITION - 1.0;
+      if (keyInstance && keyInstance.getMesh()) {
+        keyInstance.getMesh().position.y = CONFIG.AREA_Y_POSITION - 1.0;
+        keyInstance.getMesh().visible = false; // Hide key until platform rises
       }
     } else {
       console.log('[RESTART] Area 1 platform not found');
@@ -487,13 +493,14 @@ async function resetGameAreas() {
       
       // Move platform back down
       const platform = area2KeyPlatform.userData.platform;
-      const key = area2KeyPlatform.userData.key;
+      const keyInstance = area2KeyPlatform.userData.keyInstance;
       
       if (platform) {
         platform.position.y = CONFIG.AREA_Y_POSITION - 2;
       }
-      if (key) {
-        key.position.y = CONFIG.AREA_Y_POSITION - 1.0;
+      if (keyInstance && keyInstance.getMesh()) {
+        keyInstance.getMesh().position.y = CONFIG.AREA_Y_POSITION - 1.0;
+        keyInstance.getMesh().visible = false; // Hide key until platform rises
       }
     } else {
       console.log('[RESTART] Area 2 platform not found');
