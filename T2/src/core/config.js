@@ -13,7 +13,8 @@ export const CONFIG = {
         PROJECTILE_SPEED: 150,
         PROJECTILE_LIFETIME: 3.5,
         SHOOT_RATE: 250,
-        PROJECTILE_SIZE: 0.3,
+        PROJECTILE_SIZE: 0.2,
+        PROJECTILE_COLOR: 'lightgreen',
         DAMAGE: 10,
       },
       CHAINGUN:{
@@ -22,6 +23,7 @@ export const CONFIG = {
         PROJECTILE_LIFETIME: 2.0,
         SHOOT_RATE: 50,
         PROJECTILE_SIZE: 0.1,
+        PROJECTILE_COLOR: 'lightyellow',
         DAMAGE: 0.4,
       },
     },

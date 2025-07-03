@@ -98,8 +98,8 @@ export class Chaingun {
         this.lastShotTime = performance.now();
         
         // Cria geometria e material do projétil
-        const projectileGeometry = new THREE.SphereGeometry(CONFIG.PROJECTILE_SIZE);
-        const projectileMaterial = new THREE.MeshLambertMaterial({ color: 'lightgreen' });
+        const projectileGeometry = new THREE.SphereGeometry(CONFIG.WEAPONS.CHAINGUN.PROJECTILE_SIZE);
+        const projectileMaterial = new THREE.MeshLambertMaterial({ color: CONFIG.WEAPONS.CHAINGUN.PROJECTILE_COLOR });
         const projectile = new THREE.Mesh(projectileGeometry, projectileMaterial);
         
         // Pega direção que a câmera está olhando no momento do tiro
