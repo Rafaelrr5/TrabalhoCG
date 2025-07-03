@@ -49,31 +49,150 @@ export class Enemy {
   }
 
   initSounds() {
+    // Check if audio listener is available
+    if (!window.listener) {
+      console.warn('[ENEMY] Audio listener not available, skipping sound initialization');
+      return;
+    }
+    
     // Carrega e vincula sons específicos conforme o tipo de inimigo
+    // Use regular Audio instead of PositionalAudio for better compatibility
     this.hitSound = new THREE.Audio(window.listener);
     this.deathSound = new THREE.Audio(window.listener);
+    this.attackSound = new THREE.Audio(window.listener);
+    this.nearbySound = new THREE.Audio(window.listener);
+    this.sightSound = new THREE.Audio(window.listener);
+    
     const loader = new THREE.AudioLoader();
     const type = this.constructor.name;
-    let hitPath, deathPath;
+    let hitPath, deathPath, attackPath, nearbyPath, sightPath;
+    
     if (type === 'LostSoul') {
       hitPath = '/T2/assets/sounds/lost_soul/lost_soul_injured.wav';
       deathPath = '/T2/assets/sounds/lost_soul/lost_soul_death.wav';
+      attackPath = '/T2/assets/sounds/lost_soul/lost_soul_attack.wav';
+      nearbyPath = '/T2/assets/sounds/lost_soul/lost_soul_nearby.wav';
+      // Lost Soul não tem som de sight separado, usar nearby
+      sightPath = '/T2/assets/sounds/lost_soul/lost_soul_nearby.wav';
     } else if (type === 'Cacodemon') {
       hitPath = '/T2/assets/sounds/cacodemon/cacodemon_injured.wav';
       deathPath = '/T2/assets/sounds/cacodemon/cacodemon_death.wav';
+      attackPath = '/T2/assets/sounds/cacodemon/cacodemon_attack.wav';
+      nearbyPath = '/T2/assets/sounds/cacodemon/cacodemon_nearby.wav';
+      sightPath = '/T2/assets/sounds/cacodemon/cacodemon_sight.wav';
     } else {
       return;
     }
+    
+    // Carrega todos os sons
     loader.load(hitPath, buffer => {
       this.hitSound.setBuffer(buffer);
-      this.hitSound.setVolume(0.5);
+      this.hitSound.setVolume(0.25); // Lower volume for enemy sounds
+      console.log(`[ENEMY] Loaded hit sound for ${type}`);
     });
     loader.load(deathPath, buffer => {
       this.deathSound.setBuffer(buffer);
-      this.deathSound.setVolume(0.5);
+      this.deathSound.setVolume(0.3); // Slightly higher for death sound
+      console.log(`[ENEMY] Loaded death sound for ${type}`);
     });
+    loader.load(attackPath, buffer => {
+      this.attackSound.setBuffer(buffer);
+      this.attackSound.setVolume(0.35); // Medium volume for attack sound
+      console.log(`[ENEMY] Loaded attack sound for ${type}`);
+    });
+    loader.load(nearbyPath, buffer => {
+      this.nearbySound.setBuffer(buffer);
+      this.nearbySound.setVolume(0.15); // Very low for ambient nearby sound
+      this.nearbySound.setLoop(true); // Som de proximidade em loop
+      console.log(`[ENEMY] Loaded nearby sound for ${type}`);
+    });
+    loader.load(sightPath, buffer => {
+      this.sightSound.setBuffer(buffer);
+      this.sightSound.setVolume(0.4); // Noticeable but not overpowering
+      console.log(`[ENEMY] Loaded sight sound for ${type}`);
+    });
+    
+    // Adiciona todos os sons ao mesh
     this.mesh.add(this.hitSound);
     this.mesh.add(this.deathSound);
+    this.mesh.add(this.attackSound);
+    this.mesh.add(this.nearbySound);
+    this.mesh.add(this.sightSound);
+    
+    // Controle de estado dos sons
+    this.lastNearbyTime = 0;
+    this.nearbyPlaying = false;
+    this.hasSightedPlayer = false;
+  }
+
+  // Audio control methods
+  playAttackSound() {
+    if (this.attackSound && this.attackSound.buffer && !this.attackSound.isPlaying) {
+      try {
+        this.attackSound.play();
+        console.log('[ENEMY] Playing attack sound');
+      } catch (error) {
+        console.debug('[AUDIO] Attack sound play error:', error.message);
+      }
+    } else {
+      console.debug('[AUDIO] Attack sound not available or already playing');
+    }
+  }
+  
+  playSightSound() {
+    if (this.sightSound && this.sightSound.buffer && !this.sightSound.isPlaying && !this.hasSightedPlayer) {
+      try {
+        this.sightSound.play();
+        this.hasSightedPlayer = true;
+        console.log('[ENEMY] Playing sight sound');
+      } catch (error) {
+        console.debug('[AUDIO] Sight sound play error:', error.message);
+      }
+    }
+  }
+  
+  playNearbySound() {
+    if (this.nearbySound && this.nearbySound.buffer && !this.nearbySound.isPlaying) {
+      try {
+        this.nearbySound.play();
+        this.nearbyPlaying = true;
+        console.log('[ENEMY] Playing nearby sound');
+      } catch (error) {
+        console.debug('[AUDIO] Nearby sound play error:', error.message);
+      }
+    }
+  }
+  
+  stopNearbySound() {
+    if (this.nearbySound && this.nearbySound.isPlaying) {
+      try {
+        this.nearbySound.stop();
+        this.nearbyPlaying = false;
+        console.log('[ENEMY] Stopping nearby sound');
+      } catch (error) {
+        console.debug('[AUDIO] Nearby sound stop error:', error.message);
+      }
+    }
+  }
+  
+  updateProximityAudio(playerPosition, activationDistance = 15.0, nearbyDistance = 8.0) {
+    const distanceToPlayer = this.mesh.position.distanceTo(playerPosition);
+    
+    // Som de avistamento (apenas uma vez quando vê o jogador pela primeira vez)
+    if (distanceToPlayer <= activationDistance && !this.hasSightedPlayer) {
+      this.playSightSound();
+    }
+    
+    // Som de proximidade (quando está muito perto)
+    if (distanceToPlayer <= nearbyDistance) {
+      if (!this.nearbyPlaying) {
+        this.playNearbySound();
+      }
+    } else {
+      if (this.nearbyPlaying) {
+        this.stopNearbySound();
+      }
+    }
   }
 
   updateHealthBar() {
@@ -88,9 +207,19 @@ export class Enemy {
     if (!this.isAlive) return false;
     this.currentHealth = Math.max(0, this.currentHealth - damage);
     this.updateHealthBar();
+    
+    // Play hit sound with additional checks
     if (this.hitSound && this.hitSound.buffer) {
-      this.hitSound.play();
+      if (!this.hitSound.isPlaying) {
+        try {
+          this.hitSound.play();
+          console.log('[ENEMY] Playing hit sound');
+        } catch (error) {
+          console.debug('[AUDIO] Hit sound play error:', error.message);
+        }
+      }
     }
+    
     if (this.currentHealth <= 0) {
       this.isAlive = false;
       this.onDeath();
@@ -103,9 +232,19 @@ export class Enemy {
     if (this.healthBarGroup) {
       this.healthBarGroup.visible = false;
     }
+    
+    // Play death sound with additional checks
     if (this.deathSound && this.deathSound.buffer) {
-      this.deathSound.play();
+      if (!this.deathSound.isPlaying) {
+        try {
+          this.deathSound.play();
+          console.log('[ENEMY] Playing death sound');
+        } catch (error) {
+          console.debug('[AUDIO] Death sound play error:', error.message);
+        }
+      }
     }
+    
     if (CONFIG.ENEMY_DEATH_FADE_ENABLED) {
       this.startDeathFade();
     } else {
@@ -170,6 +309,18 @@ export class Enemy {
   }
 
   removeFromScene() {
+    // Stop any playing audio before removing (safely)
+    const sounds = [this.hitSound, this.deathSound, this.attackSound, this.nearbySound, this.sightSound];
+    sounds.forEach(sound => {
+      if (sound && sound.isPlaying) {
+        try {
+          sound.stop();
+        } catch (error) {
+          console.debug('[AUDIO] Audio stop error (non-critical):', error.message);
+        }
+      }
+    });
+    
     if (this.mesh && this.mesh.parent) {
       this.mesh.parent.remove(this.mesh);
     }
@@ -304,6 +455,11 @@ export class Enemy {
     
     if (!this.isAlive) return;
     
+    // Update proximity audio based on player position
+    if (camera && camera.position) {
+      this.updateProximityAudio(camera.position);
+    }
+    
     this.moveTowards(targetPosition || camera.position, delta);
     
     // Make health bar face camera
@@ -313,6 +469,25 @@ export class Enemy {
   }
 
   dispose() {
+    // Stop and clean up all audio safely
+    const sounds = [this.hitSound, this.deathSound, this.attackSound, this.nearbySound, this.sightSound];
+    sounds.forEach(sound => {
+      if (sound) {
+        try {
+          if (sound.isPlaying) {
+            sound.stop();
+          }
+          // Only disconnect if the sound is actually connected
+          if (sound.source && sound.context && sound.context.state !== 'closed') {
+            sound.disconnect();
+          }
+        } catch (error) {
+          // Silently handle disconnect errors - they're not critical
+          console.debug('[AUDIO] Audio disconnect error (non-critical):', error.message);
+        }
+      }
+    });
+    
     // Clean up geometry and materials
     if (this.healthBarBg) {
       this.healthBarBg.geometry.dispose();

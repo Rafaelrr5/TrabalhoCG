@@ -283,6 +283,9 @@ export class Cacodemon extends Enemy {
     this.isAttacking = true;
     this.timeSinceLastAttack = 0;
     
+    // Play attack sound
+    this.playAttackSound();
+    
     const startPosition = this.mesh.position.clone();
     startPosition.y += 1.0;
     

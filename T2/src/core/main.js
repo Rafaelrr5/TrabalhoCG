@@ -1,7 +1,7 @@
 import * as THREE from '../../../build/three.module.js';
 import { PointerLockControls } from '../../../build/jsm/controls/PointerLockControls.js';
 import { CONFIG } from './config.js';
-import { createWalls, createAreas, updateArea1, updateArea2, area1KeyPlatform, area2KeyPlatform } from '../systems/environment.js';
+import { createWalls, createAreas, updateArea1, updateArea2, area1KeyPlatform, area2KeyPlatform, isPlayerInArea1, isPlayerInArea2 } from '../systems/environment.js';
 import { createGun } from '../components/weapon.js';
 import { createWeaponManager, updateProjectiles } from '../components/weaponManager.js';
 import { createEnemies, updateEnemies, cleanupDeadEnemies, enemies } from '../entities/enemies/enemy.js';
@@ -13,6 +13,7 @@ import { createHitbox, hitbox, player } from '../entities/player/player.js';
 import { updateELevator } from '../systems/elevator.js';
 import { keyManager } from '../entities/items/key.js';
 import { cleanupAllProjectiles } from '../entities/enemies/systems/cacodeemonProjectile.js';
+import { ambientAudioManager } from '../systems/ambientAudio.js';
 
 // Global function to handle player damage (called by Lost Soul kamikaze attacks)
 window.playerTakeDamage = function(damage) {
@@ -285,6 +286,7 @@ function showDebugInstructions() {
 let camera, scene, renderer, controls, gun;
 let clock = new THREE.Clock();
 let collidableObjects = [];
+let currentPlayerArea = 'none'; // Track current area for ambient music
 
 init();
 animate();
@@ -307,6 +309,12 @@ function init() {
     setTimeout(() => {
         updateKeysDisplay();
     }, 100);
+    
+    // Force start ambient music after everything is loaded
+    setTimeout(() => {
+        console.log('[MAIN] Force starting ambient music...');
+        ambientAudioManager.forcePlayAreaMusic('none');
+    }, 500); // Reduced delay
 }
 
 function setupScene() {
@@ -329,6 +337,10 @@ function setupCamera() {
     // Adiciona listener de áudio à câmera para sons 3D
     window.listener = new THREE.AudioListener();
     camera.add(window.listener);
+    
+    // Initialize ambient audio system
+    console.log('[MAIN] Initializing ambient audio system...');
+    ambientAudioManager.init(window.listener);
 }
 
 function resetPlayerPosition() {
@@ -384,6 +396,12 @@ function animate() {
     updateEnemies(delta, scene, camera, gun, collidableObjects);
     updateELevator(delta);
     
+    // Update ambient music based on player position
+    updateAmbientMusic();
+    
+    // Ensure ambient music keeps playing
+    ambientAudioManager.ensureAmbientMusicPlaying();
+    
     // Atualizar sistema de chaves
     keyManager.updateKeys(delta);
     
@@ -406,6 +424,26 @@ function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+// Update ambient music based on player area
+function updateAmbientMusic() {
+  let newArea = 'none';
+  
+  // Check which area the player is in
+  if (isPlayerInArea1(camera)) {
+    newArea = 'area1';
+  } else if (isPlayerInArea2(camera)) {
+    newArea = 'area2';
+  }
+  
+  // Change music if area changed
+  if (newArea !== currentPlayerArea) {
+    console.log(`[AMBIENT] Player moved from ${currentPlayerArea} to ${newArea}`);
+    console.log(`[AMBIENT] Player position: x=${camera.position.x.toFixed(2)}, z=${camera.position.z.toFixed(2)}`);
+    currentPlayerArea = newArea;
+    ambientAudioManager.playAreaMusic(newArea);
+  }
 }
 
 // Restart the entire game
@@ -451,6 +489,11 @@ async function restartGame() {
     console.log('[RESTART] Step 8: Resetting keys');
     keyManager.clearAll();
     updateKeysDisplay();
+    
+    // 9. Reset ambient music
+    console.log('[RESTART] Step 9: Resetting ambient music');
+    currentPlayerArea = 'none';
+    ambientAudioManager.playAreaMusic('none');
     
     console.log('[RESTART] Game restarted successfully!');
     
@@ -512,3 +555,63 @@ async function resetGameAreas() {
     console.error('[RESTART] Error resetting game areas:', error);
   }
 }
+
+// Debug function to test ambient music (call from console)
+window.testAmbientMusic = function(area) {
+  console.log(`[DEBUG] Testing ambient music for area: ${area}`);
+  console.log(`[DEBUG] Current area: ${currentPlayerArea}`);
+  console.log(`[DEBUG] Ambient system initialized: ${ambientAudioManager.isInitialized}`);
+  console.log(`[DEBUG] Ambient system enabled: ${ambientAudioManager.isEnabled}`);
+  
+  if (area) {
+    currentPlayerArea = 'none'; // Force change
+    ambientAudioManager.playAreaMusic(area);
+    currentPlayerArea = area;
+  }
+};
+
+// Debug function to check player position relative to areas
+window.checkPlayerArea = function() {
+  console.log(`[DEBUG] Player position: x=${camera.position.x.toFixed(2)}, y=${camera.position.y.toFixed(2)}, z=${camera.position.z.toFixed(2)}`);
+  console.log(`[DEBUG] In Area 1: ${isPlayerInArea1(camera)}`);
+  console.log(`[DEBUG] In Area 2: ${isPlayerInArea2(camera)}`);
+  console.log(`[DEBUG] Current area: ${currentPlayerArea}`);
+};
+
+// Debug function to test enemy sounds (call from console)
+window.testEnemyAudio = function() {
+  console.log('[DEBUG] Testing enemy audio system...');
+  
+  // Find first enemy
+  const enemyMesh = scene.getObjectByName('EnemiesGroup');
+  if (enemyMesh && enemyMesh.children.length > 0) {
+    const firstEnemyMesh = enemyMesh.children[0];
+    const enemy = firstEnemyMesh.userData.enemy;
+    
+    if (enemy) {
+      console.log(`[DEBUG] Found enemy: ${enemy.constructor.name}`);
+      console.log(`[DEBUG] Hit sound available: ${!!(enemy.hitSound && enemy.hitSound.buffer)}`);
+      console.log(`[DEBUG] Attack sound available: ${!!(enemy.attackSound && enemy.attackSound.buffer)}`);
+      console.log(`[DEBUG] Death sound available: ${!!(enemy.deathSound && enemy.deathSound.buffer)}`);
+      
+      // Test hit sound
+      if (enemy.hitSound && enemy.hitSound.buffer) {
+        console.log('[DEBUG] Playing hit sound...');
+        enemy.hitSound.play();
+      }
+    }
+  } else {
+    console.log('[DEBUG] No enemies found');
+  }
+};
+
+// Debug function to manually start ambient music (call from console)
+window.startAmbientMusic = function() {
+  console.log('[DEBUG] Manually starting ambient music...');
+  console.log(`[DEBUG] System initialized: ${ambientAudioManager.isInitialized}`);
+  console.log(`[DEBUG] System enabled: ${ambientAudioManager.isEnabled}`);
+  console.log(`[DEBUG] Current area: ${ambientAudioManager.currentArea}`);
+  console.log(`[DEBUG] Is playing: ${ambientAudioManager.isPlaying()}`);
+  
+  ambientAudioManager.forcePlayAreaMusic('none');
+};

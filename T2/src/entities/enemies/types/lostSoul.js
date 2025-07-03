@@ -346,6 +346,9 @@ export class LostSoul extends Enemy {
     
     // Start dash
     if (canStartDash) {
+      // Play attack sound when starting dash (preparing for kamikaze)
+      this.playAttackSound();
+      
       this.isDashing = true;
       this.timeSinceLastDash = 0;
       this.dashCooldown = this.config.dashInterval * 0.5; // Cooldown adicional
@@ -479,6 +482,9 @@ export class LostSoul extends Enemy {
       this.config.collisionRadius;
     
     if (distanceToPlayer <= effectiveRadius) {
+      // Play attack sound for kamikaze attack
+      this.playAttackSound();
+      
       this.dealDamageToPlayer(this.config.kamikazeDamage);
       this.createExplosionEffect();
       this.currentHealth = 0;
