@@ -2,7 +2,7 @@ import * as THREE from '../../../build/three.module.js';
 import { setDefaultMaterial } from '../../../libs/util/util.js';
 import { CONFIG } from '../core/config.js';
 import { enemies } from '../entities/enemies/enemy.js';
-import { cacodemons } from '../entities/enemies/cacodemonManager.js';
+import { getCacodemons } from '../entities/enemies/enemy.js';
 
 export class Gun {
     constructor(camera) {
@@ -176,6 +176,7 @@ export class Gun {
                     if (enemy) break;
                     
                     // Check Cacodemons
+                    const cacodemons = getCacodemons();
                     enemy = cacodemons.find(c => c.mesh === currentObj);
                     if (enemy) break;
                     

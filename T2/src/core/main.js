@@ -4,15 +4,13 @@ import { CONFIG } from './config.js';
 import { createWalls, createAreas, updateArea1, updateArea2, area1KeyPlatform, area2KeyPlatform, isPlayerInArea1, isPlayerInArea2 } from '../systems/environment.js';
 import { createGun } from '../components/weapon.js';
 import { createWeaponManager, updateProjectiles } from '../components/weaponManager.js';
-import { createEnemies, updateEnemies, cleanupDeadEnemies, enemies } from '../entities/enemies/enemy.js';
-import { cacodemons } from '../entities/enemies/cacodemonManager.js';
+import { createEnemies, updateEnemies, cleanupDeadEnemies, enemies, cleanupAllEnemyProjectiles } from '../entities/enemies/enemy.js';
 import { setupEventListeners, updateCameraMovement, continuousCameraDebug } from '../systems/controls.js';
 import { lightingSystem } from '../systems/lights.js';
 import { applyGravity } from '../systems/collision.js';
 import { createHitbox, hitbox, player } from '../entities/player/player.js';
 import { updateELevator } from '../systems/elevator.js';
 import { keyManager } from '../entities/items/key.js';
-import { cleanupAllProjectiles } from '../entities/enemies/systems/cacodeemonProjectile.js';
 import { ambientAudioManager, playerAudioManager, gameAudioManager } from '../systems/index.js';
 
 // Global function to handle player damage (called by Lost Soul kamikaze attacks)
@@ -468,7 +466,7 @@ async function restartGame() {
     
     // 3. Clean up all projectiles first
     console.log('[RESTART] Step 3: Cleaning up projectiles');
-    cleanupAllProjectiles(scene, cacodemons);
+    cleanupAllEnemyProjectiles(scene);
     
     // 4. Clean up all enemies
     console.log('[RESTART] Step 4: Cleaning up enemies');
@@ -477,7 +475,6 @@ async function restartGame() {
     // 5. Reset enemy arrays
     console.log('[RESTART] Step 5: Resetting enemy arrays');
     enemies.length = 0;
-    cacodemons.length = 0;
     
     // 6. Reset areas and platforms
     console.log('[RESTART] Step 6: Resetting areas and platforms');
