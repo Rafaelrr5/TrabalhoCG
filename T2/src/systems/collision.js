@@ -1,7 +1,7 @@
 import * as THREE from '../../../build/three.module.js';
 import { CONFIG } from '../core/config.js';
 import { hitbox, player } from '../entities/player/player.js';
-import { playerAudioManager } from './playerAudio.js';
+import { playerAudioManager } from './index.js';
 
 export let velocityY = 0;
 export let isGrounded = false;

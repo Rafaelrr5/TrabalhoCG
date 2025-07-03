@@ -13,9 +13,7 @@ import { createHitbox, hitbox, player } from '../entities/player/player.js';
 import { updateELevator } from '../systems/elevator.js';
 import { keyManager } from '../entities/items/key.js';
 import { cleanupAllProjectiles } from '../entities/enemies/systems/cacodeemonProjectile.js';
-import { ambientAudioManager } from '../systems/ambientAudio.js';
-import { playerAudioManager } from '../systems/playerAudio.js';
-import { gameAudioManager } from '../systems/gameAudio.js';
+import { ambientAudioManager, playerAudioManager, gameAudioManager } from '../systems/index.js';
 
 // Global function to handle player damage (called by Lost Soul kamikaze attacks)
 window.playerTakeDamage = function(damage) {

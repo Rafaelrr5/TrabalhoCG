@@ -1,6 +1,6 @@
 import * as THREE from '../../../../build/three.module.js';
 import { CONFIG } from '../../core/config.js';
-import { playerAudioManager } from '../../systems/playerAudio.js';
+import { playerAudioManager } from '../../systems/index.js';
 
 export class Player {
     constructor() {

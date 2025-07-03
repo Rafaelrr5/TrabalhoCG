@@ -1,7 +1,7 @@
 import * as THREE from '../../../build/three.module.js';
 import { CONFIG } from '../core/config.js';
 import { hitbox } from '../entities/player/player.js';
-import { gameAudioManager } from './gameAudio.js';
+import { gameAudioManager } from './index.js';
 
 export let elevator = null;
 const returnDistance = CONFIG.ELEVATOR_ACTIVATION_DISTANCE; // Distância para o elevador voltar

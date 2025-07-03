@@ -1,7 +1,7 @@
 import * as THREE from '../../../../build/three.module.js';
 import { CONFIG } from '../../core/config.js';
 import { CSG } from '../../../../libs/other/CSGMesh.js';
-import { gameAudioManager } from '../../systems/gameAudio.js';
+import { gameAudioManager } from '../../systems/index.js';
 
 export class Key {
     constructor(keyType = 'red', position = new THREE.Vector3(0, 0, 0)) {
