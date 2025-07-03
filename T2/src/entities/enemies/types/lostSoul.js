@@ -3,6 +3,8 @@ import { Enemy } from '../base/enemies.js';
 import { loadSkullModel, preloadSkullModel } from '../../../utils/skullLoader.js';
 import { CONFIG } from '../../../core/config.js';
 import { applyLostSoulCollisionCorrection } from '../../../systems/collision.js';
+import { ExplosionEffects } from '../utils/explosionEffects.js';
+import { IdleBehaviors } from '../utils/idleBehaviors.js';
 
 export class LostSoul extends Enemy {
   constructor(position = [0, 0, 0], config = {}) {
@@ -60,12 +62,7 @@ export class LostSoul extends Enemy {
     // Reference to skull model
     this.skullModel = null;
     
-    // Idle behavior
-    this.idleInitialized = false;
-    this.baseX = this.mesh.position.x;
-    this.baseY = this.mesh.position.y;
-    this.baseZ = this.mesh.position.z;
-    this.timeOffset = Math.random() * Math.PI * 2;
+    // Idle behavior will be handled by IdleBehaviors utility
   }
 
   async loadSkull() {
@@ -287,43 +284,15 @@ export class LostSoul extends Enemy {
   orientSkull(targetPosition) {
     if (!this.skullModel) return;
     
-    const orientationDirection = CONFIG.SKULL_ORIENT_TO_MOVEMENT && this.velocity.length() > 0.1
-      ? this.velocity.clone().normalize()
-      : new THREE.Vector3().subVectors(targetPosition, this.mesh.position).normalize();
-    
-    // Create target quaternion
-    const targetQuaternion = new THREE.Quaternion();
-    const lookAtMatrix = new THREE.Matrix4();
-    const up = new THREE.Vector3(0, 1, 0);
-    const currentPos = this.skullModel.position.clone();
-    const targetPos = currentPos.clone().add(orientationDirection);
-    
-    lookAtMatrix.lookAt(currentPos, targetPos, up);
-    targetQuaternion.setFromRotationMatrix(lookAtMatrix);
-    
-    // Apply rotation offsets
-    this.applyRotationOffsets(targetQuaternion);
-    
-    // Apply rotation
-    if (CONFIG.SKULL_SMOOTH_ROTATION) {
-      const rotationSpeed = CONFIG.SKULL_ROTATION_SPEED * 0.016; // Assuming 60fps
-      this.skullModel.quaternion.slerp(targetQuaternion, Math.min(rotationSpeed, 1.0));
-    } else {
-      this.skullModel.quaternion.copy(targetQuaternion);
-    }
-  }
-
-  applyRotationOffsets(quaternion) {
-    const offsets = [
-      { axis: new THREE.Vector3(0, 1, 0), angle: this.config.skullYRotationOffset },
-      { axis: new THREE.Vector3(1, 0, 0), angle: this.config.skullXRotationOffset },
-      { axis: new THREE.Vector3(0, 0, 1), angle: this.config.skullZRotationOffset }
-    ];
-    
-    offsets.forEach(({ axis, angle }) => {
-      if (angle !== 0) {
-        const adjustment = new THREE.Quaternion().setFromAxisAngle(axis, angle);
-        quaternion.multiplyQuaternions(quaternion, adjustment);
+    // Use the base class utility method for orientation
+    this.orientModelToTarget(this.skullModel, targetPosition, {
+      useVelocity: CONFIG.SKULL_ORIENT_TO_MOVEMENT,
+      smoothRotation: CONFIG.SKULL_SMOOTH_ROTATION,
+      rotationSpeed: CONFIG.SKULL_ROTATION_SPEED || 5.0,
+      rotationOffsets: {
+        x: this.config.skullXRotationOffset,
+        y: this.config.skullYRotationOffset,
+        z: this.config.skullZRotationOffset
       }
     });
   }
@@ -434,38 +403,14 @@ export class LostSoul extends Enemy {
   }
 
   idleBehavior(delta) {
-    this.idleBehavior6DOF(delta);
-  }
-
-  idleBehavior6DOF(delta) {
-    if (!this.idleInitialized) {
-      this.idleInitialized = true;
-      this.baseX = this.mesh.position.x;
-      this.baseY = this.mesh.position.y;
-      this.baseZ = this.mesh.position.z;
-      this.timeOffset = Math.random() * Math.PI * 2;
-    }
-    
-    const time = Date.now() * 0.001;
-    
-    // Movimento flutuante suave com variação individual
-    const floatAmplitude = 0.15 + Math.sin(this.timeOffset) * 0.05;
-    this.mesh.position.x = this.baseX + Math.sin(time * 1.2 + this.timeOffset) * floatAmplitude;
-    this.mesh.position.y = this.baseY + Math.sin(time * 0.8 + this.timeOffset * 1.3) * floatAmplitude * 0.7;
-    this.mesh.position.z = this.baseZ + Math.cos(time * 1.1 + this.timeOffset * 0.8) * floatAmplitude;
-    
-    // Rotação suave do crânio durante idle
-    if (this.skullModel) {
-      this.skullModel.rotation.x = Math.sin(time * 0.6 + this.timeOffset) * 0.04;
-      this.skullModel.rotation.y = Math.cos(time * 0.4 + this.timeOffset) * 0.08;
-      this.skullModel.rotation.z = Math.sin(time * 0.7 + this.timeOffset) * 0.02;
-    }
-    
-    // Atualiza posição de referência gradualmente para evitar drift
-    const driftCorrection = 0.001;
-    this.baseX = THREE.MathUtils.lerp(this.baseX, this.mesh.position.x, driftCorrection);
-    this.baseY = THREE.MathUtils.lerp(this.baseY, this.mesh.position.y, driftCorrection);
-    this.baseZ = THREE.MathUtils.lerp(this.baseZ, this.mesh.position.z, driftCorrection);
+    // Use the utility class for 6DOF idle behavior
+    IdleBehaviors.combinedIdleBehavior(this, delta, {
+      movement: '6dof',
+      enableModelRotation: true,
+      model: this.skullModel,
+      amplitude: 0.15,
+      amplitudeVariation: 0.05
+    });
   }
 
   onDeath() {
@@ -474,39 +419,17 @@ export class LostSoul extends Enemy {
   }
 
   checkPlayerCollision(targetPosition) {
-    const distanceToPlayer = this.mesh.position.distanceTo(targetPosition);
-    
-    // Colisão mais precisa usando raio dinâmico
-    const effectiveRadius = this.isDashing ? 
-      this.config.collisionRadius * 1.2 : // Maior durante dash
-      this.config.collisionRadius;
-    
-    if (distanceToPlayer <= effectiveRadius) {
-      // Play attack sound for kamikaze attack
-      this.playAttackSound();
-      
-      this.dealDamageToPlayer(this.config.kamikazeDamage);
-      this.createExplosionEffect();
-      this.currentHealth = 0;
-      this.isAlive = false;
-      this.onDeath();
-      
-      return true;
-    }
-    
-    return false;
+    // Use the base class utility method for collision checking
+    return super.checkPlayerCollision(targetPosition, {
+      collisionRadius: this.config.collisionRadius,
+      radiusMultiplier: this.isDashing ? 1.2 : 1.0,
+      damage: this.config.kamikazeDamage,
+      destroyOnHit: true
+    });
   }
-  
-  dealDamageToPlayer(damage) {
-    if (typeof window.playerTakeDamage === 'function') {
-      window.playerTakeDamage(damage);
-    } else {
-      console.warn('[KAMIKAZE] Player damage system not available!');
-    }
- }
 
   update(delta, camera, targetPosition, collidableObjects = []) {
-    // Call parent update which handles death fade animation
+    // Call parent update which handles death fade animation and bounding box
     super.update(delta, camera, targetPosition, collidableObjects);
     
     // Only process Lost Soul specific behavior if alive and not dying
@@ -518,14 +441,13 @@ export class LostSoul extends Enemy {
     
     // Atualiza orientação baseada na velocidade atual
     this.orientSkull(targetPosition);
-    this.updateBoundingBox();
     
     // Verifica colisão com player (sempre ativo)
-    this.checkPlayerCollision(targetPosition);
+    const collisionOccurred = this.checkPlayerCollision(targetPosition);
     
-    // Atualiza health bar
-    if (this.healthBarGroup && camera) {
-      this.healthBarGroup.lookAt(camera.position);
+    // Create explosion effect if collision occurred
+    if (collisionOccurred && this.mesh && this.mesh.parent) {
+      this.createExplosionEffect();
     }
   }
 
@@ -536,100 +458,25 @@ export class LostSoul extends Enemy {
   createExplosionEffect() {
     if (!this.mesh || !this.mesh.parent) return;
     
-    // Efeito de explosão mais elaborado
-    const particleCount = 8;
-    const colors = [0xff4444, 0xff6666, 0xff8888, 0xffaaaa];
-    
-    for (let i = 0; i < particleCount; i++) {
-      const particleSize = 0.08 + Math.random() * 0.06;
-      const particle = new THREE.Mesh(
-        new THREE.SphereGeometry(particleSize, 6, 6),
-        new THREE.MeshBasicMaterial({ 
-          color: colors[Math.floor(Math.random() * colors.length)],
-          transparent: true,
-          opacity: 0.9
-        })
-      );
-      
-      particle.position.copy(this.mesh.position);
-      
-      // Direção aleatória mais variada
-      const phi = Math.random() * Math.PI * 2;
-      const cosTheta = Math.random() * 2 - 1;
-      const sinTheta = Math.sqrt(1 - cosTheta * cosTheta);
-      
-      const direction = new THREE.Vector3(
-        sinTheta * Math.cos(phi),
-        cosTheta,
-        sinTheta * Math.sin(phi)
-      );
-      
-      const speed = 2 + Math.random() * 4;
-      direction.multiplyScalar(speed);
-      
-      this.mesh.parent.add(particle);
-      
-      // Animação melhorada das partículas
-      let life = 1.0;
-      let initialScale = 1.0;
-      const animateParticle = () => {
-        if (life > 0) {
-          // Movimento com gravidade sutil
-          direction.y -= 0.01;
-          particle.position.addScaledVector(direction, 0.016);
-          
-          // Fade e scaling
-          life -= 0.016 * (2 + Math.random());
-          particle.material.opacity = life * 0.9;
-          
-          // Escala variável
-          const scale = initialScale * (0.5 + life * 0.5);
-          particle.scale.setScalar(scale);
-          
-          requestAnimationFrame(animateParticle);
-        } else {
-          if (particle.parent) particle.parent.remove(particle);
-          particle.geometry.dispose();
-          particle.material.dispose();
-        }
-      };
-      animateParticle();
-    }
-    
-    // Efeito de flash adicional
-    this.createFlashEffect();
-  }
-  
-  createFlashEffect() {
-    if (!this.mesh || !this.mesh.parent) return;
-    
-    // Cria um flash rápido na posição da explosão
-    const flash = new THREE.Mesh(
-      new THREE.SphereGeometry(2.0, 12, 12),
-      new THREE.MeshBasicMaterial({
+    // Use the utility class for creating explosion effects
+    ExplosionEffects.createExplosion(this.mesh.position, this.mesh.parent, {
+      particles: {
+        particleCount: 8,
+        colors: [0xff4444, 0xff6666, 0xff8888, 0xffaaaa],
+        minSize: 0.08,
+        maxSize: 0.14,
+        minSpeed: 2,
+        maxSpeed: 6,
+        gravity: 0.01,
+        fadeSpeed: 2
+      },
+      flash: {
         color: 0xffffff,
-        transparent: true,
-        opacity: 0.6
-      })
-    );
-    
-    flash.position.copy(this.mesh.position);
-    this.mesh.parent.add(flash);
-    
-    // Anima o flash
-    let flashLife = 1.0;
-    const animateFlash = () => {
-      if (flashLife > 0) {
-        flashLife -= 0.033; // ~30fps fade
-        flash.material.opacity = flashLife * 0.6;
-        flash.scale.setScalar(1 + (1 - flashLife) * 2);
-        requestAnimationFrame(animateFlash);
-      } else {
-        if (flash.parent) flash.parent.remove(flash);
-        flash.geometry.dispose();
-        flash.material.dispose();
+        size: 2.0,
+        opacity: 0.6,
+        duration: 1.0,
+        expansionFactor: 2.0
       }
-    };
-    animateFlash();
+    });
   }
 }

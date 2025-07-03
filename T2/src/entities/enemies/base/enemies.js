@@ -306,108 +306,207 @@ export class Enemy {
     return false;
   }
 
-  // Basic movement toward target (ground-based)
+  // Consolidated movement method - replaces all the duplicated movement functions
+  moveTowardsTarget(targetPosition, delta, options = {}) {
+    if (!this.isAlive) return;
+    
+    const {
+      use6DOF = false,
+      enableCollision = false,
+      collidableObjects = [],
+      speedMultiplier = 1.0
+    } = options;
+    
+    // Calculate direction
+    const direction = new THREE.Vector3()
+      .subVectors(targetPosition, this.mesh.position);
+    
+    // Apply Y restriction if not 6DOF
+    if (!use6DOF) {
+      direction.setY(0);
+    }
+    
+    direction.normalize();
+    
+    // Calculate base velocity
+    this.velocity.copy(direction).multiplyScalar(this.config.speed * speedMultiplier);
+    
+    // Check for collision if enabled
+    if (enableCollision && collidableObjects.length > 0) {
+      const collision = this.checkEnvironmentCollision(targetPosition, collidableObjects, delta);
+      
+      if (collision && collision.hasCollision) {
+        const safeDistance = CONFIG.LOST_SOUL_COLLISION_DISTANCE || 2.0;
+        
+        if (collision.distance < safeDistance) {
+          // Try to apply collision correction
+          const corrected = this.applyCollisionCorrection(targetPosition, collidableObjects);
+          
+          if (!corrected) {
+            // If no correction possible, slow down movement
+            this.velocity.multiplyScalar(0.2);
+          }
+        }
+      }
+    }
+    
+    // Apply movement
+    this.mesh.position.addScaledVector(this.velocity, delta);
+    this.updateBoundingBox();
+    
+    return this.velocity.clone();
+  }
+
+  // Compatibility methods - use the consolidated function internally
   moveTowards(targetPosition, delta) {
-    if (!this.isAlive) return;
-    const direction = new THREE.Vector3()
-      .subVectors(targetPosition, this.mesh.position)
-      .setY(0)
-      .normalize();
-    this.velocity.copy(direction).multiplyScalar(this.config.speed);
-    this.mesh.position.addScaledVector(this.velocity, delta);
-    this.updateBoundingBox();
+    return this.moveTowardsTarget(targetPosition, delta, { use6DOF: false });
   }
 
-  // 6DOF movement for flying enemies
   moveTowards6DOF(targetPosition, delta) {
-    if (!this.isAlive) return;
-    const direction = new THREE.Vector3()
-      .subVectors(targetPosition, this.mesh.position)
-      .normalize();
-    this.velocity.copy(direction).multiplyScalar(this.config.speed);
-    this.mesh.position.addScaledVector(this.velocity, delta);
-    this.updateBoundingBox();
+    return this.moveTowardsTarget(targetPosition, delta, { use6DOF: true });
   }
 
-  // Enhanced movement with collision detection
   moveTowardsWithCollision(targetPosition, delta, collidableObjects = []) {
-    if (!this.isAlive) return;
-    
-    const direction = new THREE.Vector3()
-      .subVectors(targetPosition, this.mesh.position)
-      .setY(0) // Keep on ground for non-flying enemies
-      .normalize();
-    
-    this.velocity.copy(direction).multiplyScalar(this.config.speed);
-    
-    // Check for collision
-    const collision = this.checkEnvironmentCollision(targetPosition, collidableObjects, delta);
-    
-    if (collision && collision.hasCollision) {
-      const safeDistance = CONFIG.LOST_SOUL_COLLISION_DISTANCE || 2.0;
-      
-      if (collision.distance < safeDistance) {
-        // Try to apply collision correction
-        const corrected = this.applyCollisionCorrection(targetPosition, collidableObjects);
-        
-        if (!corrected) {
-          // If no correction possible, slow down movement
-          this.velocity.multiplyScalar(0.2);
-        }
-      }
-    }
-    
-    this.mesh.position.addScaledVector(this.velocity, delta);
-    this.updateBoundingBox();
+    return this.moveTowardsTarget(targetPosition, delta, { 
+      use6DOF: false, 
+      enableCollision: true, 
+      collidableObjects 
+    });
   }
 
-  // Enhanced 6DOF movement with collision detection  
   moveTowards6DOFWithCollision(targetPosition, delta, collidableObjects = []) {
-    if (!this.isAlive) return;
-    
-    const direction = new THREE.Vector3()
-      .subVectors(targetPosition, this.mesh.position)
-      .normalize();
-    
-    this.velocity.copy(direction).multiplyScalar(this.config.speed);
-    
-    // Check for collision
-    const collision = this.checkEnvironmentCollision(targetPosition, collidableObjects, delta);
-    
-    if (collision && collision.hasCollision) {
-      const safeDistance = CONFIG.LOST_SOUL_COLLISION_DISTANCE || 2.0;
-      
-      if (collision.distance < safeDistance) {
-        // Try to apply collision correction
-        const corrected = this.applyCollisionCorrection(targetPosition, collidableObjects);
-        
-        if (!corrected) {
-          // If no correction possible, slow down movement
-          this.velocity.multiplyScalar(0.2);
-        }
-      }
-    }
-    
-    this.mesh.position.addScaledVector(this.velocity, delta);
-    this.updateBoundingBox();
+    return this.moveTowardsTarget(targetPosition, delta, { 
+      use6DOF: true, 
+      enableCollision: true, 
+      collidableObjects 
+    });
   }
 
+  // Utility method for checking player collision with customizable radius
+  checkPlayerCollision(targetPosition, options = {}) {
+    const {
+      collisionRadius = this.config.collisionRadius || this.config.radius,
+      radiusMultiplier = 1.0,
+      damage = 10,
+      destroyOnHit = false
+    } = options;
+    
+    const distanceToPlayer = this.mesh.position.distanceTo(targetPosition);
+    const effectiveRadius = collisionRadius * radiusMultiplier;
+    
+    if (distanceToPlayer <= effectiveRadius) {
+      // Play attack sound
+      this.playAttackSound();
+      
+      // Deal damage to player
+      this.dealDamageToPlayer(damage);
+      
+      // Destroy enemy if specified
+      if (destroyOnHit) {
+        this.currentHealth = 0;
+        this.isAlive = false;
+        this.onDeath();
+      }
+      
+      return true;
+    }
+    
+    return false;
+  }
+
+  // Utility method for dealing damage to player
+  dealDamageToPlayer(damage) {
+    if (typeof window.playerTakeDamage === 'function') {
+      window.playerTakeDamage(damage);
+      console.log(`[${this.constructor.name}] Dealt ${damage} damage to player`);
+    } else {
+      console.warn(`[${this.constructor.name}] Player damage system not available!`);
+    }
+  }
+
+  // Generic orientation method for models to look at target
+  orientModelToTarget(model, targetPosition, options = {}) {
+    if (!model) return;
+    
+    const {
+      useVelocity = false,
+      smoothRotation = true,
+      rotationSpeed = 5.0,
+      rotationOffsets = {}
+    } = options;
+    
+    let direction;
+    
+    if (useVelocity && this.velocity && this.velocity.length() > 0.1) {
+      direction = this.velocity.clone().normalize();
+    } else {
+      direction = new THREE.Vector3()
+        .subVectors(targetPosition, this.mesh.position)
+        .normalize();
+    }
+    
+    // Create target quaternion
+    const targetQuaternion = new THREE.Quaternion();
+    const lookAtMatrix = new THREE.Matrix4();
+    const up = new THREE.Vector3(0, 1, 0);
+    const currentPos = model.position.clone();
+    const targetPos = currentPos.clone().add(direction);
+    
+    lookAtMatrix.lookAt(currentPos, targetPos, up);
+    targetQuaternion.setFromRotationMatrix(lookAtMatrix);
+    
+    // Apply rotation offsets if provided
+    this.applyRotationOffsets(targetQuaternion, rotationOffsets);
+    
+    // Apply rotation
+    if (smoothRotation) {
+      const speed = rotationSpeed * 0.016; // Assuming 60fps
+      model.quaternion.slerp(targetQuaternion, Math.min(speed, 1.0));
+    } else {
+      model.quaternion.copy(targetQuaternion);
+    }
+  }
+
+  // Helper method to apply rotation offsets to quaternion
+  applyRotationOffsets(quaternion, offsets = {}) {
+    const {
+      x = 0,
+      y = 0,
+      z = 0
+    } = offsets;
+    
+    const rotationOffsets = [
+      { axis: new THREE.Vector3(0, 1, 0), angle: y },
+      { axis: new THREE.Vector3(1, 0, 0), angle: x },
+      { axis: new THREE.Vector3(0, 0, 1), angle: z }
+    ];
+    
+    rotationOffsets.forEach(({ axis, angle }) => {
+      if (angle !== 0) {
+        const adjustment = new THREE.Quaternion().setFromAxisAngle(axis, angle);
+        quaternion.multiplyQuaternions(quaternion, adjustment);
+      }
+    });
+  }
+
+  // Enhanced update method with automatic bounding box updates
   update(delta, camera, targetPosition, collidableObjects = []) {
     // Update death fade animation if dying
     if (this.isDying) {
       this.updateDeathFade(performance.now());
-      return; // Don't process normal behavior while dying
+      return;
     }
-    
+
     if (!this.isAlive) return;
-    
+
     // Update proximity audio based on player position
     if (camera && camera.position) {
       this.updateProximityAudio(camera.position);
     }
-    
-    this.moveTowards(targetPosition || camera.position, delta);
-    
+
+    // Update bounding box automatically
+    this.updateBoundingBox();
+
     // Make health bar face camera
     if (this.healthBarGroup && camera) {
       this.healthBarGroup.lookAt(camera.position);
