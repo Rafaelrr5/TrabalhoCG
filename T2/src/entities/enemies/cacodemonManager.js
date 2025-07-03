@@ -131,12 +131,8 @@ export function updateCacodemons(delta, scene, camera, gun = null, collidableObj
 }
 
 function shouldUpdateCacodemon(camera, cacodemon) {
-  if (isPlayerInArea2(camera)) {
-    return true;
-  }
-  
-  const distance = camera.position.distanceTo(cacodemon.mesh.position);
-  return distance < 80;
+  // Só ativa Cacodemons se o jogador estiver na área 2
+  return isPlayerInArea2(camera);
 }
 
 export function cleanupDeadCacodemons(scene) {
