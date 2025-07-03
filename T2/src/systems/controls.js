@@ -1,8 +1,8 @@
 import { CONFIG } from '../core/config.js';
-import { startShooting, stopShooting, toggleWeaponVisibility, debugWeaponInfo} from '../components/weapon.js';
 import { wallColide } from './collision.js';
 import { toggleHitboxVisibility, player } from '../entities/player/player.js';
 import { enemies } from '../entities/enemies/enemy.js';
+import { nextWeapon, previousWeapon, switchWeapon, startShooting, stopShooting} from '../components/weaponManager.js';
 
 // Estados de controle de movimento (quais teclas estão ativas)
 export let moveState = { 
@@ -12,13 +12,15 @@ export let moveState = {
     right: false 
 };
 
+let lastWeaponSwitch = 0; // Timestamp do último switch de arma
+
 // Configura todos os event listeners
 export function setupEventListeners(camera, scene) {
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
-    document.addEventListener('mousedown', () => startShooting(camera, scene));
+    document.addEventListener('mousedown', () => startShooting());
     document.addEventListener('mouseup', stopShooting);
-    // document.addEventListener('wheel', ()=> weaponSwitch(Date.now()))
+    document.addEventListener('wheel', (e)=> weaponSwitch(Date.now(), e.deltaY));
     window.addEventListener('resize', onWindowResize);
 }
 
@@ -30,6 +32,8 @@ function onKeyDown(event) {
         case 's': case 'arrowdown': moveState.backward = true; break;
         case 'a': case 'arrowleft': moveState.left = true; break;
         case 'd': case 'arrowright': moveState.right = true; break;
+        case '1': switchWeapon(0); break; // Arma 1
+        case '2': switchWeapon(1); break; // Arma 2
     }
 }
 
@@ -41,6 +45,18 @@ function onKeyUp(event) {
         case 'd': case 'arrowright': moveState.right = false; break;
     }
 }
+
+function weaponSwitch(timestamp) {
+    if (timestamp - lastWeaponSwitch < CONFIG.WEAPON_SWITCH_COOLDOWN) return;
+    lastWeaponSwitch = timestamp;
+
+    const direction = deltaY < 0 ? 1 : -1; 
+    if (direction > 0)
+        nextWeapon();
+    else
+        previousWeapon();
+}
+
 
 // Atualiza posição do jogador baseado na entrada do usuário
 export function updateCameraMovement(delta, controls) {
