@@ -410,14 +410,14 @@ function createBlueKeyPlatform(scene) {
     // Material da plataforma
     const platformMaterial = new THREE.MeshLambertMaterial({ color: 0x4169E1 }); // Azul royal
     
-    // Plataforma circular
+    // Plataforma circular (movida um pouco para a direita)
     const platformGeometry = new THREE.CylinderGeometry(3, 3, 0.5, 16);
     const platform = new THREE.Mesh(platformGeometry, platformMaterial);
-    platform.position.set(0.0, CONFIG.AREA_Y_POSITION - 2, -131.0); // Começa subterrânea
+    platform.position.set(20.0, CONFIG.AREA_Y_POSITION - 2, -131.0); // Movida para X = 20.0
     platformGroup.add(platform);
     
-    // Criar chave azul usando o sistema Key
-    const keyPosition = new THREE.Vector3(0.0, CONFIG.AREA_Y_POSITION - 1.0, -131.0);
+    // Criar chave azul usando o sistema Key (posição também movida para a direita)
+    const keyPosition = new THREE.Vector3(20.0, CONFIG.AREA_Y_POSITION - 1.0, -131.0);
     const blueKeyInstance = new Key('blue', keyPosition);
     
     // Adicionar a chave ao keyManager e à cena
@@ -426,8 +426,8 @@ function createBlueKeyPlatform(scene) {
         // Esconder a chave inicialmente (será mostrada quando a plataforma subir)
         if (blueKeyInstance.getMesh()) {
             blueKeyInstance.getMesh().visible = false;
-            // Posicionar inicialmente abaixo do chão com a plataforma
-            blueKeyInstance.getMesh().position.set(0.0, CONFIG.AREA_Y_POSITION - 1.0, -131.0);
+            // Posicionar inicialmente abaixo do chão com a plataforma (posição X atualizada)
+            blueKeyInstance.getMesh().position.set(20.0, CONFIG.AREA_Y_POSITION - 1.0, -131.0);
             blueKeyInstance.position.copy(blueKeyInstance.getMesh().position);
             blueKeyInstance.originalY = CONFIG.AREA_Y_POSITION - 1.0;
         }

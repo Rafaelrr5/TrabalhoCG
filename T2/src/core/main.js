@@ -500,6 +500,7 @@ async function resetGameAreas() {
       }
       if (keyInstance && keyInstance.getMesh()) {
         keyInstance.getMesh().position.y = CONFIG.AREA_Y_POSITION - 1.0;
+        keyInstance.getMesh().position.x = 20.0; // Posição X atualizada para corresponder à plataforma
         keyInstance.getMesh().visible = false; // Hide key until platform rises
       }
     } else {
