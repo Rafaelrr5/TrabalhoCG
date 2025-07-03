@@ -202,6 +202,65 @@ export function cleanupProjectiles(projectiles) {
   projectiles.length = 0;
 }
 
+export function cleanupAllProjectiles(scene, cacodemons = []) {
+  // Clean projectiles from cacodemons array (direct approach)
+  if (cacodemons && cacodemons.length > 0) {
+    cacodemons.forEach(cacodemon => {
+      if (cacodemon && cacodemon.activeProjectiles) {
+        cacodemon.activeProjectiles.forEach(projectile => {
+          if (projectile && projectile.isActive) {
+            projectile.destroy();
+          }
+        });
+        cacodemon.activeProjectiles = [];
+      }
+    });
+  }
+  
+  // Fallback: use window.getCacodemons if cacodemons array not provided
+  if ((!cacodemons || cacodemons.length === 0) && typeof window !== 'undefined' && window.getCacodemons) {
+    const windowCacodemons = window.getCacodemons();
+    windowCacodemons.forEach(cacodemon => {
+      if (cacodemon.activeProjectiles) {
+        cacodemon.activeProjectiles.forEach(projectile => {
+          if (projectile.isActive) {
+            projectile.destroy();
+          }
+        });
+        cacodemon.activeProjectiles = [];
+      }
+    });
+  }
+  
+  // Clean any orphaned projectiles in the scene
+  if (scene) {
+    const orphanedProjectiles = [];
+    scene.traverse((object) => {
+      if (object.userData && object.userData.projectile) {
+        orphanedProjectiles.push(object);
+      }
+    });
+    
+    orphanedProjectiles.forEach(projectileObject => {
+      if (projectileObject.parent) {
+        projectileObject.parent.remove(projectileObject);
+      }
+      
+      // Dispose of materials and geometry
+      if (projectileObject.geometry) projectileObject.geometry.dispose();
+      if (projectileObject.material) {
+        if (Array.isArray(projectileObject.material)) {
+          projectileObject.material.forEach(mat => mat.dispose());
+        } else {
+          projectileObject.material.dispose();
+        }
+      }
+    });
+  }
+  
+  console.log('[PROJECTILES] All projectiles cleaned up for game restart');
+}
+
 // Projectile pool for better performance (TODO: implement when needed)
 export class ProjectilePool {
   constructor(maxSize = 50) {

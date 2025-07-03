@@ -1,15 +1,17 @@
 import * as THREE from '../../../build/three.module.js';
 import { PointerLockControls } from '../../../build/jsm/controls/PointerLockControls.js';
 import { CONFIG } from './config.js';
-import { createWalls, createAreas, updateArea1, updateArea2 } from '../systems/environment.js';
+import { createWalls, createAreas, updateArea1, updateArea2, area1KeyPlatform, area2KeyPlatform } from '../systems/environment.js';
 import { createGun, updateProjectiles } from '../components/weapon.js';
-import { createEnemies, updateEnemies } from '../entities/enemies/enemy.js';
+import { createEnemies, updateEnemies, cleanupDeadEnemies, enemies } from '../entities/enemies/enemy.js';
+import { cacodemons } from '../entities/enemies/cacodemonManager.js';
 import { setupEventListeners, updateCameraMovement, continuousCameraDebug } from '../systems/controls.js';
 import { lightingSystem } from '../systems/lights.js';
 import { applyGravity } from '../systems/collision.js';
 import { createHitbox, hitbox, player } from '../entities/player/player.js';
 import { updateELevator } from '../systems/elevator.js';
 import { keyManager } from '../entities/items/key.js';
+import { cleanupAllProjectiles } from '../entities/enemies/systems/cacodeemonProjectile.js';
 
 // Global function to handle player damage (called by Lost Soul kamikaze attacks)
 window.playerTakeDamage = function(damage) {
@@ -43,11 +45,130 @@ function updatePlayerHealthDisplay() {
 
 // Handle player death
 function handlePlayerDeath() {
-  // Could implement respawn, game over screen, etc.
-  alert('Game Over! Lost Souls defeated you!');
-  // Reset for now
-  player.respawn();
-  updatePlayerHealthDisplay();
+  // Unlock pointer controls to allow interaction with popup
+  if (controls.isLocked) {
+    controls.unlock();
+  }
+  
+  // Show game over popup
+  showGameOverPopup();
+}
+
+// Show game over popup with restart option
+function showGameOverPopup() {
+  console.log('[RESTART] Creating game over popup');
+  
+  // Remove any existing popup first
+  const existingOverlay = document.getElementById('game-over-overlay');
+  if (existingOverlay) {
+    document.body.removeChild(existingOverlay);
+  }
+  
+  // Create overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'game-over-overlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 99999;
+    font-family: Arial, sans-serif;
+    pointer-events: auto;
+  `;
+  
+  // Create popup content
+  const popup = document.createElement('div');
+  popup.style.cssText = `
+    background-color: #2a2a2a;
+    border: 3px solid #ff4444;
+    border-radius: 10px;
+    padding: 30px;
+    text-align: center;
+    color: white;
+    box-shadow: 0 0 20px rgba(255, 68, 68, 0.5);
+    position: relative;
+    z-index: 100000;
+    pointer-events: auto;
+  `;
+  
+  // Create elements separately for better control
+  const title = document.createElement('h2');
+  title.style.cssText = 'color: #ff4444; margin: 0 0 20px 0; font-size: 32px;';
+  title.textContent = 'GAME OVER';
+  
+  const message = document.createElement('p');
+  message.style.cssText = 'margin: 0 0 30px 0; font-size: 18px;';
+  message.textContent = 'Você foi derrotado pelos inimigos!';
+  
+  const instruction = document.createElement('p');
+  instruction.style.cssText = 'margin: 0 0 20px 0; font-size: 14px; color: #cccccc;';
+  instruction.textContent = 'Clique em "Continuar" para jogar novamente';
+  
+  const restartButton = document.createElement('button');
+  restartButton.id = 'restart-button';
+  restartButton.style.cssText = `
+    background-color: #ff4444;
+    border: none;
+    color: white;
+    padding: 15px 30px;
+    font-size: 18px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    position: relative;
+    z-index: 100001;
+    pointer-events: auto;
+    outline: none;
+  `;
+  restartButton.textContent = 'Continuar';
+  
+  // Add event listeners directly
+  restartButton.addEventListener('mouseenter', () => {
+    restartButton.style.backgroundColor = '#ff6666';
+  });
+  
+  restartButton.addEventListener('mouseleave', () => {
+    restartButton.style.backgroundColor = '#ff4444';
+  });
+  
+  restartButton.addEventListener('click', (event) => {
+    console.log('[RESTART] Restart button clicked!');
+    event.preventDefault();
+    event.stopPropagation();
+    
+    try {
+      // Remove the overlay
+      if (overlay.parentNode) {
+        overlay.parentNode.removeChild(overlay);
+      }
+      console.log('[RESTART] Overlay removed, calling restartGame');
+      restartGame();
+    } catch (error) {
+      console.error('[RESTART] Error handling restart button click:', error);
+    }
+  });
+  
+  // Assemble the popup
+  popup.appendChild(title);
+  popup.appendChild(message);
+  popup.appendChild(instruction);
+  popup.appendChild(restartButton);
+  overlay.appendChild(popup);
+  
+  // Add to document
+  document.body.appendChild(overlay);
+  
+  // Focus the button to ensure it's interactive
+  setTimeout(() => {
+    restartButton.focus();
+    console.log('[RESTART] Popup created and button focused');
+  }, 100);
 }
 
 // Create simple health HUD
@@ -217,8 +338,14 @@ function resetPlayerPosition() {
 function setupControls() {
     controls = new PointerLockControls(camera, document.body);
 
-    //inicia quando clica na tela
-    document.addEventListener('click', () => controls.lock());
+    // Add click listener only to canvas/renderer element, not entire document
+    renderer.domElement.addEventListener('click', () => {
+        // Only try to lock if not in a popup/modal
+        const gameOverPopup = document.getElementById('game-over-overlay');
+        if (!gameOverPopup) {
+            controls.lock();
+        }
+    });
     scene.add(controls.getObject());
     
     // Adiciona handler de resize específico do main.js
@@ -272,4 +399,106 @@ function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+// Restart the entire game
+async function restartGame() {
+  console.log('[RESTART] Restarting game...');
+  
+  try {
+    // 1. Reset player
+    console.log('[RESTART] Step 1: Resetting player');
+    player.respawn();
+    updatePlayerHealthDisplay();
+    
+    // 2. Reset camera position to spawn
+    console.log('[RESTART] Step 2: Resetting camera position');
+    camera.position.set(0, CONFIG.CAMERA_HEIGHT, 0);
+    camera.rotation.set(0, 0, 0);
+    
+    // Reset camera look direction (PointerLockControls doesn't have target)
+    camera.lookAt(0, CONFIG.CAMERA_HEIGHT, -10);
+    
+    // 3. Clean up all projectiles first
+    console.log('[RESTART] Step 3: Cleaning up projectiles');
+    cleanupAllProjectiles(scene, cacodemons);
+    
+    // 4. Clean up all enemies
+    console.log('[RESTART] Step 4: Cleaning up enemies');
+    cleanupDeadEnemies(scene);
+    
+    // 5. Reset enemy arrays
+    console.log('[RESTART] Step 5: Resetting enemy arrays');
+    enemies.length = 0;
+    cacodemons.length = 0;
+    
+    // 6. Reset areas and platforms
+    console.log('[RESTART] Step 6: Resetting areas and platforms');
+    await resetGameAreas();
+    
+    // 7. Recreate enemies
+    console.log('[RESTART] Step 7: Recreating enemies');
+    await createEnemies(scene);
+    
+    // 8. Reset keys
+    console.log('[RESTART] Step 8: Resetting keys');
+    keyManager.clearAll();
+    updateKeysDisplay();
+    
+    console.log('[RESTART] Game restarted successfully!');
+    
+  } catch (error) {
+    console.error('[RESTART] Error restarting game:', error);
+  }
+}
+
+// Reset game areas and platforms
+async function resetGameAreas() {
+  console.log('[RESTART] Resetting game areas...');
+  
+  try {
+    // Reset area 1 platform
+    if (area1KeyPlatform) {
+      console.log('[RESTART] Resetting area 1 platform');
+      area1KeyPlatform.userData.shouldRaise = false;
+      area1KeyPlatform.userData.isRaised = false;
+      
+      // Move platform back down
+      const platform = area1KeyPlatform.userData.platform;
+      const key = area1KeyPlatform.userData.key;
+      
+      if (platform) {
+        platform.position.y = CONFIG.AREA_Y_POSITION - 2;
+      }
+      if (key) {
+        key.position.y = CONFIG.AREA_Y_POSITION - 1.0;
+      }
+    } else {
+      console.log('[RESTART] Area 1 platform not found');
+    }
+    
+    // Reset area 2 platform
+    if (area2KeyPlatform) {
+      console.log('[RESTART] Resetting area 2 platform');
+      area2KeyPlatform.userData.shouldRaise = false;
+      area2KeyPlatform.userData.isRaised = false;
+      
+      // Move platform back down
+      const platform = area2KeyPlatform.userData.platform;
+      const key = area2KeyPlatform.userData.key;
+      
+      if (platform) {
+        platform.position.y = CONFIG.AREA_Y_POSITION - 2;
+      }
+      if (key) {
+        key.position.y = CONFIG.AREA_Y_POSITION - 1.0;
+      }
+    } else {
+      console.log('[RESTART] Area 2 platform not found');
+    }
+    
+    console.log('[RESTART] Game areas reset complete');
+  } catch (error) {
+    console.error('[RESTART] Error resetting game areas:', error);
+  }
 }
