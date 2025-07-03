@@ -23,6 +23,11 @@ export class Chaingun {
         this.projectileLifetime = CONFIG.WEAPONS.CHAINGUN.PROJECTILE_LIFETIME;
 
         this.id = Chaingun.generateId();
+        
+        // Audio system
+        this.fireSound = null;
+        this.audioLoader = new THREE.AudioLoader();
+        this.isAudioInitialized = false;
     }
 
     static generateId() {
@@ -37,6 +42,7 @@ export class Chaingun {
         
         this.scene = scene;
         this.createGunMesh();
+        this.initAudio();
         
         if (CONFIG.DEBUG_CONSOLE_LOGS) {
             console.log(`[Chaingun] Chaingun created with ID: ${this.id}`);
@@ -63,6 +69,36 @@ export class Chaingun {
         
         if (CONFIG.DEBUG_CONSOLE_LOGS) {
             console.log(`[Chaingun] Chaingun mesh created and attached to camera`);
+        }
+    }
+
+    initAudio() {
+        // Check if audio listener is available
+        if (!window.listener) {
+            console.warn('[CHAINGUN] Audio listener not available, skipping sound initialization');
+            return;
+        }
+        
+        this.fireSound = new THREE.Audio(window.listener);
+        
+        // Load chaingun fire sound
+        this.audioLoader.load('/T2/assets/sounds/weapon/chaingun_fire.wav', (buffer) => {
+            this.fireSound.setBuffer(buffer);
+            this.fireSound.setVolume(0.3); // Lower volume to not overpower ambient music
+            this.isAudioInitialized = true;
+            console.log('[CHAINGUN] Loaded chaingun fire sound');
+        }, undefined, (error) => {
+            console.warn('[CHAINGUN] Failed to load chaingun fire sound:', error);
+        });
+    }
+
+    playFireSound() {
+        if (this.isAudioInitialized && this.fireSound && this.fireSound.buffer && !this.fireSound.isPlaying) {
+            try {
+                this.fireSound.play();
+            } catch (error) {
+                console.debug('[CHAINGUN] Fire sound play error:', error.message);
+            }
         }
     }
 
@@ -131,8 +167,17 @@ export class Chaingun {
             timeAlive: 0
         });
 
+        // Play fire sound
+        this.playFireSound();
+
         if (CONFIG.DEBUG_CONSOLE_LOGS) {
             console.log(`[GUN] Projectile fired. Active projectiles: ${this.projectiles.length}`);
+        }
+    }
+
+    playFireSound() {
+        if (this.fireSound && this.isAudioInitialized) {
+            this.fireSound.play();
         }
     }
 

@@ -1,5 +1,6 @@
 import * as THREE from '../../../../build/three.module.js';
 import { CONFIG } from '../../core/config.js';
+import { playerAudioManager } from '../../systems/playerAudio.js';
 
 export class Player {
     constructor() {
@@ -85,6 +86,9 @@ export class Player {
 
         this.health = Math.max(0, this.health - damage);
         
+        // Play injured sound when taking damage
+        playerAudioManager.playInjuredSound();
+        
         if (CONFIG.DEBUG_CONSOLE_LOGS) {
             console.log(`[PLAYER] Took ${damage} damage. Health: ${this.health}/${this.maxHealth}`);
         }
@@ -92,6 +96,8 @@ export class Player {
         // Check for death
         if (this.health <= 0) {
             this.isAlive = false;
+            // Play death sound when player dies
+            playerAudioManager.playDeathSound();
             console.log('[PLAYER DEATH] Player died!');
             return false;
         }

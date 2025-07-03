@@ -1,6 +1,7 @@
 import * as THREE from '../../../build/three.module.js';
 import { CONFIG } from '../core/config.js';
 import { hitbox } from '../entities/player/player.js';
+import { gameAudioManager } from './gameAudio.js';
 
 export let elevator = null;
 const returnDistance = CONFIG.ELEVATOR_ACTIVATION_DISTANCE; // Distância para o elevador voltar
@@ -53,6 +54,8 @@ export function updateELevator(delta) {
             Math.abs(elevator.position.y - elevator.userData.originalY) < 0.1) {
             elevator.userData.isMoving = true;
             elevator.userData.isRising = true;
+            // Play lift starting sound
+            gameAudioManager.playLiftStartingSound();
         }
     } 
     else if (playerFarAway && elevator.userData.playerWasOnElevator) {
@@ -61,6 +64,8 @@ export function updateELevator(delta) {
             Math.abs(elevator.position.y - elevator.userData.targetY) < 0.1) {
             elevator.userData.isMoving = true;
             elevator.userData.isRising = false;
+            // Play lift starting sound
+            gameAudioManager.playLiftStartingSound();
         }
     }
 
@@ -85,6 +90,8 @@ export function updateELevator(delta) {
         if ((direction > 0 && elevator.position.y >= elevator.userData.targetY) || 
             (direction < 0 && elevator.position.y <= elevator.userData.originalY)) {
             elevator.userData.isMoving = false;
+            // Play lift stopping sound
+            gameAudioManager.playLiftStoppingSound();
             
             // Reseta o flag se o elevador voltou ao chão
             if (direction < 0) {

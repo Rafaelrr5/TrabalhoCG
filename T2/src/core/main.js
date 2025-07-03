@@ -14,6 +14,8 @@ import { updateELevator } from '../systems/elevator.js';
 import { keyManager } from '../entities/items/key.js';
 import { cleanupAllProjectiles } from '../entities/enemies/systems/cacodeemonProjectile.js';
 import { ambientAudioManager } from '../systems/ambientAudio.js';
+import { playerAudioManager } from '../systems/playerAudio.js';
+import { gameAudioManager } from '../systems/gameAudio.js';
 
 // Global function to handle player damage (called by Lost Soul kamikaze attacks)
 window.playerTakeDamage = function(damage) {
@@ -339,8 +341,10 @@ function setupCamera() {
     camera.add(window.listener);
     
     // Initialize ambient audio system
-    console.log('[MAIN] Initializing ambient audio system...');
+    console.log('[MAIN] Initializing audio systems...');
     ambientAudioManager.init(window.listener);
+    playerAudioManager.init(window.listener);
+    gameAudioManager.init(window.listener);
 }
 
 function resetPlayerPosition() {
@@ -614,4 +618,49 @@ window.startAmbientMusic = function() {
   console.log(`[DEBUG] Is playing: ${ambientAudioManager.isPlaying()}`);
   
   ambientAudioManager.forcePlayAreaMusic('none');
+};
+
+// Debug function to test player audio (call from console)
+window.testPlayerAudio = function() {
+  console.log('[DEBUG] Testing player audio system...');
+  console.log(`[DEBUG] Player audio initialized: ${playerAudioManager.isInitialized}`);
+  
+  // Test each sound
+  console.log('[DEBUG] Playing hitting ground sound...');
+  playerAudioManager.playHittingGroundSound();
+  
+  setTimeout(() => {
+    console.log('[DEBUG] Playing injured sound...');
+    playerAudioManager.playInjuredSound();
+  }, 1000);
+  
+  setTimeout(() => {
+    console.log('[DEBUG] Playing death sound...');
+    playerAudioManager.playDeathSound();
+  }, 2000);
+};
+
+// Debug function to test game audio (call from console)
+window.testGameAudio = function() {
+  console.log('[DEBUG] Testing game audio system...');
+  console.log(`[DEBUG] Game audio initialized: ${gameAudioManager.isInitialized}`);
+  
+  // Test each sound
+  console.log('[DEBUG] Playing item pickup sound...');
+  gameAudioManager.playItemPickupSound();
+  
+  setTimeout(() => {
+    console.log('[DEBUG] Playing door opening sound...');
+    gameAudioManager.playDoorOpeningSound();
+  }, 1000);
+  
+  setTimeout(() => {
+    console.log('[DEBUG] Playing lift starting sound...');
+    gameAudioManager.playLiftStartingSound();
+  }, 2000);
+  
+  setTimeout(() => {
+    console.log('[DEBUG] Playing lift stopping sound...');
+    gameAudioManager.playLiftStoppingSound();
+  }, 3000);
 };

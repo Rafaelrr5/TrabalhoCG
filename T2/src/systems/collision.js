@@ -1,10 +1,12 @@
 import * as THREE from '../../../build/three.module.js';
 import { CONFIG } from '../core/config.js';
 import { hitbox, player } from '../entities/player/player.js';
+import { playerAudioManager } from './playerAudio.js';
 
 export let velocityY = 0;
 export let isGrounded = false;
 export let wallColide = { x: false, z: false };
+let previousVelocityY = 0; // Track previous velocity for impact detection
 
 const raycaster = new THREE.Raycaster();
 const raySize = CONFIG.RAYCAST_DISTANCE;
@@ -17,6 +19,7 @@ const rays = [
 
 function checkGroundCollisions(collidableObjects, camera) {
     // Raycast for ground and stairs
+    const wasGrounded = isGrounded;
     isGrounded = false;
     const downDir = new THREE.Vector3(0, -1, 0);
     const hits = detectRayCollisions(hitbox.position.clone(), downDir, collidableObjects, raySize, true);
@@ -26,6 +29,13 @@ function checkGroundCollisions(collidableObjects, camera) {
             const correction = raySize - hit.distance;
             hitbox.position.y += correction;
             camera.position.y += correction;
+            
+            // Check for hard landing (hitting ground sound)
+            const impactVelocity = Math.abs(velocityY);
+            if (!wasGrounded && impactVelocity > 8.0) { // Threshold for hard landing
+                playerAudioManager.playHittingGroundSound();
+            }
+            
             velocityY = 0;
             isGrounded = true;
         }

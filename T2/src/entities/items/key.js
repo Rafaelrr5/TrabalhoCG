@@ -1,6 +1,7 @@
 import * as THREE from '../../../../build/three.module.js';
 import { CONFIG } from '../../core/config.js';
 import { CSG } from '../../../../libs/other/CSGMesh.js';
+import { gameAudioManager } from '../../systems/gameAudio.js';
 
 export class Key {
     constructor(keyType = 'red', position = new THREE.Vector3(0, 0, 0)) {
@@ -126,6 +127,9 @@ export class Key {
 
         this.isCollected = true;
         
+        // Play item pickup sound
+        gameAudioManager.playItemPickupSound();
+
         // Create collection effect
         this.createCollectionEffect();
         
