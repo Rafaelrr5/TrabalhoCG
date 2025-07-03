@@ -11,7 +11,6 @@ import { applyGravity } from '../systems/collision.js';
 import { createHitbox, hitbox, player } from '../entities/player/player.js';
 import { updateELevator } from '../systems/elevator.js';
 import { keyManager } from '../entities/items/key.js';
-import { cleanupAllProjectiles } from '../entities/enemies/systems/cacodeemonProjectile.js';
 
 // Global function to handle player damage (called by Lost Soul kamikaze attacks)
 window.playerTakeDamage = function(damage) {
@@ -300,6 +299,7 @@ function init() {
     createPlayerHealthHUD();
     createKeysHUD();
     createDebugHUD();
+    createWeaponManager(camera, scene);
     
     // Atualizar HUD das chaves após criar o ambiente
     setTimeout(() => {
@@ -361,8 +361,8 @@ function createEnvironment() {
     
     createWalls(scene, collidableObjects);
     createAreas(scene, collidableObjects);
-    gun = createGun(camera); // Captura a referência da arma
-    gun.init(scene); // Inicializa a arma com a cena
+    //gun = createGun(camera); // Captura a referência da arma
+    //gun.init(scene); // Inicializa a arma com a cena
     // Spawn Lost Soul enemies (they will idle until Area 1 entry)
     createEnemies(scene);
 }
@@ -375,7 +375,7 @@ function animate() {
     player.update(delta, camera);
     applyGravity(delta, collidableObjects, camera);
     updateCameraMovement(delta, controls);
-    updateProjectiles(delta, scene);
+    updateProjectiles(delta);
     updateArea1(delta);
     updateArea2(delta);
     

@@ -3,13 +3,33 @@ export const CONFIG = {
     DEBUG_SHOW_CAMERA: false,
     DEBUG_SHOW_WEAPON: true,
     DEBUG_CONSOLE_LOGS: false,
+
+
+    // Configurações de armas
+    WEAPON_SWITCH_COOLDOWN: 300, // Tempo em milissegundos para
+    WEAPONS:{
+      LAUNCHER:{
+        NAME: 'Laucher',
+        PROJECTILE_SPEED: 150,
+        PROJECTILE_LIFETIME: 3.5,
+        SHOOT_RATE: 250,
+        PROJECTILE_SIZE: 0.2,
+        PROJECTILE_COLOR: 'lightgreen',
+        DAMAGE: 10,
+      },
+      CHAINGUN:{
+        NAME: 'Chaingun',
+        PROJECTILE_SPEED: 200,
+        PROJECTILE_LIFETIME: 2.0,
+        SHOOT_RATE: 50,
+        PROJECTILE_SIZE: 0.1,
+        PROJECTILE_COLOR: 'lightyellow',
+        DAMAGE: 0.4,
+      },
+    },
     
     // Configurações de movimento e física
     MOVE_SPEED: 90,
-    PROJECTILE_SPEED: 150,
-    PROJECTILE_LIFETIME: 3.5,
-    SHOOT_RATE: 250,
-    PROJECTILE_SIZE: 0.3,
     GRAVITY: -20,
       // Configurações do jogador
     CAMERA_HEIGHT: 1.8,

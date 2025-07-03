@@ -4,7 +4,7 @@ import { CONFIG } from '../core/config.js';
 import { enemies } from '../entities/enemies/enemy.js';
 import { cacodemons } from '../entities/enemies/cacodemonManager.js';
 
-export class Gun {
+export class Chaingun {
     constructor(camera) {
         this.camera = camera;
         this.mesh = null;
@@ -13,20 +13,20 @@ export class Gun {
         this.lastShotTime = 0;
         this.isMousePressed = false;
         this.raycaster = new THREE.Raycaster();
-        this.collisionDistance = CONFIG.WEAPONS.LAUNCHER.PROJECTILE_SIZE * 2;
+        this.collisionDistance = CONFIG.WEAPONS.CHAINGUN.PROJECTILE_SIZE * 2;
         
         // Gun properties
         this.isVisible = CONFIG.DEBUG_SHOW_WEAPON;
-        this.damage = CONFIG.WEAPONS.LAUNCHER.DAMAGE;
-        this.shootRate = CONFIG.WEAPONS.LAUNCHER.SHOOT_RATE;
-        this.projectileSpeed = CONFIG.WEAPONS.LAUNCHER.PROJECTILE_SPEED;
-        this.projectileLifetime = CONFIG.WEAPONS.LAUNCHER.PROJECTILE_LIFETIME;
+        this.damage = CONFIG.WEAPONS.CHAINGUN.DAMAGE;
+        this.shootRate = CONFIG.WEAPONS.CHAINGUN.SHOOT_RATE;
+        this.projectileSpeed = CONFIG.WEAPONS.CHAINGUN.PROJECTILE_SPEED;
+        this.projectileLifetime = CONFIG.WEAPONS.CHAINGUN.PROJECTILE_LIFETIME;
 
-        this.id = Gun.generateId();
+        this.id = Chaingun.generateId();
     }
 
     static generateId() {
-        return `gun_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        return `chaingun_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     }
 
     init(scene) {
@@ -39,7 +39,7 @@ export class Gun {
         this.createGunMesh();
         
         if (CONFIG.DEBUG_CONSOLE_LOGS) {
-            console.log(`[GUN] Gun created with ID: ${this.id}`);
+            console.log(`[Chaingun] Chaingun created with ID: ${this.id}`);
         }
         
         return true;
@@ -62,7 +62,7 @@ export class Gun {
         this.camera.add(this.mesh);
         
         if (CONFIG.DEBUG_CONSOLE_LOGS) {
-            console.log(`[GUN] Gun mesh created and attached to camera`);
+            console.log(`[Chaingun] Chaingun mesh created and attached to camera`);
         }
     }
 
@@ -98,8 +98,8 @@ export class Gun {
         this.lastShotTime = performance.now();
         
         // Cria geometria e material do projétil
-        const projectileGeometry = new THREE.SphereGeometry(CONFIG.WEAPONS.LAUNCHER.PROJECTILE_SIZE);
-        const projectileMaterial = new THREE.MeshLambertMaterial({ color: CONFIG.WEAPONS.LAUNCHER.PROJECTILE_COLOR });
+        const projectileGeometry = new THREE.SphereGeometry(CONFIG.WEAPONS.CHAINGUN.PROJECTILE_SIZE);
+        const projectileMaterial = new THREE.MeshLambertMaterial({ color: CONFIG.WEAPONS.CHAINGUN.PROJECTILE_COLOR });
         const projectile = new THREE.Mesh(projectileGeometry, projectileMaterial);
         
         // Pega direção que a câmera está olhando no momento do tiro
@@ -320,7 +320,7 @@ export let gun = null;
 
 // Backward compatibility functions
 export function createGun(camera) {
-    gun = new Gun(camera);
+    gun = new Chaingun(camera);
     return gun;
 }
 
