@@ -9,6 +9,7 @@ export class WeaponManager {
         this.scene = scene;
         this.weapons = [];
         this.currentWeaponIndex = 0;
+        this.activeProjectiles = [];
         
         this.initWeapons();
         // Garante que a Gun/Launcher está visível se DEBUG_SHOW_WEAPON for true
@@ -75,9 +76,11 @@ export class WeaponManager {
         this.getCurrentWeapon()?.stopShooting();
     }
     
-    updateProjectiles(delta) {
-        this.getCurrentWeapon()?.updateProjectiles(delta);
+      updateProjectiles(delta) {
+        //atualiza os projéteis de todas as armas
+        this.weapons.forEach(weapon => weapon.updateProjectiles(delta));
     }
+    
     
     toggleVisibility() {
         this.getCurrentWeapon()?.toggleVisibility();
