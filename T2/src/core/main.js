@@ -11,6 +11,7 @@ import { applyGravity } from '../systems/collision.js';
 import { createHitbox, hitbox, player } from '../entities/player/player.js';
 import { updateELevator } from '../systems/elevator.js';
 import { keyManager } from '../entities/items/key.js';
+import { cleanupAllProjectiles } from '../entities/enemies/systems/cacodeemonProjectile.js';
 
 // Global function to handle player damage (called by Lost Soul kamikaze attacks)
 window.playerTakeDamage = function(damage) {
