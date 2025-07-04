@@ -348,3 +348,22 @@ export function hasCollectedKey(keyType) {
 export function getCollectedKeys() {
     return keyManager.getCollectedKeys();
 }
+
+export function removeKeyType(keyType) {
+    // Primeiro remove do inventário coletado
+    keyManager.collectedKeys.delete(keyType);
+    
+    // Depois remove as instâncias físicas
+    const keysToRemove = [];
+    keyManager.keys.forEach((key, id) => {
+        if (key.getType() === keyType) {
+            keysToRemove.push(id);
+        }
+    });
+    
+    keysToRemove.forEach(id => {
+        keyManager.removeKey(id);
+    });
+    
+    console.log(`Chave ${keyType} removida do inventário`);
+}

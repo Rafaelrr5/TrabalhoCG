@@ -6,6 +6,7 @@ import { enemies, areAllEnemiesDefeated, areAllArea1EnemiesDefeated, areAllArea2
 import {createElevator} from '../systems/elevator.js';
 import { enableShadowsForAll } from './lights.js';
 import { keyManager, Key } from '../entities/items/key.js';
+import { createDoor, createtotem } from './door.js';
 
 export let area1KeyPlatform = null;
 export let area2KeyPlatform = null;
@@ -178,8 +179,6 @@ function createArea2(scene, materials, collidableObjects) {
     
     scene.add(area2);
 
-    const door = new door
-
     //stair2.add(createStair(50.0, CONFIG.STAIR_HEIGHT_OFFSET, -62.8, CONFIG.AREA_HEIGHT, true, materials.stair));
     //scene.add(stair2);
     markCollisionObject(area2, collidableObjects);
@@ -187,6 +186,9 @@ function createArea2(scene, materials, collidableObjects) {
     createElevator(scene, collidableObjects, 50.0, -66.05);
     enableShadowsForAll(area2); // Ativa sombras na área 2
     enableShadowsForAll(blueKeyPlatform); // Ativa sombras na plataforma da chave
+
+    //createDoor(scene, collidableObjects, 50.0, -63, 15.0, 4.0, 'red'); // Porta vermelha para a Área 3
+    createtotem(scene, collidableObjects, 60.0, -59.05, 'red'); // Totem vermelho para a Área 3
 
 }
 

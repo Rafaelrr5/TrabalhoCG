@@ -9,9 +9,10 @@ import { setupEventListeners, updateCameraMovement, continuousCameraDebug } from
 import { lightingSystem } from '../systems/lights.js';
 import { applyGravity} from '../systems/collision.js';
 import { createHitbox, hitbox, player } from '../entities/player/player.js';
-import { updateELevator } from '../systems/elevator.js';
+import { updateElevator } from '../systems/elevator.js';
 import { keyManager } from '../entities/items/key.js';
 import { ambientAudioManager, playerAudioManager, gameAudioManager } from '../systems/index.js';
+import { updateTotem } from '../systems/door.js';
 
 // Global function to handle player damage (called by Lost Soul kamikaze attacks)
 window.playerTakeDamage = function(damage) {
@@ -342,8 +343,9 @@ function animate() {
     updateArea2(delta);
     
     updateEnemies(delta, scene, camera, gun, collidableObjects);
-    updateELevator(delta);
-    
+    updateElevator(delta);
+
+    updateTotem(delta, scene, hitbox, 'red', collidableObjects);
     
     // Update ambient music based on player position
     updateAmbientMusic();
