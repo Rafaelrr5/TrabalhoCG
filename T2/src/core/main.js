@@ -226,57 +226,6 @@ function updateKeysDisplay() {
         }
     }
 }
-
-// Cria HUD para mostrar status do debug
-function createDebugHUD() {
-  const debugHUD = document.createElement('div');
-  debugHUD.id = 'debug-hud';
-  debugHUD.style.position = 'fixed';
-  debugHUD.style.top = '70px';
-  debugHUD.style.left = '20px';
-  debugHUD.style.color = 'cyan';
-  debugHUD.style.fontSize = '14px';
-  debugHUD.style.fontFamily = 'Courier New, monospace';
-  debugHUD.style.zIndex = '1000';
-  debugHUD.style.textShadow = '2px 2px 4px rgba(0,0,0,0.8)';
-  debugHUD.style.backgroundColor = 'rgba(0,0,0,0.5)';
-  debugHUD.style.padding = '10px';
-  debugHUD.style.borderRadius = '5px';
-  updateDebugHUD();
-  document.body.appendChild(debugHUD);
-}
-
-// Atualiza o HUD de debug
-function updateDebugHUD() {
-  const debugHUD = document.getElementById('debug-hud');
-  if (debugHUD) {
-    // Import cacodemons array (if available)
-    let cacodemons = [];
-    try {
-      if (window.getCacodemons) {
-        cacodemons = window.getCacodemons();
-      }
-    } catch (e) {
-      // Ignore error if function not available
-    }
-
-    debugHUD.innerHTML = `
-      <strong>DEBUG STATUS</strong><br>
-      F1 - Hitbox: ${CONFIG.DEBUG_SHOW_HITBOX ? '<span style="color:lime">ON</span>' : '<span style="color:red">OFF</span>'}<br>
-      F2 - Arma: ${CONFIG.DEBUG_SHOW_WEAPON ? '<span style="color:lime">ON</span>' : '<span style="color:red">OFF</span>'}<br>
-      F3 - Câmera: ${CONFIG.DEBUG_SHOW_CAMERA ? '<span style="color:lime">ON</span>' : '<span style="color:red">OFF</span>'}<br>
-      F4 - Console: ${CONFIG.DEBUG_CONSOLE_LOGS ? '<span style="color:lime">ON</span>' : '<span style="color:red">OFF</span>'}
-      <br><br>
-      <strong>CACODEMONS</strong><br>
-      Total: <span style="color:yellow">${cacodemons.length}</span><br>
-      ${cacodemons.slice(0, 3).map((c, i) => 
-        `#${i+1}: [${c.mesh.position.x.toFixed(1)}, ${c.mesh.position.y.toFixed(1)}, ${c.mesh.position.z.toFixed(1)}]<br>`
-      ).join('')}
-    `;
-  }
-}
-
-window.updateDebugHUD = updateDebugHUD;
 function showDebugInstructions() {
     // Debug instructions removed
 }
@@ -300,7 +249,6 @@ function init() {
     setupEventListeners(camera, scene);
     createPlayerHealthHUD();
     createKeysHUD();
-    createDebugHUD();
     createWeaponManager(camera, scene);
     
     // Atualizar HUD das chaves após criar o ambiente
@@ -426,93 +374,61 @@ function onWindowResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-// Update ambient music based on player area
 function updateAmbientMusic() {
   let newArea = 'none';
   
-  // Check which area the player is in
   if (isPlayerInArea1(camera)) {
     newArea = 'area1';
   } else if (isPlayerInArea2(camera)) {
     newArea = 'area2';
   }
   
-  // Change music if area changed
   if (newArea !== currentPlayerArea) {
-    console.log(`[AMBIENT] Player moved from ${currentPlayerArea} to ${newArea}`);
-    console.log(`[AMBIENT] Player position: x=${camera.position.x.toFixed(2)}, z=${camera.position.z.toFixed(2)}`);
     currentPlayerArea = newArea;
     ambientAudioManager.playAreaMusic(newArea);
   }
 }
 
-// Restart the entire game
 async function restartGame() {
-  console.log('[RESTART] Restarting game...');
-  
   try {
-    // 1. Reset player
-    console.log('[RESTART] Step 1: Resetting player');
     player.respawn();
     updatePlayerHealthDisplay();
     
-    // 2. Reset camera position to spawn
-    console.log('[RESTART] Step 2: Resetting camera position');
     camera.position.set(0, CONFIG.CAMERA_HEIGHT, 0);
     camera.rotation.set(0, 0, 0);
     
-    // Reset camera look direction (PointerLockControls doesn't have target)
     camera.lookAt(0, CONFIG.CAMERA_HEIGHT, -10);
     
-    // 3. Clean up all projectiles first
-    console.log('[RESTART] Step 3: Cleaning up projectiles');
     cleanupAllEnemyProjectiles(scene);
     
-    // 4. Clean up all enemies
-    console.log('[RESTART] Step 4: Cleaning up enemies');
     cleanupDeadEnemies(scene);
     
-    // 5. Reset enemy arrays
-    console.log('[RESTART] Step 5: Resetting enemy arrays');
     enemies.length = 0;
     
-    // 6. Reset areas and platforms
-    console.log('[RESTART] Step 6: Resetting areas and platforms');
     await resetGameAreas();
     
-    // 7. Recreate enemies
-    console.log('[RESTART] Step 7: Recreating enemies');
     await createEnemies(scene);
     
-    // 8. Reset keys
-    console.log('[RESTART] Step 8: Resetting keys');
     keyManager.clearAll();
     updateKeysDisplay();
     
-    // 9. Reset ambient music
-    console.log('[RESTART] Step 9: Resetting ambient music');
     currentPlayerArea = 'none';
     ambientAudioManager.playAreaMusic('none');
     
-    console.log('[RESTART] Game restarted successfully!');
     
   } catch (error) {
     console.error('[RESTART] Error restarting game:', error);
   }
 }
 
-// Reset game areas and platforms
 async function resetGameAreas() {
-  console.log('[RESTART] Resetting game areas...');
   
   try {
-    // Reset area 1 platform
     if (area1KeyPlatform) {
       console.log('[RESTART] Resetting area 1 platform');
       area1KeyPlatform.userData.shouldRaise = false;
       area1KeyPlatform.userData.isRaised = false;
       
-      // Move platform back down
       const platform = area1KeyPlatform.userData.platform;
       const keyInstance = area1KeyPlatform.userData.keyInstance;
       
@@ -521,19 +437,17 @@ async function resetGameAreas() {
       }
       if (keyInstance && keyInstance.getMesh()) {
         keyInstance.getMesh().position.y = CONFIG.AREA_Y_POSITION - 1.0;
-        keyInstance.getMesh().visible = false; // Hide key until platform rises
+        keyInstance.getMesh().visible = false;
       }
     } else {
       console.log('[RESTART] Area 1 platform not found');
     }
     
-    // Reset area 2 platform
     if (area2KeyPlatform) {
       console.log('[RESTART] Resetting area 2 platform');
       area2KeyPlatform.userData.shouldRaise = false;
       area2KeyPlatform.userData.isRaised = false;
       
-      // Move platform back down
       const platform = area2KeyPlatform.userData.platform;
       const keyInstance = area2KeyPlatform.userData.keyInstance;
       
@@ -542,26 +456,17 @@ async function resetGameAreas() {
       }
       if (keyInstance && keyInstance.getMesh()) {
         keyInstance.getMesh().position.y = CONFIG.AREA_Y_POSITION - 1.0;
-        keyInstance.getMesh().position.x = 20.0; // Posição X atualizada para corresponder à plataforma
-        keyInstance.getMesh().visible = false; // Hide key until platform rises
+        keyInstance.getMesh().position.x = 20.0;
+        keyInstance.getMesh().visible = false;
       }
-    } else {
-      console.log('[RESTART] Area 2 platform not found');
     }
-    
-    console.log('[RESTART] Game areas reset complete');
+
   } catch (error) {
     console.error('[RESTART] Error resetting game areas:', error);
   }
 }
 
-// Debug function to test ambient music (call from console)
-window.testAmbientMusic = function(area) {
-  console.log(`[DEBUG] Testing ambient music for area: ${area}`);
-  console.log(`[DEBUG] Current area: ${currentPlayerArea}`);
-  console.log(`[DEBUG] Ambient system initialized: ${ambientAudioManager.isInitialized}`);
-  console.log(`[DEBUG] Ambient system enabled: ${ambientAudioManager.isEnabled}`);
-  
+window.testAmbientMusic = function(area) {  
   if (area) {
     currentPlayerArea = 'none'; // Force change
     ambientAudioManager.playAreaMusic(area);
@@ -569,93 +474,50 @@ window.testAmbientMusic = function(area) {
   }
 };
 
-// Debug function to check player position relative to areas
-window.checkPlayerArea = function() {
-  console.log(`[DEBUG] Player position: x=${camera.position.x.toFixed(2)}, y=${camera.position.y.toFixed(2)}, z=${camera.position.z.toFixed(2)}`);
-  console.log(`[DEBUG] In Area 1: ${isPlayerInArea1(camera)}`);
-  console.log(`[DEBUG] In Area 2: ${isPlayerInArea2(camera)}`);
-  console.log(`[DEBUG] Current area: ${currentPlayerArea}`);
-};
 
-// Debug function to test enemy sounds (call from console)
 window.testEnemyAudio = function() {
-  console.log('[DEBUG] Testing enemy audio system...');
-  
-  // Find first enemy
   const enemyMesh = scene.getObjectByName('EnemiesGroup');
   if (enemyMesh && enemyMesh.children.length > 0) {
     const firstEnemyMesh = enemyMesh.children[0];
     const enemy = firstEnemyMesh.userData.enemy;
     
-    if (enemy) {
-      console.log(`[DEBUG] Found enemy: ${enemy.constructor.name}`);
-      console.log(`[DEBUG] Hit sound available: ${!!(enemy.hitSound && enemy.hitSound.buffer)}`);
-      console.log(`[DEBUG] Attack sound available: ${!!(enemy.attackSound && enemy.attackSound.buffer)}`);
-      console.log(`[DEBUG] Death sound available: ${!!(enemy.deathSound && enemy.deathSound.buffer)}`);
-      
-      // Test hit sound
-      if (enemy.hitSound && enemy.hitSound.buffer) {
-        console.log('[DEBUG] Playing hit sound...');
-        enemy.hitSound.play();
-      }
+    if (enemy && enemy.hitSound && enemy.hitSound.buffer) {
+      enemy.hitSound.play();
     }
   } else {
     console.log('[DEBUG] No enemies found');
   }
+
 };
 
-// Debug function to manually start ambient music (call from console)
 window.startAmbientMusic = function() {
-  console.log('[DEBUG] Manually starting ambient music...');
-  console.log(`[DEBUG] System initialized: ${ambientAudioManager.isInitialized}`);
-  console.log(`[DEBUG] System enabled: ${ambientAudioManager.isEnabled}`);
-  console.log(`[DEBUG] Current area: ${ambientAudioManager.currentArea}`);
-  console.log(`[DEBUG] Is playing: ${ambientAudioManager.isPlaying()}`);
-  
   ambientAudioManager.forcePlayAreaMusic('none');
 };
 
-// Debug function to test player audio (call from console)
 window.testPlayerAudio = function() {
-  console.log('[DEBUG] Testing player audio system...');
-  console.log(`[DEBUG] Player audio initialized: ${playerAudioManager.isInitialized}`);
-  
-  // Test each sound
-  console.log('[DEBUG] Playing hitting ground sound...');
   playerAudioManager.playHittingGroundSound();
   
   setTimeout(() => {
-    console.log('[DEBUG] Playing injured sound...');
     playerAudioManager.playInjuredSound();
   }, 1000);
   
   setTimeout(() => {
-    console.log('[DEBUG] Playing death sound...');
     playerAudioManager.playDeathSound();
   }, 2000);
 };
 
-// Debug function to test game audio (call from console)
 window.testGameAudio = function() {
-  console.log('[DEBUG] Testing game audio system...');
-  console.log(`[DEBUG] Game audio initialized: ${gameAudioManager.isInitialized}`);
-  
-  // Test each sound
-  console.log('[DEBUG] Playing item pickup sound...');
   gameAudioManager.playItemPickupSound();
   
   setTimeout(() => {
-    console.log('[DEBUG] Playing door opening sound...');
     gameAudioManager.playDoorOpeningSound();
   }, 1000);
   
   setTimeout(() => {
-    console.log('[DEBUG] Playing lift starting sound...');
     gameAudioManager.playLiftStartingSound();
   }, 2000);
   
   setTimeout(() => {
-    console.log('[DEBUG] Playing lift stopping sound...');
     gameAudioManager.playLiftStoppingSound();
   }, 3000);
 };

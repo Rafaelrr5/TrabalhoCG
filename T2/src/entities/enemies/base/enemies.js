@@ -1,7 +1,7 @@
 import * as THREE from '../../../../../build/three.module.js';
 import { CONFIG } from '../../../core/config.js';
 import { checkLostSoulCollision, applyLostSoulCollisionCorrection } from '../../../systems/collision.js';
-import { getEnemySoundConfig, ENEMY_AUDIO_CONFIG, debugAudioPaths, validateAudioPaths } from '../config/audioConfig.js';
+import { getEnemySoundConfig, ENEMY_AUDIO_CONFIG } from '../config/audioConfig.js';
 
 export class Enemy {
   constructor(position = [0, 0, 0], config = {}) {
@@ -71,25 +71,23 @@ export class Enemy {
     const loader = new THREE.AudioLoader();
     
     Object.entries(soundConfig).forEach(([soundType, config]) => {
-      this.sounds[soundType] = new THREE.Audio(window.listener);
+      const audio = new THREE.Audio(window.listener);
       
       loader.load(
         config.path, 
         buffer => {
-          this.sounds[soundType].setBuffer(buffer);
-          this.sounds[soundType].setVolume(config.volume);
-          if (config.loop) this.sounds[soundType].setLoop(true);
-          this.mesh.add(this.sounds[soundType]);
-          console.log(`[ENEMY] Loaded ${soundType} sound for ${this.constructor.name}`);
+          // Only assign to this.sounds after successful load
+          this.sounds[soundType] = audio;
+          audio.setBuffer(buffer);
+          audio.setVolume(config.volume);
+          if (config.loop) audio.setLoop(true);
+          this.mesh.add(audio);
         },
-        progress => {
-          // Optional: Handle loading progress
-        },
+        undefined, // progress callback
         error => {
           console.warn(`[ENEMY] Failed to load ${soundType} sound for ${this.constructor.name}:`, error);
           console.warn(`[ENEMY] Path attempted: ${config.path}`);
-          // Remove the failed sound from sounds object to prevent errors
-          delete this.sounds[soundType];
+          // Don't add to this.sounds if loading failed
         }
       );
     });
@@ -106,7 +104,6 @@ export class Enemy {
     
     try {
       sound.play();
-      console.log(`[ENEMY] Playing ${soundType} sound`);
     } catch (error) {
       console.debug(`[AUDIO] ${soundType} sound play error:`, error.message);
     }
@@ -306,7 +303,6 @@ export class Enemy {
     return false;
   }
 
-  // Consolidated movement method - replaces all the duplicated movement functions
   moveTowardsTarget(targetPosition, delta, options = {}) {
     if (!this.isAlive) return;
     
@@ -317,21 +313,17 @@ export class Enemy {
       speedMultiplier = 1.0
     } = options;
     
-    // Calculate direction
     const direction = new THREE.Vector3()
       .subVectors(targetPosition, this.mesh.position);
     
-    // Apply Y restriction if not 6DOF
     if (!use6DOF) {
       direction.setY(0);
     }
     
     direction.normalize();
     
-    // Calculate base velocity
     this.velocity.copy(direction).multiplyScalar(this.config.speed * speedMultiplier);
     
-    // Check for collision if enabled
     if (enableCollision && collidableObjects.length > 0) {
       const collision = this.checkEnvironmentCollision(targetPosition, collidableObjects, delta);
       
@@ -339,25 +331,21 @@ export class Enemy {
         const safeDistance = CONFIG.LOST_SOUL_COLLISION_DISTANCE || 2.0;
         
         if (collision.distance < safeDistance) {
-          // Try to apply collision correction
           const corrected = this.applyCollisionCorrection(targetPosition, collidableObjects);
           
           if (!corrected) {
-            // If no correction possible, slow down movement
             this.velocity.multiplyScalar(0.2);
           }
         }
       }
     }
     
-    // Apply movement
     this.mesh.position.addScaledVector(this.velocity, delta);
     this.updateBoundingBox();
     
     return this.velocity.clone();
   }
 
-  // Compatibility methods - use the consolidated function internally
   moveTowards(targetPosition, delta) {
     return this.moveTowardsTarget(targetPosition, delta, { use6DOF: false });
   }
@@ -382,7 +370,6 @@ export class Enemy {
     });
   }
 
-  // Utility method for checking player collision with customizable radius
   checkPlayerCollision(targetPosition, options = {}) {
     const {
       collisionRadius = this.config.collisionRadius || this.config.radius,
@@ -395,13 +382,10 @@ export class Enemy {
     const effectiveRadius = collisionRadius * radiusMultiplier;
     
     if (distanceToPlayer <= effectiveRadius) {
-      // Play attack sound
       this.playAttackSound();
       
-      // Deal damage to player
       this.dealDamageToPlayer(damage);
       
-      // Destroy enemy if specified
       if (destroyOnHit) {
         this.currentHealth = 0;
         this.isAlive = false;
@@ -414,7 +398,6 @@ export class Enemy {
     return false;
   }
 
-  // Utility method for dealing damage to player
   dealDamageToPlayer(damage) {
     if (typeof window.playerTakeDamage === 'function') {
       window.playerTakeDamage(damage);
@@ -424,7 +407,6 @@ export class Enemy {
     }
   }
 
-  // Generic orientation method for models to look at target
   orientModelToTarget(model, targetPosition, options = {}) {
     if (!model) return;
     
@@ -445,7 +427,6 @@ export class Enemy {
         .normalize();
     }
     
-    // Create target quaternion
     const targetQuaternion = new THREE.Quaternion();
     const lookAtMatrix = new THREE.Matrix4();
     const up = new THREE.Vector3(0, 1, 0);
@@ -455,10 +436,8 @@ export class Enemy {
     lookAtMatrix.lookAt(currentPos, targetPos, up);
     targetQuaternion.setFromRotationMatrix(lookAtMatrix);
     
-    // Apply rotation offsets if provided
     this.applyRotationOffsets(targetQuaternion, rotationOffsets);
     
-    // Apply rotation
     if (smoothRotation) {
       const speed = rotationSpeed * 0.016; // Assuming 60fps
       model.quaternion.slerp(targetQuaternion, Math.min(speed, 1.0));
@@ -467,7 +446,6 @@ export class Enemy {
     }
   }
 
-  // Helper method to apply rotation offsets to quaternion
   applyRotationOffsets(quaternion, offsets = {}) {
     const {
       x = 0,
@@ -489,7 +467,6 @@ export class Enemy {
     });
   }
 
-  // Enhanced update method with automatic bounding box updates
   update(delta, camera, targetPosition, collidableObjects = []) {
     // Update death fade animation if dying
     if (this.isDying) {
@@ -499,15 +476,12 @@ export class Enemy {
 
     if (!this.isAlive) return;
 
-    // Update proximity audio based on player position
     if (camera && camera.position) {
       this.updateProximityAudio(camera.position);
     }
 
-    // Update bounding box automatically
     this.updateBoundingBox();
 
-    // Make health bar face camera
     if (this.healthBarGroup && camera) {
       this.healthBarGroup.lookAt(camera.position);
     }
@@ -540,24 +514,6 @@ export class Enemy {
   }
 }
 
-// Global debug functions for audio testing
-if (typeof window !== 'undefined') {
-  window.debugEnemyAudio = debugAudioPaths;
-  window.validateEnemyAudio = validateAudioPaths;
-  
-  window.testEnemyAudioPath = async function(path) {
-    try {
-      const response = await fetch(path, { method: 'HEAD' });
-      console.log(`[AUDIO_TEST] Path: ${path} - Status: ${response.status} - OK: ${response.ok}`);
-      return response.ok;
-    } catch (error) {
-      console.error(`[AUDIO_TEST] Failed to test path: ${path}`, error);
-      return false;
-    }
-  };
-}
-
-// Enemy Manager - Simplified version
 export class EnemyManager {
   constructor() {
     this.enemies = [];

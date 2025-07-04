@@ -7,21 +7,17 @@ import {createElevator} from '../systems/elevator.js';
 import { enableShadowsForAll } from './lights.js';
 import { keyManager, Key } from '../entities/items/key.js';
 
-// Variáveis globais para gerenciamento da área 1
 export let area1KeyPlatform = null;
-
-// Variáveis globais para gerenciamento da área 2
 export let area2KeyPlatform = null;
 
-// Cria as paredes do ambiente
 export function createWalls(scene, collidableObjects) {
-    let material = new THREE.MeshLambertMaterial({ color: 'orange' });    // Cria o chão
-    let plane = createGroundPlaneXZ(CONFIG.WORLD_SIZE, CONFIG.WORLD_SIZE); //utils
-    plane.receiveShadow = true; // Ativa recebimento de sombras no chão
+    let material = new THREE.MeshLambertMaterial({ color: 'orange' });
+    let plane = createGroundPlaneXZ(CONFIG.WORLD_SIZE, CONFIG.WORLD_SIZE);
+    plane.receiveShadow = true; 
 
     plane.position.y = CONFIG.GROUND_HEIGHT;
     scene.add(plane);
-    plane.receiveShadow = true; // Ativa recebimento de sombras no chão
+    plane.receiveShadow = true;
     collidableObjects.push(plane);
 
     // Cria geometria das paredes
@@ -374,53 +370,20 @@ function createKeyPlatform(scene) {
     return platformGroup;
 }
 
-// Cria a chave vermelha usando CSG
-function createRedKey() {
-    const keyGroup = new THREE.Group();
-    keyGroup.name = "RedKey";
-    const keyMaterial = new THREE.MeshPhongMaterial({ color: 0xff0000, shininess: 50, specular: 0x444444 });
-
-    // Base cube
-    const cube = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), keyMaterial);
-    // Cylindrical holes
-    const holeGeom = new THREE.CylinderGeometry(0.25, 0.25, 1.4, 32);
-    const holeX = new THREE.Mesh(holeGeom, keyMaterial);
-    holeX.rotation.z = Math.PI / 2;
-    const holeY = new THREE.Mesh(holeGeom, keyMaterial);
-    holeY.rotation.x = Math.PI / 2;
-    const holeZ = new THREE.Mesh(holeGeom, keyMaterial);
-
-    [cube, holeX, holeY, holeZ].forEach(mesh => mesh.updateMatrix());
-    let csgBSP = CSG.fromMesh(cube)
-        .subtract(CSG.fromMesh(holeX))
-        .subtract(CSG.fromMesh(holeY))
-        .subtract(CSG.fromMesh(holeZ));
-    const finalMesh = CSG.toMesh(csgBSP, new THREE.Matrix4());
-    finalMesh.material = keyMaterial;
-    keyGroup.add(finalMesh);
-    keyGroup.userData.rotationSpeed = 0.02;
-    return keyGroup;
-}
-
-// Cria a plataforma para a chave azul da área 2
 function createBlueKeyPlatform(scene) {
     const platformGroup = new THREE.Group();
     platformGroup.name = "BlueKeyPlatform";
     
-    // Material da plataforma
     const platformMaterial = new THREE.MeshLambertMaterial({ color: 0x4169E1 }); // Azul royal
     
-    // Plataforma circular (movida um pouco para a direita)
     const platformGeometry = new THREE.CylinderGeometry(3, 3, 0.5, 16);
     const platform = new THREE.Mesh(platformGeometry, platformMaterial);
     platform.position.set(20.0, CONFIG.AREA_Y_POSITION - 2, -131.0); // Movida para X = 20.0
     platformGroup.add(platform);
     
-    // Criar chave azul usando o sistema Key (posição também movida para a direita)
     const keyPosition = new THREE.Vector3(20.0, CONFIG.AREA_Y_POSITION - 1.0, -131.0);
     const blueKeyInstance = new Key('blue', keyPosition);
     
-    // Adicionar a chave ao keyManager e à cena
     if (keyManager.addKey(blueKeyInstance, scene)) {
         console.log('[ENVIRONMENT] Blue key added to KeyManager successfully');
         // Esconder a chave inicialmente (será mostrada quando a plataforma subir)
@@ -433,9 +396,8 @@ function createBlueKeyPlatform(scene) {
         }
     }
     
-    // Armazena referências globais para animação
     platformGroup.userData.platform = platform;
-    platformGroup.userData.keyInstance = blueKeyInstance; // Referência para o objeto Key
+    platformGroup.userData.keyInstance = blueKeyInstance;
     platformGroup.userData.isRaised = false;
     platformGroup.userData.shouldRaise = false;
     platformGroup.userData.targetY = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + 0.5;
@@ -443,43 +405,12 @@ function createBlueKeyPlatform(scene) {
     return platformGroup;
 }
 
-// Cria a chave azul usando CSG
-function createBlueKey() {
-    const keyGroup = new THREE.Group();
-    keyGroup.name = "BlueKey";
-    const keyMaterial = new THREE.MeshPhongMaterial({ color: 0x0000ff, shininess: 50, specular: 0x444444 });
-
-    // Base cube
-    const cube = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), keyMaterial);
-    // Cylindrical holes
-    const holeGeom = new THREE.CylinderGeometry(0.25, 0.25, 1.4, 32);
-    const holeX = new THREE.Mesh(holeGeom, keyMaterial);
-    holeX.rotation.z = Math.PI / 2;
-    const holeY = new THREE.Mesh(holeGeom, keyMaterial);
-    holeY.rotation.x = Math.PI / 2;
-    const holeZ = new THREE.Mesh(holeGeom, keyMaterial);
-
-    [cube, holeX, holeY, holeZ].forEach(mesh => mesh.updateMatrix());
-    let csgBSP = CSG.fromMesh(cube)
-        .subtract(CSG.fromMesh(holeX))
-        .subtract(CSG.fromMesh(holeY))
-        .subtract(CSG.fromMesh(holeZ));
-    const finalMesh = CSG.toMesh(csgBSP, new THREE.Matrix4());
-    finalMesh.material = keyMaterial;
-    keyGroup.add(finalMesh);
-    keyGroup.userData.rotationSpeed = 0.02;
-    return keyGroup;
-}
-
-// Função para ser chamada no main.js para atualizar a área 1
 export function updateArea1(delta) {
     if (!area1KeyPlatform) return;
     
-    // Trigger raise only when all Lost Souls from area 1 are defeated
     if (!area1KeyPlatform.userData.shouldRaise && areAllArea1EnemiesDefeated()) {
         console.log('Todas Lost Souls da área 1 derrotadas! Subindo plataforma.');
         area1KeyPlatform.userData.shouldRaise = true;
-        // Clean up dead enemies after the platform starts rising
         setTimeout(() => {
             cleanupDeadEnemies(area1KeyPlatform.parent);
         }, 1000);
@@ -489,15 +420,12 @@ export function updateArea1(delta) {
     }
 }
 
-// Função para ser chamada no main.js para atualizar a área 2
 export function updateArea2(delta) {
     if (!area2KeyPlatform) return;
     
-    // Trigger raise only when all Cacodemons from area 2 are defeated
     if (!area2KeyPlatform.userData.shouldRaise && areAllArea2EnemiesDefeated()) {
         console.log('Todos Cacodemons da área 2 derrotados! Subindo plataforma.');
         area2KeyPlatform.userData.shouldRaise = true;
-        // Clean up dead enemies after the platform starts rising
         setTimeout(() => {
             cleanupDeadEnemies(area2KeyPlatform.parent);
         }, 1000);
@@ -507,7 +435,6 @@ export function updateArea2(delta) {
     }
 }
 
-// Verifica se o jogador está dentro da Área 1
 export function isPlayerInArea1(camera) {
     if (!camera) return false;
     

@@ -8,10 +8,9 @@ export class AmbientAudioManager {
     this.isInitialized = false;
     this.fadeSpeed = 0.8; // Faster fade for better transitions
     this.maxVolume = 0.6; // Higher volume for ambient music (main audio)
-    this.isEnabled = true; // Now enabled with WAV files
+    this.isEnabled = true;
     this.isTransitioning = false; // Prevent overlapping transitions
     
-    // Updated paths for WAV files
     this.areaMusicMap = {
       'none': '/T2/assets/sounds/ambient/nenhumaarea.wav',
       'area1': '/T2/assets/sounds/ambient/area1.wav',
@@ -28,9 +27,6 @@ export class AmbientAudioManager {
     this.listener = listener;
     this.isInitialized = true;
     
-    console.log('[AMBIENT] Audio system initialized');
-    
-    // Start playing default music immediately without delay
     this.forcePlayAreaMusic('none');
   }
 
@@ -40,27 +36,21 @@ export class AmbientAudioManager {
       return;
     }
     
-    // Prevent overlapping transitions
     if (this.isTransitioning) {
       console.log(`[AMBIENT] Already transitioning, ignoring request for: ${areaName}`);
       return;
     }
-    
-    // Don't reload the same music
+
     if (this.currentArea === areaName) return;
     
-    console.log(`[AMBIENT] Switching to area: ${areaName}`);
     this.isTransitioning = true;
     
-    // Stop current music with fade out and wait for completion
     this.stopCurrentMusic(() => {
-      // Load and play new music only after previous music stopped
       this.currentArea = areaName;
       this.loadAndPlayMusic(areaName);
     });
   }
 
-  // Force play area music (used for initial music start)
   forcePlayAreaMusic(areaName) {
     if (!this.isInitialized || !this.isEnabled) {
       console.log(`[AMBIENT] System not ready - would force play: ${areaName}`);
@@ -69,10 +59,8 @@ export class AmbientAudioManager {
     
     console.log(`[AMBIENT] Force starting music for area: ${areaName}`);
     
-    // Reset any transition state
     this.isTransitioning = false;
     
-    // Stop any current music immediately
     if (this.currentAmbientMusic) {
       if (this.currentAmbientMusic.isPlaying) {
         this.currentAmbientMusic.stop();
@@ -80,7 +68,6 @@ export class AmbientAudioManager {
       this.currentAmbientMusic = null;
     }
     
-    // Set area and load music directly
     this.currentArea = areaName;
     this.loadAndPlayMusic(areaName);
   }
@@ -99,22 +86,18 @@ export class AmbientAudioManager {
     this.currentAmbientMusic = new THREE.Audio(this.listener);
     
     this.audioLoader.load(musicPath, (buffer) => {
-      console.log(`[AMBIENT] Music loaded successfully: ${musicPath}`);
       
       if (this.currentAmbientMusic && this.currentArea === areaName) {
         this.currentAmbientMusic.setBuffer(buffer);
         this.currentAmbientMusic.setLoop(true);
         this.currentAmbientMusic.setVolume(0); // Start at 0 for fade in
         
-        // Try to play the music
         try {
           this.currentAmbientMusic.play();
-          console.log(`[AMBIENT] Started playing ambient music: ${musicPath}`);
           
           // Fade in the music
           this.fadeIn(() => {
             this.isTransitioning = false; // Transition complete
-            console.log(`[AMBIENT] Fade in complete for: ${musicPath}`);
           });
         } catch (error) {
           console.error(`[AMBIENT] Failed to play music: ${error.message}`);
@@ -214,19 +197,15 @@ export class AmbientAudioManager {
     return this.currentArea;
   }
 
-  // Enable/disable the ambient music system
   enable() {
     this.isEnabled = true;
-    console.log('[AMBIENT] Ambient music system enabled');
   }
 
   disable() {
     this.isEnabled = false;
     this.stopCurrentMusic();
-    console.log('[AMBIENT] Ambient music system disabled');
   }
 
-  // Get current status
   isPlaying() {
     return this.currentAmbientMusic && this.currentAmbientMusic.isPlaying;
   }
@@ -235,7 +214,6 @@ export class AmbientAudioManager {
     return this.currentArea;
   }
 
-  // Force reload current area music (useful for testing)
   reloadCurrentMusic() {
     if (this.isEnabled && this.currentArea) {
       const currentArea = this.currentArea;
@@ -244,11 +222,9 @@ export class AmbientAudioManager {
     }
   }
 
-  // Ensure ambient music continues playing (call this periodically)
   ensureAmbientMusicPlaying() {
     if (this.isEnabled && this.isInitialized && this.currentAmbientMusic) {
       if (!this.currentAmbientMusic.isPlaying && this.currentAmbientMusic.buffer) {
-        console.log('[AMBIENT] Restarting ambient music that stopped playing');
         this.currentAmbientMusic.play();
       }
     }
@@ -265,5 +241,4 @@ export class AmbientAudioManager {
   }
 }
 
-// Export singleton instance
 export const ambientAudioManager = new AmbientAudioManager();
