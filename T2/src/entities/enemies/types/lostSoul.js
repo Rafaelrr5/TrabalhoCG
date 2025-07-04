@@ -2,10 +2,11 @@ import * as THREE from '../../../../../build/three.module.js';
 import { Enemy } from '../base/enemies.js';
 import { loadSkullModel, preloadSkullModel } from '../../../utils/skullLoader.js';
 import { CONFIG } from '../../../core/config.js';
-import { applyLostSoulCollisionCorrection } from '../../../systems/collision.js';
+import { applyLostSoulCollisionCorrection, checkLostSoulInterCollision } from '../../../systems/collision.js';
 import { ExplosionEffects } from '../utils/explosionEffects.js';
 import { IdleBehaviors } from '../utils/idleBehaviors.js';
 import { PersistentPursuitManager } from '../behaviors/persistentPursuit.js';
+import { getLostSouls } from '../enemy.js';
 
 export class LostSoul extends Enemy {
   constructor(position = [0, 0, 0], config = {}) {
@@ -48,7 +49,11 @@ export class LostSoul extends Enemy {
       targetDirection: new THREE.Vector3(),
       smoothedVelocity: new THREE.Vector3(),
       collisionAvoidanceForce: new THREE.Vector3(),
-      lastCollisionTime: 0
+      lastCollisionTime: 0,
+      // Lost Soul inter-collision state
+      separationForce: new THREE.Vector3(),
+      lastInterCollisionCheck: 0,
+      interCollisionCheckInterval: 100
     };
     
     this.lastCollisionCheck = 0;
@@ -237,6 +242,43 @@ export class LostSoul extends Enemy {
     return false;
   }
 
+  checkLostSoulInterCollision(delta) {
+    const currentTime = Date.now();
+    const state = this.movementState;
+    
+    // Throttle inter-collision checks for performance
+    if (currentTime - state.lastInterCollisionCheck < state.interCollisionCheckInterval) {
+      return false;
+    }
+    state.lastInterCollisionCheck = currentTime;
+    
+    if (!CONFIG.LOST_SOUL_INTER_COLLISION) {
+      state.separationForce.set(0, 0, 0);
+      return false;
+    }
+    
+    // Get other alive Lost Souls
+    const otherLostSouls = getLostSouls().filter(ls => ls !== this && ls.isAlive);
+    
+    if (otherLostSouls.length === 0) {
+      state.separationForce.set(0, 0, 0);
+      return false;
+    }
+    
+    const collisionResult = checkLostSoulInterCollision(this, otherLostSouls);
+    
+    if (collisionResult.hasCollision) {
+      // Apply separation force with smoothing
+      const smoothingFactor = Math.min(delta * 3.0, 1.0);
+      state.separationForce.lerp(collisionResult.separationForce, smoothingFactor);
+      return true;
+    } else {
+      // Gradually reduce separation force when no collision
+      state.separationForce.multiplyScalar(0.9);
+      return false;
+    }
+  }
+
   calculateFinalMovement(targetPosition, delta) {
     const state = this.movementState;
     const distance = state.lastPlayerDistance;
@@ -244,6 +286,7 @@ export class LostSoul extends Enemy {
     
     let finalDirection = state.targetDirection.clone();
     
+    // Apply environmental collision avoidance
     if (state.collisionAvoidanceForce.length() > 0.1) {
       const avoidanceWeight = Math.min(0.7, state.collisionAvoidanceForce.length());
       const targetWeight = 1.0 - avoidanceWeight;
@@ -251,6 +294,14 @@ export class LostSoul extends Enemy {
       finalDirection.multiplyScalar(targetWeight)
         .addScaledVector(state.collisionAvoidanceForce, avoidanceWeight)
         .normalize();
+    }
+    
+    // Apply Lost Soul separation force (reduced when very close to player)
+    if (state.separationForce.length() > 0.1) {
+      // Reduce separation force when very close to player to allow final approach
+      const playerDistanceFactor = Math.min(1.0, distance / 5.0);
+      const separationWeight = Math.min(0.4, state.separationForce.length()) * playerDistanceFactor;
+      finalDirection.addScaledVector(state.separationForce, separationWeight).normalize();
     }
     
     if (this.stuckTimer > this.stuckThreshold) {
@@ -341,6 +392,17 @@ export class LostSoul extends Enemy {
     const dashVelocity = this.dashDirection.clone().multiplyScalar(this.dashSpeed);
     const newPosition = this.mesh.position.clone().addScaledVector(dashVelocity, delta);
     
+    // Check for Lost Soul inter-collision during dash (with reduced impact)
+    this.checkLostSoulInterCollision(delta);
+    
+    // Apply reduced separation force during dash to prevent overlap but maintain dash aggression
+    const state = this.movementState;
+    if (state.separationForce.length() > 0.1) {
+      const dashSeparationWeight = 0.2; // Reduced weight during dash
+      const separationVelocity = state.separationForce.clone().multiplyScalar(this.config.speed * dashSeparationWeight);
+      newPosition.addScaledVector(separationVelocity, delta);
+    }
+    
     if (CONFIG.LOST_SOUL_ENABLE_COLLISION && collidableObjects.length > 0) {
       const collisionResult = applyLostSoulCollisionCorrection(
         { mesh: { position: newPosition }, config: this.config }, 
@@ -370,6 +432,7 @@ export class LostSoul extends Enemy {
   
   executeNormalMovement(targetPosition, delta, collidableObjects = []) {
     this.performCollisionCheck(targetPosition, collidableObjects, delta);
+    this.checkLostSoulInterCollision(delta);
     
     const finalVelocity = this.calculateFinalMovement(targetPosition, delta);
     

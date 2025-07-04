@@ -313,3 +313,90 @@ function applySimpleDeflection(originalDirection, collision) {
         priority: 0.5
     };
 }
+
+// ============================================================================
+// SISTEMA DE COLISÃO ENTRE LOST SOULS
+// ============================================================================
+/*
+ * Sistema de detecção de colisão entre Lost Souls para evitar sobreposição.
+ * 
+ * Características:
+ * - Detecta colisões entre Lost Souls usando distância euclidiana
+ * - Aplica força de separação para manter distância mínima
+ * - Adiciona aleatoriedade para evitar formações perfeitas
+ * - Força reduzida quando próximo ao jogador para permitir ataques
+ * - Força ainda mais reduzida durante dash para manter agressividade
+ * 
+ * Configurações disponíveis em CONFIG:
+ * - LOST_SOUL_INTER_COLLISION: habilita/desabilita o sistema
+ * - LOST_SOUL_INTER_COLLISION_RADIUS: raio de detecção de colisão
+ * - LOST_SOUL_SEPARATION_FORCE: intensidade da força de separação
+ * - LOST_SOUL_SEPARATION_DISTANCE: distância mínima entre Lost Souls
+ */
+
+// Função para detectar colisão entre Lost Souls
+export function checkLostSoulInterCollision(currentLostSoul, otherLostSouls) {
+    if (!CONFIG.LOST_SOUL_INTER_COLLISION || !otherLostSouls.length) {
+        return { hasCollision: false, separationForce: new THREE.Vector3() };
+    }
+
+    const currentPosition = currentLostSoul.mesh.position;
+    const collisionRadius = CONFIG.LOST_SOUL_INTER_COLLISION_RADIUS;
+    const separationDistance = CONFIG.LOST_SOUL_SEPARATION_DISTANCE;
+    const separationForceStrength = CONFIG.LOST_SOUL_SEPARATION_FORCE;
+    
+    let totalSeparationForce = new THREE.Vector3();
+    let hasCollision = false;
+    let collisionCount = 0;
+
+    // Verifica cada Lost Soul
+    for (const otherLostSoul of otherLostSouls) {
+        // Não verifica colisão consigo mesmo
+        if (otherLostSoul === currentLostSoul || !otherLostSoul.isAlive) {
+            continue;
+        }
+
+        const otherPosition = otherLostSoul.mesh.position;
+        const distance = currentPosition.distanceTo(otherPosition);
+
+        // Se está dentro do raio de colisão
+        if (distance < collisionRadius && distance > 0.1) {
+            hasCollision = true;
+            collisionCount++;
+
+            // Calcula força de separação
+            const separationDirection = new THREE.Vector3()
+                .subVectors(currentPosition, otherPosition);
+            
+            // Add small random offset to prevent perfect alignment and getting stuck
+            separationDirection.add(new THREE.Vector3(
+                (Math.random() - 0.5) * 0.2,
+                (Math.random() - 0.5) * 0.1,
+                (Math.random() - 0.5) * 0.2
+            ));
+            separationDirection.normalize();
+
+            // A força é inversamente proporcional à distância
+            const force = Math.max(0, (separationDistance - distance) / separationDistance);
+            const separationForce = separationDirection.multiplyScalar(force * separationForceStrength);
+            
+            totalSeparationForce.add(separationForce);
+        }
+    }
+
+    // Normaliza a força se houver múltiplas colisões
+    if (collisionCount > 0) {
+        totalSeparationForce.divideScalar(collisionCount);
+        // Limita a magnitude da força para evitar movimentos abruptos
+        const maxForce = CONFIG.LOST_SOUL_SEPARATION_FORCE * 2;
+        if (totalSeparationForce.length() > maxForce) {
+            totalSeparationForce.normalize().multiplyScalar(maxForce);
+        }
+    }
+
+    return {
+        hasCollision,
+        separationForce: totalSeparationForce,
+        collisionCount
+    };
+}

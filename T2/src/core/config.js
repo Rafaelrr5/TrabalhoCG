@@ -89,6 +89,12 @@ export const CONFIG = {
     LOST_SOUL_RAYCAST_DISTANCE: 2.5,        // Distância máxima do raycast
     LOST_SOUL_COLLISION_SMOOTHING: 0.15,    // Suavização da correção de posição
     
+    // Lost Soul vs Lost Soul collision
+    LOST_SOUL_INTER_COLLISION: true,        // Habilita colisão entre Lost Souls
+    LOST_SOUL_INTER_COLLISION_RADIUS: 2.0,  // Raio de detecção entre Lost Souls
+    LOST_SOUL_SEPARATION_FORCE: 1.5,        // Força de separação entre Lost Souls
+    LOST_SOUL_SEPARATION_DISTANCE: 3.0,     // Distância mínima entre Lost Souls
+    
     // Configurações para outros tipos de inimigos
     GROUND_ENEMY_COLLISION_RADIUS: 0.8,     // Raio de colisão para inimigos terrestres
     GROUND_ENEMY_COLLISION_RAYS: 6,         // Número de raycasts para inimigos terrestres
