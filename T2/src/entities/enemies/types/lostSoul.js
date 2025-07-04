@@ -62,6 +62,11 @@ export class LostSoul extends Enemy {
     // Reference to skull model
     this.skullModel = null;
     
+    // Area 1 specific behavior - always ready to activate aggressively
+    this.hasBeenActivated = false; // Track if ever been activated
+    this.aggressionLevel = 1.0; // Multiplier for aggressive behavior
+    this.lastKnownPlayerPosition = new THREE.Vector3(); // Track last known player position
+    
     // Idle behavior will be handled by IdleBehaviors utility
   }
 
@@ -176,19 +181,27 @@ export class LostSoul extends Enemy {
     // Sistema de velocidade adaptativa baseado na distância
     let speedMultiplier = 1.0;
     
-    if (distance > 20.0) {
-      speedMultiplier = 1.5; // Mais rápido quando longe
+    // Base speed calculation
+    if (distance > 50.0) {
+      speedMultiplier = 2.5; // Much faster when very far (persistent chase)
+    } else if (distance > 20.0) {
+      speedMultiplier = 1.8; // Faster when far
     } else if (distance > 10.0) {
-      speedMultiplier = 1.2;
+      speedMultiplier = 1.4;
     } else if (distance > 5.0) {
       speedMultiplier = 1.0;
     } else if (distance > 2.0) {
-      speedMultiplier = 0.8; // Mais devagar quando próximo
+      speedMultiplier = 0.8; // Slower when close
     } else {
-      speedMultiplier = 1.5; // Rápido no ataque final
+      speedMultiplier = 1.5; // Fast for final attack
     }
     
-    // Reduz velocidade se estiver "preso"
+    // Apply aggression multiplier if activated for persistent pursuit
+    if (this.hasBeenActivated && this.aggressionLevel > 1.0) {
+      speedMultiplier *= this.aggressionLevel;
+    }
+    
+    // Reduce speed if stuck
     if (this.stuckTimer > 1000) {
       speedMultiplier *= 0.5;
     }
@@ -434,20 +447,36 @@ export class LostSoul extends Enemy {
     
     // Only process Lost Soul specific behavior if alive and not dying
     if (!this.isAlive || this.isDying) return;
+
+    // Handle persistent pursuit - use last known position if no current target
+    let effectiveTarget = targetPosition;
+    if (!targetPosition && this.hasBeenActivated && this.lastKnownPlayerPosition.length() > 0) {
+      effectiveTarget = this.lastKnownPlayerPosition;
+    }
+    
+    // Update last known player position if we have a current target
+    if (targetPosition) {
+      this.lastKnownPlayerPosition.copy(targetPosition);
+    }
+    
+    // Only continue if we have a target (current or last known)
+    if (!effectiveTarget) return;
     
     // Sistema de movimento otimizado
-    this.updateDash(delta, targetPosition, collidableObjects);
-    const currentVelocity = this.executeMovement(targetPosition, delta, collidableObjects);
+    this.updateDash(delta, effectiveTarget, collidableObjects);
+    const currentVelocity = this.executeMovement(effectiveTarget, delta, collidableObjects);
     
     // Atualiza orientação baseada na velocidade atual
-    this.orientSkull(targetPosition);
+    this.orientSkull(effectiveTarget);
     
-    // Verifica colisão com player (sempre ativo)
-    const collisionOccurred = this.checkPlayerCollision(targetPosition);
-    
-    // Create explosion effect if collision occurred
-    if (collisionOccurred && this.mesh && this.mesh.parent) {
-      this.createExplosionEffect();
+    // Verifica colisão com player (sempre ativo) - only with current target, not last known
+    if (targetPosition) {
+      const collisionOccurred = this.checkPlayerCollision(targetPosition);
+      
+      // Create explosion effect if collision occurred
+      if (collisionOccurred && this.mesh && this.mesh.parent) {
+        this.createExplosionEffect();
+      }
     }
   }
 

@@ -273,20 +273,23 @@ export class Cacodemon extends Enemy {
     
     const distanceToPlayer = this.mesh.position.distanceTo(camera.position);
     
-    // More aggressive attack conditions - similar to Lost Soul collision behavior
-    // Attack more frequently and at longer range
-    const effectiveAttackRange = this.attackRange * 1.2; // Increased attack range
-    const effectiveAttackCooldown = this.attackCooldown * 0.7; // Faster attack rate
+    // Attack more frequently and at longer range, especially when activated
+    let effectiveAttackRange = this.attackRange * 1.2; // Increased attack range
+    let effectiveAttackCooldown = this.attackCooldown * 0.7; // Faster attack rate
+    
+    // If cacodemon has been activated (pursuing player), extend range even more
+    if (this.hasBeenActivated) {
+      effectiveAttackRange *= 1.5; // Much longer range for activated cacodemons
+      effectiveAttackCooldown *= 0.8; // Even faster attacks when activated
+    }
     
     if (distanceToPlayer <= effectiveAttackRange && 
         this.timeSinceLastAttack >= effectiveAttackCooldown &&
         !this.isAttacking) {
       
-      // TODO: Implement line of sight check
       this.attemptAttack(camera.position);
     }
     
-    // Additional proximity audio update like Lost Souls
     this.updateProximityAudio(camera.position);
   }
 
@@ -318,30 +321,32 @@ export class Cacodemon extends Enemy {
   }
 
   updateProjectiles(delta, collidableObjects, camera = null) {
-    // Update all active projectiles
     for (let i = this.activeProjectiles.length - 1; i >= 0; i--) {
       const projectile = this.activeProjectiles[i];
       
       if (!projectile.update(delta, collidableObjects, camera)) {
-        // Remove inactive projectiles
         this.activeProjectiles.splice(i, 1);
       }
     }
   }
 
   updateMovement(delta, collidableObjects, camera) {
-    // Get player position from camera
     const playerPosition = camera ? camera.position : null;
     
     if (!playerPosition) {
+      // If no player position but cacodemon has been activated, use last known position
+      if (this.hasBeenActivated && this.lastKnownPlayerPosition.length() > 0) {
+        const lastKnownPos = this.lastKnownPlayerPosition;
+        this.updateAIState(lastKnownPos, delta);
+        this.executePursuingBehavior(lastKnownPos, delta, collidableObjects);
+        return;
+      }
       this.idleBehavior(delta);
       return;
     }
     
-    // Update AI state and behavior
     this.updateAIState(playerPosition, delta);
     
-    // Execute behavior based on current state
     switch (this.aiState) {
       case 'IDLE':
         this.executeIdleBehavior(delta);
@@ -364,13 +369,9 @@ export class Cacodemon extends Enemy {
   updateAIState(playerPosition, delta) {
     this.stateChangeTime += delta;
     const distanceToPlayer = this.mesh.position.distanceTo(playerPosition);
-    const distanceToSpawn = this.mesh.position.distanceTo(this.spawnPosition);
     
-    // Aggressive activation - similar to Lost Souls behavior
-    // Immediately activate when player is in reasonable range
     switch (this.aiState) {
       case 'IDLE':
-        // More aggressive activation distance for area 2
         if (distanceToPlayer <= this.activationDistance || distanceToPlayer <= 60.0) {
           this.changeState('ACTIVATED');
           this.playSightSound(); // Play sight sound when first detecting player
@@ -378,7 +379,6 @@ export class Cacodemon extends Enemy {
         break;
         
       case 'ACTIVATED':
-        // Shorter activation delay for more aggressive behavior
         if (this.stateChangeTime > 0.5) { 
           this.changeState('PURSUING');
         }
@@ -387,10 +387,9 @@ export class Cacodemon extends Enemy {
       case 'PURSUING':
         if (distanceToPlayer <= this.optimalAttackDistance) {
           this.changeState('ATTACKING');
-        } else if (distanceToPlayer > this.activationDistance + 30) {
-          // Don't return to idle too easily - keep pursuing longer
-          this.changeState('IDLE');
         }
+        // Once activated, never return to IDLE - keep pursuing indefinitely
+        // This ensures they chase the player even outside area 2
         break;
         
       case 'ATTACKING':
@@ -474,8 +473,11 @@ export class Cacodemon extends Enemy {
     let pursuitSpeed = this.maxSpeed * 1.5; // Increased base speed
     
     // Adjust speed based on distance for more dynamic pursuit
+    // Maintain high speed even at long distances for persistent chase
     if (distanceToPlayer < 8.0) {
       pursuitSpeed *= 0.8; // Slow down when very close
+    } else if (distanceToPlayer > 50.0) {
+      pursuitSpeed *= 2.2; // Much faster when very far (chasing outside area)
     } else if (distanceToPlayer > 25.0) {
       pursuitSpeed *= 1.8; // Much faster when far away
     } else if (distanceToPlayer > 15.0) {
@@ -497,6 +499,9 @@ export class Cacodemon extends Enemy {
     
     // Faster rotation to track player
     this.smoothLookAt(playerPosition, 6.0, delta); // Increased from 4.0
+    
+    // Update last known player position for persistent tracking
+    this.lastKnownPlayerPosition.copy(playerPosition);
   }
 
   executeAttackingBehavior(playerPosition, delta) {

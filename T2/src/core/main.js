@@ -4,7 +4,7 @@ import { CONFIG } from './config.js';
 import { createWalls, createAreas, updateArea1, updateArea2, area1KeyPlatform, area2KeyPlatform, isPlayerInArea1, isPlayerInArea2 } from '../systems/environment.js';
 import { createGun } from '../components/weapon.js';
 import { createWeaponManager, updateProjectiles } from '../components/weaponManager.js';
-import { createEnemies, updateEnemies, cleanupDeadEnemies, enemies, cleanupAllEnemyProjectiles, resetArea2Activation } from '../entities/enemies/enemy.js';
+import { createEnemies, updateEnemies, cleanupDeadEnemies, enemies, cleanupAllEnemyProjectiles, resetArea2Activation, resetArea1Activation } from '../entities/enemies/enemy.js';
 import { setupEventListeners, updateCameraMovement, continuousCameraDebug } from '../systems/controls.js';
 import { lightingSystem } from '../systems/lights.js';
 import { applyGravity } from '../systems/collision.js';
@@ -424,7 +424,8 @@ async function restartGame() {
 async function resetGameAreas() {
   
   try {
-    // Reset cacodemon activation state
+    // Reset enemy activation states
+    resetArea1Activation();
     resetArea2Activation();
     
     if (area1KeyPlatform) {

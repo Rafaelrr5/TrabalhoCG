@@ -8,7 +8,8 @@ import { cleanupAllProjectiles } from './systems/cacodeemonProjectile.js';
 
 export const enemies = [];
 
-// Track if cacodemons have been activated in area 2
+// Track if enemies have been activated in their respective areas
+let area1LostSoulsActivated = false;
 let area2CacodemonsActivated = false;
 
 export async function preloadEnemies() {
@@ -72,13 +73,31 @@ export function updateEnemies(delta, scene, camera, gun = null, collidableObject
 function shouldUpdateEnemy(camera, enemy) {
   switch (enemy.area) {
     case 'area1':
-      return isPlayerInArea1(camera);
+      const playerInArea1 = isPlayerInArea1(camera);
+      // Activate all lost souls aggressively when player first enters area 1
+      if (playerInArea1) {
+        activateLostSoulsInArea1();
+      }
+      
+      // For Lost Souls: once activated, they stay active regardless of player area
+      // This makes them pursue the player even if they leave area 1
+      if (enemy.enemyType === 'LostSoul' && enemy.hasBeenActivated) {
+        return true; // Always update activated lost souls
+      }
+      return playerInArea1;
     case 'area2':
       const playerInArea2 = isPlayerInArea2(camera);
       // Activate all cacodemons aggressively when player first enters area 2
       if (playerInArea2) {
         activateCacodemonsInArea2();
       }
+      
+      // For Cacodemons: once activated, they stay active regardless of player area
+      // This makes them pursue the player even if they leave area 2
+      if (enemy.enemyType === 'Cacodemon' && enemy.hasBeenActivated) {
+        return true; // Always update activated cacodemons
+      }
+      
       return playerInArea2;
     default:
       return true;
@@ -193,6 +212,29 @@ export function activateCacodemonsInArea2() {
 
 export function resetArea2Activation() {
   area2CacodemonsActivated = false;
+}
+
+export function activateLostSoulsInArea1() {
+  if (area1LostSoulsActivated) return;
+  
+  const lostSouls = getLostSouls().filter(ls => ls.area === 'area1' && ls.isAlive);
+  
+  lostSouls.forEach(lostSoul => {
+    if (!lostSoul.hasBeenActivated) {
+      lostSoul.hasBeenActivated = true;
+      lostSoul.playSightSound(); // Alert sound
+      // Make them more aggressive once activated
+      lostSoul.aggressionLevel = 1.2;
+      lostSoul.maxSpeed = (lostSoul.config.speed || 4.0) * lostSoul.aggressionLevel;
+    }
+  });
+  
+  area1LostSoulsActivated = true;
+  console.log(`Activated ${lostSouls.length} Lost Souls in Area 1!`);
+}
+
+export function resetArea1Activation() {
+  area1LostSoulsActivated = false;
 }
 
 // Debug functions for development
@@ -313,5 +355,49 @@ if (typeof window !== 'undefined') {
   window.forceArea2Activation = () => {
     area2CacodemonsActivated = false;
     activateCacodemonsInArea2();
+  };
+  
+  window.testPersistentPursuit = () => {
+    const cacodemons = getCacodemons();
+    cacodemons.forEach(c => {
+      if (c.isAlive) {
+        c.hasBeenActivated = true;
+        c.changeState('PURSUING');
+        c.aggressionLevel = 1.5;
+      }
+    });
+    console.log('All cacodemons set to persistent pursuit mode!');
+  };
+  
+  window.activateAllLostSouls = () => {
+    const lostSouls = getLostSouls();
+    lostSouls.forEach(ls => {
+      if (ls.isAlive) {
+        ls.hasBeenActivated = true;
+        ls.aggressionLevel = 1.3;
+        ls.maxSpeed = (ls.config.speed || 4.0) * ls.aggressionLevel;
+      }
+    });
+    console.log(`Manually activated ${lostSouls.length} lost souls for persistent pursuit`);
+  };
+  
+  window.getLostSoulStates = () => {
+    const lostSouls = getLostSouls();
+    lostSouls.forEach((ls, i) => {
+      console.log(`Lost Soul ${i + 1}:`, {
+        isAlive: ls.isAlive,
+        hasBeenActivated: ls.hasBeenActivated,
+        aggressionLevel: ls.aggressionLevel,
+        isDashing: ls.isDashing,
+        position: ls.mesh.position,
+        lastKnownPlayerPos: ls.lastKnownPlayerPosition,
+        area: ls.area
+      });
+    });
+  };
+  
+  window.forceArea1Activation = () => {
+    area1LostSoulsActivated = false;
+    activateLostSoulsInArea1();
   };
 }

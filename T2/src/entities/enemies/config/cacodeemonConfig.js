@@ -4,10 +4,10 @@ export const CACODEMON_CONFIG = {
   MAX_HEALTH: 50,
   SPEED: 4.5, // Increased from 3.5
   
-  ATTACK_RANGE: 45.0, // Increased from 40.0
-  ATTACK_COOLDOWN: 1.8, // Decreased from 2.5 for more frequent attacks
-  PROJECTILE_SPEED: 35.0, // Increased from 30.0
-  PROJECTILE_DAMAGE: 12, // Increased from 10
+  ATTACK_RANGE: 60.0, // Increased from 45.0 for longer range attacks
+  ATTACK_COOLDOWN: 1.5, // Decreased from 1.8 for even more frequent attacks
+  PROJECTILE_SPEED: 40.0, // Increased from 35.0 for faster projectiles
+  PROJECTILE_DAMAGE: 15, // Increased from 12 for more damage
   PROJECTILE_RADIUS: 0.4,
   PROJECTILE_COLOR: 0xFFFF00,
   
@@ -28,12 +28,12 @@ export const CACODEMON_CONFIG = {
   LINE_OF_SIGHT_RANGE: 80.0,
   AGGRO_RANGE: 50.0, // Increased from 40.0
   PATROL_RADIUS: 8.0,
-  PURSUIT_RANGE: 70.0, // Increased from 60.0
-  MIN_DISTANCE_TO_PLAYER: 18.0, // Decreased from 22.0 - get closer
-  MOVE_SPEED: 8.0, // Increased from 6.5
-  ACTIVATION_DISTANCE: 60.0, // Increased from 50.0
-  OPTIMAL_ATTACK_DISTANCE: 14.0, // Decreased from 16.0 - attack closer
-  MAX_ATTACK_DISTANCE: 20.0, // Decreased from 22.0
+  PURSUIT_RANGE: 100.0, // Increased from 70.0 for extended pursuit
+  MIN_DISTANCE_TO_PLAYER: 15.0, // Decreased from 18.0 - get even closer
+  MOVE_SPEED: 10.0, // Increased from 8.0 for faster movement
+  ACTIVATION_DISTANCE: 80.0, // Increased from 60.0 for earlier activation
+  OPTIMAL_ATTACK_DISTANCE: 12.0, // Decreased from 14.0 - attack even closer
+  MAX_ATTACK_DISTANCE: 25.0, // Increased from 20.0
   
   SPAWN_AREAS: {
     area2: {
