@@ -178,14 +178,15 @@ function createArea2(scene, materials, collidableObjects) {
     
     scene.add(area2);
 
+    const door = new door
+
     //stair2.add(createStair(50.0, CONFIG.STAIR_HEIGHT_OFFSET, -62.8, CONFIG.AREA_HEIGHT, true, materials.stair));
     //scene.add(stair2);
     markCollisionObject(area2, collidableObjects);
     //markCollisionObject(stair2, collidableObjects);
     createElevator(scene, collidableObjects, 50.0, -66.05);
     enableShadowsForAll(area2); // Ativa sombras na área 2
-    enableShadowsForAll(blueKeyPlatform); // Ativa sombras na plataforma da chave azul
-    
+    enableShadowsForAll(blueKeyPlatform); // Ativa sombras na plataforma da chave
 
 }
 

@@ -7,7 +7,7 @@ import { createWeaponManager, updateProjectiles } from '../components/weaponMana
 import { createEnemies, updateEnemies, cleanupDeadEnemies, enemies, cleanupAllEnemyProjectiles, resetArea2Activation, resetArea1Activation } from '../entities/enemies/enemy.js';
 import { setupEventListeners, updateCameraMovement, continuousCameraDebug } from '../systems/controls.js';
 import { lightingSystem } from '../systems/lights.js';
-import { applyGravity } from '../systems/collision.js';
+import { applyGravity} from '../systems/collision.js';
 import { createHitbox, hitbox, player } from '../entities/player/player.js';
 import { updateELevator } from '../systems/elevator.js';
 import { keyManager } from '../entities/items/key.js';
@@ -343,6 +343,7 @@ function animate() {
     
     updateEnemies(delta, scene, camera, gun, collidableObjects);
     updateELevator(delta);
+    
     
     // Update ambient music based on player position
     updateAmbientMusic();
