@@ -8,6 +8,9 @@ import { cleanupAllProjectiles } from './systems/cacodeemonProjectile.js';
 
 export const enemies = [];
 
+// Track if cacodemons have been activated in area 2
+let area2CacodemonsActivated = false;
+
 export async function preloadEnemies() {
   await preloadSkullModel();
   // Preload Cacodemon assets here if needed
@@ -71,7 +74,12 @@ function shouldUpdateEnemy(camera, enemy) {
     case 'area1':
       return isPlayerInArea1(camera);
     case 'area2':
-      return isPlayerInArea2(camera);
+      const playerInArea2 = isPlayerInArea2(camera);
+      // Activate all cacodemons aggressively when player first enters area 2
+      if (playerInArea2) {
+        activateCacodemonsInArea2();
+      }
+      return playerInArea2;
     default:
       return true;
   }
@@ -167,6 +175,26 @@ export function cleanupAllEnemyProjectiles(scene) {
   cleanupAllProjectiles(scene, cacodemons);
 }
 
+// Activate all cacodemons in area 2 when player enters the area
+export function activateCacodemonsInArea2() {
+  if (area2CacodemonsActivated) return;
+  
+  const cacodemons = getCacodemons().filter(c => c.area === 'area2' && c.isAlive);
+  
+  cacodemons.forEach(cacodemon => {
+    if (cacodemon.aiState === 'IDLE') {
+      cacodemon.changeState('ACTIVATED');
+    }
+  });
+  
+  area2CacodemonsActivated = true;
+  console.log(`Activated ${cacodemons.length} Cacodemons in Area 2!`);
+}
+
+export function resetArea2Activation() {
+  area2CacodemonsActivated = false;
+}
+
 // Debug functions for development
 if (typeof window !== 'undefined') {
   window.getEnemies = () => enemies;
@@ -255,5 +283,35 @@ if (typeof window !== 'undefined') {
         }
       });
     }
+  };
+  
+  // Debug functions for testing cacodemon behavior
+  window.activateAllCacodemons = () => {
+    const cacodemons = getCacodemons();
+    cacodemons.forEach(c => {
+      if (c.isAlive) {
+        c.changeState('ACTIVATED');
+      }
+    });
+    console.log(`Manually activated ${cacodemons.length} cacodemons`);
+  };
+  
+  window.getCacodeemonStates = () => {
+    const cacodemons = getCacodemons();
+    cacodemons.forEach((c, i) => {
+      console.log(`Cacodemon ${i + 1}:`, {
+        state: c.aiState,
+        isAlive: c.isAlive,
+        hasBeenActivated: c.hasBeenActivated,
+        aggressionLevel: c.aggressionLevel,
+        position: c.mesh.position,
+        area: c.area
+      });
+    });
+  };
+  
+  window.forceArea2Activation = () => {
+    area2CacodemonsActivated = false;
+    activateCacodemonsInArea2();
   };
 }

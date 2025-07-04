@@ -32,18 +32,18 @@ export class Cacodemon extends Enemy {
     this.floatTime = Math.random() * Math.PI * 2; // Random start phase
     this.aiState = 'IDLE'; // IDLE, ACTIVATED, PURSUING, ATTACKING, CIRCLING
     this.stateChangeTime = 0;
-    this.activationDistance = this.config.activationDistance || 50.0; // Distance to activate from spawn
-    this.optimalAttackDistance = this.config.optimalAttackDistance || 18.0; // Preferred distance for attacking
-    this.maxAttackDistance = this.config.maxAttackDistance || 25.0; // Maximum attack distance
+    this.activationDistance = this.config.activationDistance || 60.0; // Increased activation distance
+    this.optimalAttackDistance = this.config.optimalAttackDistance || 14.0; // Closer optimal distance
+    this.maxAttackDistance = this.config.maxAttackDistance || 20.0; // Closer maximum attack distance
     this.velocity = new THREE.Vector3();
     this.targetVelocity = new THREE.Vector3();
-    this.acceleration = this.config.acceleration || 8.0; // How quickly it reaches target velocity
-    this.maxSpeed = this.config.moveSpeed || 3.5;
+    this.acceleration = this.config.acceleration || 10.0; // Increased acceleration
+    this.maxSpeed = this.config.moveSpeed || 8.0; // Increased max speed
     this.smoothing = 0.95; // Velocity smoothing factor
-    this.rotationSpeed = this.config.rotationSpeed || 2.0; // Base rotation speed
+    this.rotationSpeed = this.config.rotationSpeed || 3.0; // Increased rotation speed
     this.spawnPosition = new THREE.Vector3().copy(this.mesh.position);
     this.targetPosition = new THREE.Vector3().copy(this.mesh.position);
-    this.moveSpeed = this.config.moveSpeed || 3.5;
+    this.moveSpeed = this.config.moveSpeed || 8.0; // Increased move speed
     this.circleRadius = 8.0; // Radius for circling behavior
     this.circleAngle = Math.random() * Math.PI * 2; // Random start angle
     this.circleSpeed = 1.0; // Speed of circling
@@ -55,6 +55,10 @@ export class Cacodemon extends Enemy {
     this.hasLineOfSight = false;
     this.lastKnownPlayerPosition = new THREE.Vector3();
     this.activeProjectiles = [];
+    
+    // Area 2 specific behavior - always ready to activate aggressively
+    this.hasBeenActivated = false; // Track if ever been activated
+    this.aggressionLevel = 1.0; // Multiplier for aggressive behavior
   }
 
   async loadModel() {
@@ -269,14 +273,21 @@ export class Cacodemon extends Enemy {
     
     const distanceToPlayer = this.mesh.position.distanceTo(camera.position);
     
-    // Check if player is in range and we can attack
-    if (distanceToPlayer <= this.attackRange && 
-        this.timeSinceLastAttack >= this.attackCooldown &&
+    // More aggressive attack conditions - similar to Lost Soul collision behavior
+    // Attack more frequently and at longer range
+    const effectiveAttackRange = this.attackRange * 1.2; // Increased attack range
+    const effectiveAttackCooldown = this.attackCooldown * 0.7; // Faster attack rate
+    
+    if (distanceToPlayer <= effectiveAttackRange && 
+        this.timeSinceLastAttack >= effectiveAttackCooldown &&
         !this.isAttacking) {
       
       // TODO: Implement line of sight check
       this.attemptAttack(camera.position);
     }
+    
+    // Additional proximity audio update like Lost Souls
+    this.updateProximityAudio(camera.position);
   }
 
   attemptAttack(playerPosition) {
@@ -355,16 +366,20 @@ export class Cacodemon extends Enemy {
     const distanceToPlayer = this.mesh.position.distanceTo(playerPosition);
     const distanceToSpawn = this.mesh.position.distanceTo(this.spawnPosition);
     
-    // State transitions
+    // Aggressive activation - similar to Lost Souls behavior
+    // Immediately activate when player is in reasonable range
     switch (this.aiState) {
       case 'IDLE':
-        if (distanceToPlayer <= this.activationDistance) {
+        // More aggressive activation distance for area 2
+        if (distanceToPlayer <= this.activationDistance || distanceToPlayer <= 60.0) {
           this.changeState('ACTIVATED');
+          this.playSightSound(); // Play sight sound when first detecting player
         }
         break;
         
       case 'ACTIVATED':
-        if (this.stateChangeTime > 1.0) { // Brief activation delay
+        // Shorter activation delay for more aggressive behavior
+        if (this.stateChangeTime > 0.5) { 
           this.changeState('PURSUING');
         }
         break;
@@ -372,7 +387,8 @@ export class Cacodemon extends Enemy {
       case 'PURSUING':
         if (distanceToPlayer <= this.optimalAttackDistance) {
           this.changeState('ATTACKING');
-        } else if (distanceToPlayer > this.activationDistance + 20) {
+        } else if (distanceToPlayer > this.activationDistance + 30) {
+          // Don't return to idle too easily - keep pursuing longer
           this.changeState('IDLE');
         }
         break;
@@ -380,20 +396,38 @@ export class Cacodemon extends Enemy {
       case 'ATTACKING':
         if (distanceToPlayer > this.maxAttackDistance) {
           this.changeState('PURSUING');
-        } else if (distanceToPlayer < this.optimalAttackDistance * 0.7) {
+        } else if (distanceToPlayer < this.optimalAttackDistance * 0.6) {
           this.changeState('CIRCLING');
         }
         break;
         
       case 'CIRCLING':
-        if (distanceToPlayer > this.optimalAttackDistance * 1.2) {
+        if (distanceToPlayer > this.optimalAttackDistance * 1.3) {
           this.changeState('ATTACKING');
+        } else if (distanceToPlayer > this.maxAttackDistance) {
+          this.changeState('PURSUING');
         }
         break;
     }
   }
 
   changeState(newState) {
+    // Special behavior when transitioning to ACTIVATED state (similar to Lost Soul aggression)
+    if (newState === 'ACTIVATED' && this.aiState === 'IDLE') {
+      this.playSightSound(); // Alert player with sound
+      
+      // Mark as activated and increase aggression
+      if (!this.hasBeenActivated) {
+        this.hasBeenActivated = true;
+        this.aggressionLevel = 1.3; // Increase aggression permanently once activated
+        
+        // Boost stats when first activated (like Lost Souls becoming aggressive)
+        this.maxSpeed = this.config.moveSpeed * this.aggressionLevel;
+        this.attackRange = this.config.attackRange * 1.15;
+        this.activationDistance = this.config.activationDistance * 1.2;
+      }
+    }
+    
     this.aiState = newState;
     this.stateChangeTime = 0;
   }
@@ -422,46 +456,57 @@ export class Cacodemon extends Enemy {
   }
 
   executeActivatedBehavior(playerPosition, delta) {
-    // Smooth rotation towards player
-    this.smoothLookAt(playerPosition, 3.0, delta);
+    // More aggressive activation behavior - immediately start moving towards player
+    this.smoothLookAt(playerPosition, 5.0, delta); // Faster rotation
     
-    // Slight movement towards player with smooth motion
-    const activationSpeed = this.maxSpeed * 0.5;
+    // Immediate movement towards player with higher speed
+    const activationSpeed = this.maxSpeed * 0.8; // Increased from 0.5
     this.smoothMoveTowards(playerPosition, activationSpeed, delta);
+    
+    // Play proximity sound to alert player
+    this.updateProximityAudio(playerPosition);
   }
 
   executePursuingBehavior(playerPosition, delta, collidableObjects) {
     const distanceToPlayer = this.mesh.position.distanceTo(playerPosition);
-    let pursuitSpeed = this.maxSpeed;
     
-    if (distanceToPlayer < 10.0) {
-      pursuitSpeed *= 0.7;
-    } else if (distanceToPlayer > 20.0) {
-      pursuitSpeed *= 1.3;
+    // More aggressive pursuit speed - like Lost Souls
+    let pursuitSpeed = this.maxSpeed * 1.5; // Increased base speed
+    
+    // Adjust speed based on distance for more dynamic pursuit
+    if (distanceToPlayer < 8.0) {
+      pursuitSpeed *= 0.8; // Slow down when very close
+    } else if (distanceToPlayer > 25.0) {
+      pursuitSpeed *= 1.8; // Much faster when far away
+    } else if (distanceToPlayer > 15.0) {
+      pursuitSpeed *= 1.4; // Faster when medium distance
     }
     
+    // Add some unpredictability to movement like Lost Souls
     const time = Date.now() * 0.001;
     const variation = new THREE.Vector3(
-      Math.sin(time * 1.3) * 0.8,
+      Math.sin(time * 1.7) * 1.2, // Increased variation
       0,
-      Math.cos(time * 1.1) * 0.8
+      Math.cos(time * 1.3) * 1.2
     );
     
     const targetWithVariation = playerPosition.clone().add(variation);
     
+    // More aggressive movement towards player
     this.smoothMoveTowards(targetWithVariation, pursuitSpeed, delta);
     
-    this.smoothLookAt(playerPosition, 4.0, delta);
+    // Faster rotation to track player
+    this.smoothLookAt(playerPosition, 6.0, delta); // Increased from 4.0
   }
 
   executeAttackingBehavior(playerPosition, delta) {
-    // Maintain optimal distance with smooth positioning
+    // More aggressive attacking behavior - maintain optimal distance but stay mobile
     const distanceToPlayer = this.mesh.position.distanceTo(playerPosition);
     const distanceDiff = distanceToPlayer - this.optimalAttackDistance;
     
     let targetPos = playerPosition.clone();
     
-    if (Math.abs(distanceDiff) > 1.5) {
+    if (Math.abs(distanceDiff) > 1.0) { // Reduced threshold for more responsive positioning
       // Calculate position at optimal distance
       const direction = new THREE.Vector3()
         .subVectors(this.mesh.position, playerPosition)
@@ -471,16 +516,22 @@ export class Cacodemon extends Enemy {
         direction.multiplyScalar(this.optimalAttackDistance)
       );
     } else {
-      // Stay roughly in current position, just minor adjustments
-      targetPos = this.mesh.position.clone();
+      // Add slight movement variation to avoid being a static target
+      const time = Date.now() * 0.001;
+      const movement = new THREE.Vector3(
+        Math.sin(time * 2.0) * 1.5,
+        0,
+        Math.cos(time * 1.8) * 1.5
+      );
+      targetPos = this.mesh.position.clone().add(movement);
     }
     
-    // Use slow, precise movement to maintain attack position
-    const adjustSpeed = this.maxSpeed * 0.4;
+    // More responsive movement for attacking
+    const adjustSpeed = this.maxSpeed * 0.6; // Increased from 0.4
     this.smoothMoveTowards(targetPos, adjustSpeed, delta);
     
-    // Always face the player smoothly
-    this.smoothLookAt(playerPosition, 5.0, delta);
+    // Always face the player smoothly with faster rotation
+    this.smoothLookAt(playerPosition, 7.0, delta); // Increased from 5.0
   }
 
   executeCirclingBehavior(playerPosition, delta) {
