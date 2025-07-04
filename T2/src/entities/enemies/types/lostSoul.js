@@ -7,25 +7,15 @@ import { ExplosionEffects } from '../utils/explosionEffects.js';
 import { IdleBehaviors } from '../utils/idleBehaviors.js';
 import { PersistentPursuitManager } from '../behaviors/persistentPursuit.js';
 import { getLostSouls } from '../enemy.js';
+import { getLostSoulConfig } from '../config/enemyConfig.js';
 
 export class LostSoul extends Enemy {
   constructor(position = [0, 0, 0], config = {}) {
+    // Use the centralized enemy config as base
+    const baseConfig = getLostSoulConfig();
     const defaultConfig = {
-      radius: 0.6,
-      color: 0x8B0000,
-      maxHealth: 20,
-      speed: 4.0,
-      dashSpeed: 25.0,
-      dashInterval: 1.5,
-      dashDuration: 2.0,
-      kamikazeDamage: 30,
-      collisionRadius: 1.5,
-      skullScale: 1.0,
-      skullYRotationOffset: Math.PI,
-      skullXRotationOffset: -90,
-      skullZRotationOffset: 0,
-      maintainPivotOnScale: true,
-      ...config
+      ...baseConfig,
+      ...config // Allow override with custom config
     };
 
     super(position, defaultConfig);

@@ -1,5 +1,5 @@
 import * as THREE from '../../../../../build/three.module.js';
-import { CACODEMON_CONFIG } from '../config/cacodeemonConfig.js';
+import { CACODEMON_CONFIG } from '../config/enemyConfig.js';
 
 export class CacodeemonProjectile {
   constructor(startPosition, direction, config = {}) {
