@@ -1,7 +1,6 @@
 import * as THREE from '../../../../../build/three.module.js';
 import { loadGLTFModel } from '../../../utils/modelLoader.js';
 import { Enemy } from '../base/enemies.js';
-import { CONFIG } from '../../../core/config.js';
 import { getCacodeemonConfig } from '../config/enemyConfig.js';
 import { createCacodeemonProjectile } from '../systems/cacodeemonProjectile.js';
 import { PersistentPursuitManager } from '../behaviors/persistentPursuit.js';
