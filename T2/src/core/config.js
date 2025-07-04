@@ -31,7 +31,7 @@ export const CONFIG = {
     },
     
     // Configurações de movimento e física
-    MOVE_SPEED: 90,
+    MOVE_SPEED: 20,
     GRAVITY: -20,
       // Configurações do jogador
     CAMERA_HEIGHT: 1.8,
@@ -56,8 +56,9 @@ export const CONFIG = {
     STAIR_MOVEMENT_SPEED: 0.2,
     COLLISION_SMOOTHING: 0.5, // Valor entre 0 e 0.5
     COLLISION_ANGLE_THRESHOLD: 15, // Margem para a ativação da suavisação extra
-    
-    
+    PLAYER_RADIUS: 0.5, // Raio aproximado do jogador para colisões esféricas
+    SPHERE_CAST_OFFSET: 0.1, // Offset para evitar flickering
+
     // Configurações do mundo
     WORLD_SIZE: 500,
     WALL_HEIGHT: 20,

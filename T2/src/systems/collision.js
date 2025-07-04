@@ -14,7 +14,12 @@ const rays = [
     { dir: new THREE.Vector3(1, 0, 0), axis: 'x', offset: new THREE.Vector3(0.5, CONFIG.PLAYER_HEIGHT/2, 0) },
     { dir: new THREE.Vector3(-1, 0, 0), axis: 'x', offset: new THREE.Vector3(-0.5, CONFIG.PLAYER_HEIGHT/2, 0) },
     { dir: new THREE.Vector3(0, 0, 1), axis: 'z', offset: new THREE.Vector3(0, CONFIG.PLAYER_HEIGHT/2, 0.5) },
-    { dir: new THREE.Vector3(0, 0, -1), axis: 'z', offset: new THREE.Vector3(0, CONFIG.PLAYER_HEIGHT/2, -0.5) }
+    { dir: new THREE.Vector3(0, 0, -1), axis: 'z', offset: new THREE.Vector3(0, CONFIG.PLAYER_HEIGHT/2, -0.5) },
+
+    { dir: new THREE.Vector3(1, 0, 1).normalize(), axis: 'xz', offset: new THREE.Vector3(0.35, CONFIG.PLAYER_HEIGHT/2, 0.35) },
+    { dir: new THREE.Vector3(1, 0, -1).normalize(), axis: 'xz', offset: new THREE.Vector3(0.35, CONFIG.PLAYER_HEIGHT/2, -0.35) },
+    { dir: new THREE.Vector3(-1, 0, 1).normalize(), axis: 'xz', offset: new THREE.Vector3(-0.35, CONFIG.PLAYER_HEIGHT/2, 0.35) },
+    { dir: new THREE.Vector3(-1, 0, -1).normalize(), axis: 'xz', offset: new THREE.Vector3(-0.35, CONFIG.PLAYER_HEIGHT/2, -0.35) }
 ];
 
 function checkGroundCollisions(collidableObjects, camera) {
@@ -62,9 +67,19 @@ function checkWallCollisions(collidableObjects, camera) {
     for (const ray of rays) {
         const origin = hitbox.position.clone().add(ray.offset);
         const intercepts = detectRayCollisions(origin, ray.dir, validObjects, raySize * 0.95, false);
+        
         if (intercepts.length > 0 && intercepts[0].distance < raySize * 0.95) {
             const correction = (intercepts[0].distance - raySize) * CONFIG.WALL_COLLISION_FACTOR;
-            if (ray.axis === 'x') {
+            
+            // Trate colisões diagonais diferentemente
+            if (ray.axis === 'xz') {
+                wallColide.x = true;
+                wallColide.z = true;
+                hitbox.position.x += ray.dir.x * correction * 0.7;
+                hitbox.position.z += ray.dir.z * correction * 0.7;
+                camera.position.x += ray.dir.x * correction * 0.7;
+                camera.position.z += ray.dir.z * correction * 0.7;
+            } else if (ray.axis === 'x') {
                 wallColide.x = true;
                 hitbox.position.x += ray.dir.x * correction;
                 camera.position.x += ray.dir.x * correction;
@@ -74,6 +89,24 @@ function checkWallCollisions(collidableObjects, camera) {
                 camera.position.z += ray.dir.z * correction;
             }
         }
+    }
+    
+    // Verificação adicional com sphere casting
+    const sphereCollisions = checkSphereCollisions(
+        hitbox.position.clone(), 
+        CONFIG.PLAYER_RADIUS || 0.5, 
+        validObjects
+    );
+    
+    for (const collision of sphereCollisions) {
+        const correction = collision.normal.multiplyScalar(CONFIG.PLAYER_RADIUS - 
+            hitbox.position.distanceTo(collision.position));
+        
+        hitbox.position.add(correction);
+        camera.position.add(correction);
+        
+        if (Math.abs(collision.normal.x) > 0.5) wallColide.x = true;
+        if (Math.abs(collision.normal.z) > 0.5) wallColide.z = true;
     }
 }
 
@@ -97,6 +130,28 @@ export function applyGravity(delta, collidableObjects, camera) {
     checkGroundCollisions(collidableObjects, camera);
     checkWallCollisions(collidableObjects, camera);
     camera.position.y = hitbox.position.y + CONFIG.PLAYER_HEIGHT/2;
+}
+
+function checkSphereCollisions(position, radius, collidableObjects) {
+    const sphere = new THREE.Sphere(position, radius);
+    const collisions = [];
+    
+    for (const obj of collidableObjects) {
+        if (obj.isMesh && obj.visible) {
+            obj.updateWorldMatrix(true, false);
+            const box = new THREE.Box3().setFromObject(obj);
+            
+            if (sphere.intersectsBox(box)) {
+                collisions.push({
+                    object: obj,
+                    position: position.clone(),
+                    normal: position.clone().sub(box.getCenter(new THREE.Vector3())).normalize()
+                });
+            }
+        }
+    }
+    
+    return collisions;
 }
 
 // ============================================================================

@@ -46,11 +46,12 @@ function onKeyUp(event) {
     }
 }
 
-function weaponSwitch(timestamp) {
+function weaponSwitch(timestamp, deltaY) {
     if (timestamp - lastWeaponSwitch < CONFIG.WEAPON_SWITCH_COOLDOWN) return;
+    
+    const direction = deltaY < 0 ? 1 : -1;
     lastWeaponSwitch = timestamp;
 
-    const direction = deltaY < 0 ? 1 : -1; 
     if (direction > 0)
         nextWeapon();
     else
