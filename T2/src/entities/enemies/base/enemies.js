@@ -76,18 +76,16 @@ export class Enemy {
       loader.load(
         config.path, 
         buffer => {
-          // Only assign to this.sounds after successful load
           this.sounds[soundType] = audio;
           audio.setBuffer(buffer);
           audio.setVolume(config.volume);
           if (config.loop) audio.setLoop(true);
           this.mesh.add(audio);
         },
-        undefined, // progress callback
+        undefined,
         error => {
           console.warn(`[ENEMY] Failed to load ${soundType} sound for ${this.constructor.name}:`, error);
           console.warn(`[ENEMY] Path attempted: ${config.path}`);
-          // Don't add to this.sounds if loading failed
         }
       );
     });
@@ -121,7 +119,6 @@ export class Enemy {
     }
   }
 
-  // Simplified audio control methods
   playAttackSound() { this.playSound('attack'); }
   
   playSightSound() {
@@ -197,7 +194,7 @@ export class Enemy {
   }
 
   startDeathFade() {
-    if (this.isDying) return; // Evita reinicialização
+    if (this.isDying) return;
     
     this.deathStartTime = performance.now();
     this.isDying = true;
@@ -253,7 +250,6 @@ export class Enemy {
   }
 
   removeFromScene() {
-    // Stop any playing audio before removing (safely)
     Object.values(this.sounds || {}).forEach(sound => {
       if (sound && sound.isPlaying) {
         try {
@@ -278,7 +274,6 @@ export class Enemy {
     return this.boundingBox.intersectsBox(otherBoundingBox);
   }
 
-  // Generic collision detection for enemies
   checkEnvironmentCollision(targetPosition, collidableObjects, delta) {
     if (!CONFIG.LOST_SOUL_ENABLE_COLLISION || !collidableObjects.length) return null;
     const currentPosition = this.mesh.position;
@@ -291,7 +286,6 @@ export class Enemy {
     );
   }
 
-  // Apply collision correction for any enemy type
   applyCollisionCorrection(targetPosition, collidableObjects) {
     if (!CONFIG.LOST_SOUL_ENABLE_COLLISION || !collidableObjects.length) return false;
     const correction = applyLostSoulCollisionCorrection(this, collidableObjects, targetPosition);
@@ -468,7 +462,6 @@ export class Enemy {
   }
 
   update(delta, camera, targetPosition, collidableObjects = []) {
-    // Update death fade animation if dying
     if (this.isDying) {
       this.updateDeathFade(performance.now());
       return;
@@ -488,7 +481,6 @@ export class Enemy {
   }
 
   dispose() {
-    // Clean up all sounds
     Object.values(this.sounds || {}).forEach(sound => {
       if (sound) {
         try {
@@ -502,7 +494,6 @@ export class Enemy {
       }
     });
     
-    // Clean up geometry and materials
     if (this.healthBarBg) {
       this.healthBarBg.geometry.dispose();
       this.healthBarBg.material.dispose();
@@ -537,7 +528,6 @@ export class EnemyManager {
       enemy.update(delta, camera, targetPosition);
     });
     
-    // Remove dead enemies
     this.enemies = this.enemies.filter(enemy => {
       if (!enemy.isAlive) {
         this.enemiesGroup.remove(enemy.mesh);

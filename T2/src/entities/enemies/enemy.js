@@ -5,22 +5,20 @@ import { preloadSkullModel } from '../../utils/skullLoader.js';
 import { CONFIG } from '../../core/config.js';
 import { isPlayerInArea1, isPlayerInArea2 } from '../../systems/environment.js';
 import { cleanupAllProjectiles } from './systems/cacodeemonProjectile.js';
+import { PersistentPursuitManager } from './behaviors/persistentPursuit.js';
 
 export const enemies = [];
 
-// Track if enemies have been activated in their respective areas
 let area1LostSoulsActivated = false;
 let area2CacodemonsActivated = false;
 
 export async function preloadEnemies() {
   await preloadSkullModel();
-  // Preload Cacodemon assets here if needed
 }
 
 export async function createEnemies(scene) {
   await preloadEnemies();
   
-  // Create Lost Souls for Area 1
   const lostSoulY = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT / 2 + 8.0;
   const lostSoulPositions = [
     [-170, lostSoulY, -140],
@@ -38,7 +36,6 @@ export async function createEnemies(scene) {
     scene.add(enemy.mesh);
   });
 
-  // Create Cacodemons for Area 2
   const cacodeemonPositions = [
     [37.5, 34.0, -125.0],
     [-30, 19.0, -125.0],
@@ -74,28 +71,22 @@ function shouldUpdateEnemy(camera, enemy) {
   switch (enemy.area) {
     case 'area1':
       const playerInArea1 = isPlayerInArea1(camera);
-      // Activate all lost souls aggressively when player first enters area 1
       if (playerInArea1) {
         activateLostSoulsInArea1();
       }
       
-      // For Lost Souls: once activated, they stay active regardless of player area
-      // This makes them pursue the player even if they leave area 1
-      if (enemy.enemyType === 'LostSoul' && enemy.hasBeenActivated) {
-        return true; // Always update activated lost souls
+      if (enemy.enemyType === 'LostSoul' && enemy.pursuitBehavior && enemy.pursuitBehavior.hasBeenActivated) {
+        return true;
       }
       return playerInArea1;
     case 'area2':
       const playerInArea2 = isPlayerInArea2(camera);
-      // Activate all cacodemons aggressively when player first enters area 2
       if (playerInArea2) {
         activateCacodemonsInArea2();
       }
       
-      // For Cacodemons: once activated, they stay active regardless of player area
-      // This makes them pursue the player even if they leave area 2
-      if (enemy.enemyType === 'Cacodemon' && enemy.hasBeenActivated) {
-        return true; // Always update activated cacodemons
+      if (enemy.enemyType === 'Cacodemon' && enemy.pursuitBehavior && enemy.pursuitBehavior.hasBeenActivated) {
+        return true;
       }
       
       return playerInArea2;
@@ -188,19 +179,20 @@ export function getEnemyCount() {
   };
 }
 
-// Projectile cleanup for game restart
 export function cleanupAllEnemyProjectiles(scene) {
   const cacodemons = getCacodemons();
   cleanupAllProjectiles(scene, cacodemons);
 }
 
-// Activate all cacodemons in area 2 when player enters the area
 export function activateCacodemonsInArea2() {
   if (area2CacodemonsActivated) return;
   
   const cacodemons = getCacodemons().filter(c => c.area === 'area2' && c.isAlive);
   
   cacodemons.forEach(cacodemon => {
+    if (cacodemon.pursuitBehavior) {
+      cacodemon.pursuitBehavior.activate();
+    }
     if (cacodemon.aiState === 'IDLE') {
       cacodemon.changeState('ACTIVATED');
     }
@@ -212,6 +204,7 @@ export function activateCacodemonsInArea2() {
 
 export function resetArea2Activation() {
   area2CacodemonsActivated = false;
+  PersistentPursuitManager.resetAllPursuitBehaviors(getCacodemons());
 }
 
 export function activateLostSoulsInArea1() {
@@ -220,13 +213,10 @@ export function activateLostSoulsInArea1() {
   const lostSouls = getLostSouls().filter(ls => ls.area === 'area1' && ls.isAlive);
   
   lostSouls.forEach(lostSoul => {
-    if (!lostSoul.hasBeenActivated) {
-      lostSoul.hasBeenActivated = true;
-      lostSoul.playSightSound(); // Alert sound
-      // Make them more aggressive once activated
-      lostSoul.aggressionLevel = 1.2;
-      lostSoul.maxSpeed = (lostSoul.config.speed || 4.0) * lostSoul.aggressionLevel;
+    if (lostSoul.pursuitBehavior) {
+      lostSoul.pursuitBehavior.activate();
     }
+    lostSoul.playSightSound();
   });
   
   area1LostSoulsActivated = true;
@@ -235,43 +225,17 @@ export function activateLostSoulsInArea1() {
 
 export function resetArea1Activation() {
   area1LostSoulsActivated = false;
+  PersistentPursuitManager.resetAllPursuitBehaviors(getLostSouls());
 }
 
 // Debug functions for development
 if (typeof window !== 'undefined') {
+  // Keep some legacy functions for backward compatibility
   window.getEnemies = () => enemies;
   window.getCacodemons = () => getCacodemons();
   window.getLostSouls = () => getLostSouls();
   
-  window.debugEnemies = () => {
-    console.log('=== ENEMY DEBUG INFO ===');
-    console.log('Total Enemies:', enemies.length);
-    
-    const lostSouls = getLostSouls();
-    console.log('Lost Souls:', lostSouls.length);
-    lostSouls.forEach((enemy, index) => {
-      console.log(`Lost Soul ${index + 1}:`, {
-        position: enemy.mesh.position,
-        aiState: enemy.aiState,
-        isAlive: enemy.isAlive,
-        health: enemy.currentHealth,
-        area: enemy.area
-      });
-    });
-    
-    const cacodemons = getCacodemons();
-    console.log('Cacodemons:', cacodemons.length);
-    cacodemons.forEach((enemy, index) => {
-      console.log(`Cacodemon ${index + 1}:`, {
-        position: enemy.mesh.position,
-        aiState: enemy.aiState,
-        isAlive: enemy.isAlive,
-        health: enemy.currentHealth,
-        area: enemy.area
-      });
-    });
-  };
-  
+  // Additional utility functions
   window.resetEnemies = () => {
     enemies.forEach((enemy) => {
       if (enemy.spawnPosition) {
@@ -283,6 +247,11 @@ if (typeof window !== 'undefined') {
       enemy.aiState = 'IDLE';
       if (enemy.stateChangeTime !== undefined) {
         enemy.stateChangeTime = 0;
+      }
+      
+      // Reset pursuit behavior if available
+      if (enemy.pursuitBehavior) {
+        enemy.pursuitBehavior.reset();
       }
     });
   };
@@ -325,79 +294,5 @@ if (typeof window !== 'undefined') {
         }
       });
     }
-  };
-  
-  // Debug functions for testing cacodemon behavior
-  window.activateAllCacodemons = () => {
-    const cacodemons = getCacodemons();
-    cacodemons.forEach(c => {
-      if (c.isAlive) {
-        c.changeState('ACTIVATED');
-      }
-    });
-    console.log(`Manually activated ${cacodemons.length} cacodemons`);
-  };
-  
-  window.getCacodeemonStates = () => {
-    const cacodemons = getCacodemons();
-    cacodemons.forEach((c, i) => {
-      console.log(`Cacodemon ${i + 1}:`, {
-        state: c.aiState,
-        isAlive: c.isAlive,
-        hasBeenActivated: c.hasBeenActivated,
-        aggressionLevel: c.aggressionLevel,
-        position: c.mesh.position,
-        area: c.area
-      });
-    });
-  };
-  
-  window.forceArea2Activation = () => {
-    area2CacodemonsActivated = false;
-    activateCacodemonsInArea2();
-  };
-  
-  window.testPersistentPursuit = () => {
-    const cacodemons = getCacodemons();
-    cacodemons.forEach(c => {
-      if (c.isAlive) {
-        c.hasBeenActivated = true;
-        c.changeState('PURSUING');
-        c.aggressionLevel = 1.5;
-      }
-    });
-    console.log('All cacodemons set to persistent pursuit mode!');
-  };
-  
-  window.activateAllLostSouls = () => {
-    const lostSouls = getLostSouls();
-    lostSouls.forEach(ls => {
-      if (ls.isAlive) {
-        ls.hasBeenActivated = true;
-        ls.aggressionLevel = 1.3;
-        ls.maxSpeed = (ls.config.speed || 4.0) * ls.aggressionLevel;
-      }
-    });
-    console.log(`Manually activated ${lostSouls.length} lost souls for persistent pursuit`);
-  };
-  
-  window.getLostSoulStates = () => {
-    const lostSouls = getLostSouls();
-    lostSouls.forEach((ls, i) => {
-      console.log(`Lost Soul ${i + 1}:`, {
-        isAlive: ls.isAlive,
-        hasBeenActivated: ls.hasBeenActivated,
-        aggressionLevel: ls.aggressionLevel,
-        isDashing: ls.isDashing,
-        position: ls.mesh.position,
-        lastKnownPlayerPos: ls.lastKnownPlayerPosition,
-        area: ls.area
-      });
-    });
-  };
-  
-  window.forceArea1Activation = () => {
-    area1LostSoulsActivated = false;
-    activateLostSoulsInArea1();
   };
 }

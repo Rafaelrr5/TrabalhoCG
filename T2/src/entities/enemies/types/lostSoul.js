@@ -5,6 +5,7 @@ import { CONFIG } from '../../../core/config.js';
 import { applyLostSoulCollisionCorrection } from '../../../systems/collision.js';
 import { ExplosionEffects } from '../utils/explosionEffects.js';
 import { IdleBehaviors } from '../utils/idleBehaviors.js';
+import { PersistentPursuitManager } from '../behaviors/persistentPursuit.js';
 
 export class LostSoul extends Enemy {
   constructor(position = [0, 0, 0], config = {}) {
@@ -33,7 +34,6 @@ export class LostSoul extends Enemy {
   }
 
   initializeLostSoul() {
-    // Dash system properties
     this.dashSpeed = this.config.dashSpeed;
     this.dashInterval = this.config.dashInterval;
     this.dashDuration = this.config.dashDuration;
@@ -42,7 +42,6 @@ export class LostSoul extends Enemy {
     this.dashDirection = new THREE.Vector3();
     this.dashCooldown = 0;
     
-    // Movement state management
     this.movementState = {
       isNearPlayer: false,
       lastPlayerDistance: Infinity,
@@ -52,22 +51,26 @@ export class LostSoul extends Enemy {
       lastCollisionTime: 0
     };
     
-    // Performance optimization
     this.lastCollisionCheck = 0;
-    this.collisionCheckInterval = 1000 / 30; // 30 FPS collision checks
+    this.collisionCheckInterval = 1000 / 30;
     this.lastPosition = new THREE.Vector3();
     this.stuckTimer = 0;
-    this.stuckThreshold = 2000; // 2 seconds
+    this.stuckThreshold = 2000;
     
-    // Reference to skull model
     this.skullModel = null;
     
-    // Area 1 specific behavior - always ready to activate aggressively
-    this.hasBeenActivated = false; // Track if ever been activated
-    this.aggressionLevel = 1.0; // Multiplier for aggressive behavior
-    this.lastKnownPlayerPosition = new THREE.Vector3(); // Track last known player position
+    this.pursuitBehavior = PersistentPursuitManager.attachPursuitBehavior(this, {
+      baseAggressionLevel: 1.3,
+      speedMultiplier: 1.5,
+      attackRangeMultiplier: 1.0,
+      activationDistanceMultiplier: 1.0,
+      persistentChaseSpeedMultiplier: 2.5,
+      maxTimeWithoutPlayer: 45.0
+    });
     
-    // Idle behavior will be handled by IdleBehaviors utility
+    this.hasBeenActivated = false;
+    this.aggressionLevel = 1.0;
+    this.lastKnownPlayerPosition = new THREE.Vector3();
   }
 
   async loadSkull() {
@@ -88,7 +91,6 @@ export class LostSoul extends Enemy {
         }
       });
       
-      // Calcular o centro geométrico do modelo
       const box = new THREE.Box3().setFromObject(clonedModel);
       const center = box.getCenter(new THREE.Vector3());
       
@@ -97,7 +99,7 @@ export class LostSoul extends Enemy {
       skullWrapper.add(clonedModel);
       
       skullWrapper.rotation.set(
-        Math.PI / 2, // rotação X padrão
+        Math.PI / 2,
         this.config.skullYRotationOffset,
         this.config.skullZRotationOffset
       );
@@ -126,16 +128,13 @@ export class LostSoul extends Enemy {
     
     parent.remove(this.mesh);
     
-    // Create new group
     const group = new THREE.Group();
     group.position.copy(oldPosition);
     group.rotation.copy(oldRotation);
     group.add(model);
     
-    // O modelo já vem preparado com pivot centralizado, rotação e escala aplicados
     this.skullModel = model;
     
-    // Re-add health bar
     if (this.healthBarGroup) group.add(this.healthBarGroup);
     
     this.mesh = group;
@@ -146,28 +145,20 @@ export class LostSoul extends Enemy {
     this.updateBoundingBox();
   }
 
-  // ============================================================================
-  // SISTEMA DE MOVIMENTO INTELIGENTE
-  // ============================================================================
-
   updateMovementState(targetPosition, delta) {
     const currentDistance = this.mesh.position.distanceTo(targetPosition);
     const state = this.movementState;
     
-    // Atualiza estado de proximidade com player
     state.lastPlayerDistance = currentDistance;
     state.isNearPlayer = currentDistance <= (this.config.collisionRadius + 2.0);
     
-    // Calcula direção suavizada para o target
     const rawDirection = new THREE.Vector3()
       .subVectors(targetPosition, this.mesh.position)
       .normalize();
     
-    // Aplica suavização na direção para movimento mais fluido
     const smoothingFactor = Math.min(delta * 8.0, 1.0);
     state.targetDirection.lerp(rawDirection, smoothingFactor);
     
-    // Detecta se está "preso" (stuck detection)
     const positionChange = this.mesh.position.distanceTo(this.lastPosition);
     if (positionChange < 0.1) {
       this.stuckTimer += delta * 1000;
@@ -178,30 +169,27 @@ export class LostSoul extends Enemy {
   }
 
   calculateOptimalSpeed(distance) {
-    // Sistema de velocidade adaptativa baseado na distância
     let speedMultiplier = 1.0;
     
-    // Base speed calculation
     if (distance > 50.0) {
-      speedMultiplier = 2.5; // Much faster when very far (persistent chase)
+      speedMultiplier = 2.5;
     } else if (distance > 20.0) {
-      speedMultiplier = 1.8; // Faster when far
+      speedMultiplier = 1.8;
     } else if (distance > 10.0) {
       speedMultiplier = 1.4;
     } else if (distance > 5.0) {
       speedMultiplier = 1.0;
     } else if (distance > 2.0) {
-      speedMultiplier = 0.8; // Slower when close
+      speedMultiplier = 0.8;
     } else {
-      speedMultiplier = 1.5; // Fast for final attack
+      speedMultiplier = 1.5;
     }
     
-    // Apply aggression multiplier if activated for persistent pursuit
-    if (this.hasBeenActivated && this.aggressionLevel > 1.0) {
-      speedMultiplier *= this.aggressionLevel;
+    if (this.pursuitBehavior.hasBeenActivated) {
+      const pursuitSpeedMultiplier = this.pursuitBehavior.getSpeedMultiplier(distance);
+      speedMultiplier *= pursuitSpeedMultiplier;
     }
     
-    // Reduce speed if stuck
     if (this.stuckTimer > 1000) {
       speedMultiplier *= 0.5;
     }
@@ -213,25 +201,21 @@ export class LostSoul extends Enemy {
     const currentTime = Date.now();
     const state = this.movementState;
     
-    // Otimização: só verifica colisão a cada intervalo definido
     if (currentTime - this.lastCollisionCheck < this.collisionCheckInterval) {
       return false;
     }
     this.lastCollisionCheck = currentTime;
     
-    // Não verifica colisão se muito próximo do player (permite ataque)
     if (state.isNearPlayer) {
       state.collisionAvoidanceForce.set(0, 0, 0);
       return false;
     }
     
-    // Se não há objetos colidíveis ou sistema desabilitado
     if (!CONFIG.LOST_SOUL_ENABLE_COLLISION || !collidableObjects.length) {
       state.collisionAvoidanceForce.set(0, 0, 0);
       return false;
     }
     
-    // Verifica colisão apenas se necessário
     const collisionResult = applyLostSoulCollisionCorrection(
       this, 
       collidableObjects, 
@@ -241,7 +225,6 @@ export class LostSoul extends Enemy {
     if (collisionResult.corrected) {
       state.lastCollisionTime = currentTime;
       
-      // Aplica força de evitação suave
       if (collisionResult.newDirection) {
         const avoidanceStrength = Math.min(1.0, (currentTime - state.lastCollisionTime) / 500);
         state.collisionAvoidanceForce.lerp(collisionResult.newDirection, avoidanceStrength);
@@ -250,7 +233,6 @@ export class LostSoul extends Enemy {
       return true;
     }
     
-    // Reduz gradualmente a força de evitação se não há colisão
     state.collisionAvoidanceForce.multiplyScalar(0.9);
     return false;
   }
@@ -260,10 +242,8 @@ export class LostSoul extends Enemy {
     const distance = state.lastPlayerDistance;
     const speed = this.calculateOptimalSpeed(distance);
     
-    // Combina direção do target com força de evitação de colisão
     let finalDirection = state.targetDirection.clone();
     
-    // Se há força de evitação, mistura com a direção do target
     if (state.collisionAvoidanceForce.length() > 0.1) {
       const avoidanceWeight = Math.min(0.7, state.collisionAvoidanceForce.length());
       const targetWeight = 1.0 - avoidanceWeight;
@@ -273,7 +253,6 @@ export class LostSoul extends Enemy {
         .normalize();
     }
     
-    // Sistema anti-stuck: adiciona movimento aleatório se preso
     if (this.stuckTimer > this.stuckThreshold) {
       const randomDirection = new THREE.Vector3(
         (Math.random() - 0.5) * 2,
@@ -284,7 +263,6 @@ export class LostSoul extends Enemy {
       finalDirection.lerp(randomDirection, 0.3);
     }
     
-    // Calcula velocidade final suavizada
     const targetVelocity = finalDirection.multiplyScalar(speed);
     const velocitySmoothing = Math.min(delta * 6.0, 1.0);
     
@@ -297,7 +275,6 @@ export class LostSoul extends Enemy {
   orientSkull(targetPosition) {
     if (!this.skullModel) return;
     
-    // Use the base class utility method for orientation
     this.orientModelToTarget(this.skullModel, targetPosition, {
       useVelocity: CONFIG.SKULL_ORIENT_TO_MOVEMENT,
       smoothRotation: CONFIG.SKULL_SMOOTH_ROTATION,
@@ -318,7 +295,6 @@ export class LostSoul extends Enemy {
     const DASH_MIN_DISTANCE = 3.0;
     const DASH_MAX_DISTANCE = 15.0;
     
-    // Condições melhoradas para iniciar dash
     const canStartDash = !this.isDashing && 
                         this.dashCooldown <= 0 &&
                         this.timeSinceLastDash >= this.config.dashInterval &&
@@ -326,22 +302,18 @@ export class LostSoul extends Enemy {
                         distanceToTarget <= DASH_MAX_DISTANCE &&
                         !this.movementState.isNearPlayer;
     
-    // Start dash
     if (canStartDash) {
-      // Play attack sound when starting dash (preparing for kamikaze)
       this.playAttackSound();
       
       this.isDashing = true;
       this.timeSinceLastDash = 0;
-      this.dashCooldown = this.config.dashInterval * 0.5; // Cooldown adicional
+      this.dashCooldown = this.config.dashInterval * 0.5;
       
-      // Calcula direção do dash com predição da posição do player
-      const playerVelocity = new THREE.Vector3(); // TODO: obter velocidade real do player se disponível
+      const playerVelocity = new THREE.Vector3();
       const predictedPlayerPos = targetPosition.clone().add(playerVelocity.multiplyScalar(0.5));
       this.dashDirection.subVectors(predictedPlayerPos, this.mesh.position).normalize();
     }
     
-    // End dash com condições melhoradas
     const shouldEndDash = this.isDashing && 
                          (this.timeSinceLastDash >= this.config.dashDuration || 
                           distanceToTarget <= 1.0);
@@ -349,22 +321,19 @@ export class LostSoul extends Enemy {
     if (shouldEndDash) {
       this.isDashing = false;
       this.timeSinceLastDash = 0;
-      this.dashCooldown = this.config.dashInterval * 0.3; // Pequeno cooldown após dash
+      this.dashCooldown = this.config.dashInterval * 0.3;
     }
   }
 
   executeMovement(targetPosition, delta, collidableObjects = []) {
     if (!this.isAlive) return;
     
-    // Atualiza estado do movimento
     this.updateMovementState(targetPosition, delta);
     
-    // Durante dash, movimento especial
     if (this.isDashing) {
       return this.executeDashMovement(targetPosition, delta, collidableObjects);
     }
     
-    // Movimento normal otimizado
     return this.executeNormalMovement(targetPosition, delta, collidableObjects);
   }
   
@@ -372,7 +341,6 @@ export class LostSoul extends Enemy {
     const dashVelocity = this.dashDirection.clone().multiplyScalar(this.dashSpeed);
     const newPosition = this.mesh.position.clone().addScaledVector(dashVelocity, delta);
     
-    // Verifica colisão durante dash apenas com objetos sólidos
     if (CONFIG.LOST_SOUL_ENABLE_COLLISION && collidableObjects.length > 0) {
       const collisionResult = applyLostSoulCollisionCorrection(
         { mesh: { position: newPosition }, config: this.config }, 
@@ -381,7 +349,6 @@ export class LostSoul extends Enemy {
       );
       
       if (collisionResult.corrected) {
-        // Se colidiu durante dash, termina o dash e desvia
         this.isDashing = false;
         this.dashCooldown = this.config.dashInterval * 0.5;
         
@@ -395,7 +362,6 @@ export class LostSoul extends Enemy {
       }
     }
     
-    // Aplica movimento de dash
     this.mesh.position.copy(newPosition);
     this.velocity.copy(dashVelocity);
     
@@ -403,20 +369,16 @@ export class LostSoul extends Enemy {
   }
   
   executeNormalMovement(targetPosition, delta, collidableObjects = []) {
-    // Verifica colisão primeiro
     this.performCollisionCheck(targetPosition, collidableObjects, delta);
     
-    // Calcula movimento final otimizado
     const finalVelocity = this.calculateFinalMovement(targetPosition, delta);
     
-    // Aplica movimento
     this.mesh.position.addScaledVector(finalVelocity, delta);
     
     return finalVelocity;
   }
 
   idleBehavior(delta) {
-    // Use the utility class for 6DOF idle behavior
     IdleBehaviors.combinedIdleBehavior(this, delta, {
       movement: '6dof',
       enableModelRotation: true,
@@ -427,12 +389,10 @@ export class LostSoul extends Enemy {
   }
 
   onDeath() {
-    // Call parent death method which handles the fade animation
     super.onDeath();
   }
 
   checkPlayerCollision(targetPosition) {
-    // Use the base class utility method for collision checking
     return super.checkPlayerCollision(targetPosition, {
       collisionRadius: this.config.collisionRadius,
       radiusMultiplier: this.isDashing ? 1.2 : 1.0,
@@ -442,38 +402,31 @@ export class LostSoul extends Enemy {
   }
 
   update(delta, camera, targetPosition, collidableObjects = []) {
-    // Call parent update which handles death fade animation and bounding box
     super.update(delta, camera, targetPosition, collidableObjects);
     
-    // Only process Lost Soul specific behavior if alive and not dying
     if (!this.isAlive || this.isDying) return;
 
-    // Handle persistent pursuit - use last known position if no current target
-    let effectiveTarget = targetPosition;
-    if (!targetPosition && this.hasBeenActivated && this.lastKnownPlayerPosition.length() > 0) {
-      effectiveTarget = this.lastKnownPlayerPosition;
-    }
+    const activationDistance = 30.0;
+    const isPursuing = PersistentPursuitManager.updatePursuitBehavior(
+      this, targetPosition, delta, activationDistance
+    );
     
-    // Update last known player position if we have a current target
-    if (targetPosition) {
-      this.lastKnownPlayerPosition.copy(targetPosition);
-    }
+    const effectiveTarget = PersistentPursuitManager.getEffectiveTarget(this, targetPosition);
     
-    // Only continue if we have a target (current or last known)
+    this.hasBeenActivated = this.pursuitBehavior.hasBeenActivated;
+    this.aggressionLevel = this.pursuitBehavior.aggressionLevel;
+    this.lastKnownPlayerPosition.copy(this.pursuitBehavior.lastKnownPlayerPosition);
+    
     if (!effectiveTarget) return;
     
-    // Sistema de movimento otimizado
     this.updateDash(delta, effectiveTarget, collidableObjects);
-    const currentVelocity = this.executeMovement(effectiveTarget, delta, collidableObjects);
+    this.executeMovement(effectiveTarget, delta, collidableObjects);
     
-    // Atualiza orientação baseada na velocidade atual
     this.orientSkull(effectiveTarget);
     
-    // Verifica colisão com player (sempre ativo) - only with current target, not last known
     if (targetPosition) {
       const collisionOccurred = this.checkPlayerCollision(targetPosition);
       
-      // Create explosion effect if collision occurred
       if (collisionOccurred && this.mesh && this.mesh.parent) {
         this.createExplosionEffect();
       }
@@ -487,7 +440,6 @@ export class LostSoul extends Enemy {
   createExplosionEffect() {
     if (!this.mesh || !this.mesh.parent) return;
     
-    // Use the utility class for creating explosion effects
     ExplosionEffects.createExplosion(this.mesh.position, this.mesh.parent, {
       particles: {
         particleCount: 8,

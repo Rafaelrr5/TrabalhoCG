@@ -1,9 +1,10 @@
 import * as THREE from '../../../../../build/three.module.js';
-import { loadGLTFModel, createFallbackModel } from '../../../utils/modelLoader.js';
+import { loadGLTFModel } from '../../../utils/modelLoader.js';
 import { Enemy } from '../base/enemies.js';
 import { CONFIG } from '../../../core/config.js';
-import { CACODEMON_CONFIG, getCacodeemonConfig } from '../config/cacodeemonConfig.js';
-import { CacodeemonProjectile, createCacodeemonProjectile } from '../systems/cacodeemonProjectile.js';
+import { getCacodeemonConfig } from '../config/cacodeemonConfig.js';
+import { createCacodeemonProjectile } from '../systems/cacodeemonProjectile.js';
+import { PersistentPursuitManager } from '../behaviors/persistentPursuit.js';
 
 export class Cacodemon extends Enemy {
   constructor(position = [0, 0, 0], config = {}) {
@@ -46,19 +47,24 @@ export class Cacodemon extends Enemy {
     this.moveSpeed = this.config.moveSpeed || 8.0; // Increased move speed
     this.circleRadius = 8.0; // Radius for circling behavior
     this.circleAngle = Math.random() * Math.PI * 2; // Random start angle
-    this.circleSpeed = 1.0; // Speed of circling
+    this.circleSpeed = 1.0;
     this.model = null;
     this.modelLoaded = false;
     this.idleInitialized = false;
     this.idleRotationSpeed = 0.5;
-    this.targetRotation = 0;
-    this.hasLineOfSight = false;
-    this.lastKnownPlayerPosition = new THREE.Vector3();
     this.activeProjectiles = [];
     
-    // Area 2 specific behavior - always ready to activate aggressively
-    this.hasBeenActivated = false; // Track if ever been activated
-    this.aggressionLevel = 1.0; // Multiplier for aggressive behavior
+    this.pursuitBehavior = PersistentPursuitManager.attachPursuitBehavior(this, {
+      baseAggressionLevel: 1.3,
+      speedMultiplier: 1.5,
+      attackRangeMultiplier: 1.15,
+      activationDistanceMultiplier: 1.2,
+      persistentChaseSpeedMultiplier: 2.2
+    });
+    
+    this.hasBeenActivated = false;
+    this.aggressionLevel = 1.0;
+    this.lastKnownPlayerPosition = new THREE.Vector3();
   }
 
   async loadModel() {
@@ -273,12 +279,12 @@ export class Cacodemon extends Enemy {
     
     const distanceToPlayer = this.mesh.position.distanceTo(camera.position);
     
-    // Attack more frequently and at longer range, especially when activated
+    // Use pursuit behavior to determine effective attack range and cooldown
     let effectiveAttackRange = this.attackRange * 1.2; // Increased attack range
     let effectiveAttackCooldown = this.attackCooldown * 0.7; // Faster attack rate
     
     // If cacodemon has been activated (pursuing player), extend range even more
-    if (this.hasBeenActivated) {
+    if (this.pursuitBehavior.hasBeenActivated) {
       effectiveAttackRange *= 1.5; // Much longer range for activated cacodemons
       effectiveAttackCooldown *= 0.8; // Even faster attacks when activated
     }
@@ -333,35 +339,40 @@ export class Cacodemon extends Enemy {
   updateMovement(delta, collidableObjects, camera) {
     const playerPosition = camera ? camera.position : null;
     
-    if (!playerPosition) {
-      // If no player position but cacodemon has been activated, use last known position
-      if (this.hasBeenActivated && this.lastKnownPlayerPosition.length() > 0) {
-        const lastKnownPos = this.lastKnownPlayerPosition;
-        this.updateAIState(lastKnownPos, delta);
-        this.executePursuingBehavior(lastKnownPos, delta, collidableObjects);
-        return;
-      }
+    // Update pursuit behavior and get effective target
+    const isPursuing = PersistentPursuitManager.updatePursuitBehavior(
+      this, playerPosition, delta, this.activationDistance
+    );
+    
+    const effectiveTarget = PersistentPursuitManager.getEffectiveTarget(this, playerPosition);
+    
+    // Update legacy properties for compatibility
+    this.hasBeenActivated = this.pursuitBehavior.hasBeenActivated;
+    this.aggressionLevel = this.pursuitBehavior.aggressionLevel;
+    this.lastKnownPlayerPosition.copy(this.pursuitBehavior.lastKnownPlayerPosition);
+    
+    if (!effectiveTarget) {
       this.idleBehavior(delta);
       return;
     }
     
-    this.updateAIState(playerPosition, delta);
+    this.updateAIState(effectiveTarget, delta);
     
     switch (this.aiState) {
       case 'IDLE':
         this.executeIdleBehavior(delta);
         break;
       case 'ACTIVATED':
-        this.executeActivatedBehavior(playerPosition, delta);
+        this.executeActivatedBehavior(effectiveTarget, delta);
         break;
       case 'PURSUING':
-        this.executePursuingBehavior(playerPosition, delta, collidableObjects);
+        this.executePursuingBehavior(effectiveTarget, delta, collidableObjects);
         break;
       case 'ATTACKING':
-        this.executeAttackingBehavior(playerPosition, delta);
+        this.executeAttackingBehavior(effectiveTarget, delta);
         break;
       case 'CIRCLING':
-        this.executeCirclingBehavior(playerPosition, delta);
+        this.executeCirclingBehavior(effectiveTarget, delta);
         break;
     }
   }
@@ -411,22 +422,8 @@ export class Cacodemon extends Enemy {
   }
 
   changeState(newState) {
-    // Special behavior when transitioning to ACTIVATED state (similar to Lost Soul aggression)
-    if (newState === 'ACTIVATED' && this.aiState === 'IDLE') {
-      this.playSightSound(); // Alert player with sound
-      
-      // Mark as activated and increase aggression
-      if (!this.hasBeenActivated) {
-        this.hasBeenActivated = true;
-        this.aggressionLevel = 1.3; // Increase aggression permanently once activated
-        
-        // Boost stats when first activated (like Lost Souls becoming aggressive)
-        this.maxSpeed = this.config.moveSpeed * this.aggressionLevel;
-        this.attackRange = this.config.attackRange * 1.15;
-        this.activationDistance = this.config.activationDistance * 1.2;
-      }
-    }
-    
+    // The pursuit behavior handles activation automatically,
+    // but we still need some state change logic for AI states
     this.aiState = newState;
     this.stateChangeTime = 0;
   }
@@ -469,20 +466,9 @@ export class Cacodemon extends Enemy {
   executePursuingBehavior(playerPosition, delta, collidableObjects) {
     const distanceToPlayer = this.mesh.position.distanceTo(playerPosition);
     
-    // More aggressive pursuit speed - like Lost Souls
-    let pursuitSpeed = this.maxSpeed * 1.5; // Increased base speed
-    
-    // Adjust speed based on distance for more dynamic pursuit
-    // Maintain high speed even at long distances for persistent chase
-    if (distanceToPlayer < 8.0) {
-      pursuitSpeed *= 0.8; // Slow down when very close
-    } else if (distanceToPlayer > 50.0) {
-      pursuitSpeed *= 2.2; // Much faster when very far (chasing outside area)
-    } else if (distanceToPlayer > 25.0) {
-      pursuitSpeed *= 1.8; // Much faster when far away
-    } else if (distanceToPlayer > 15.0) {
-      pursuitSpeed *= 1.4; // Faster when medium distance
-    }
+    // Use pursuit behavior to calculate speed multiplier
+    const speedMultiplier = this.pursuitBehavior.getSpeedMultiplier(distanceToPlayer);
+    let pursuitSpeed = this.maxSpeed * speedMultiplier;
     
     // Add some unpredictability to movement like Lost Souls
     const time = Date.now() * 0.001;
@@ -499,9 +485,6 @@ export class Cacodemon extends Enemy {
     
     // Faster rotation to track player
     this.smoothLookAt(playerPosition, 6.0, delta); // Increased from 4.0
-    
-    // Update last known player position for persistent tracking
-    this.lastKnownPlayerPosition.copy(playerPosition);
   }
 
   executeAttackingBehavior(playerPosition, delta) {
