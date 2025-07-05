@@ -14,6 +14,9 @@ export class Chaingun {
         this.isMousePressed = false;
         this.raycaster = new THREE.Raycaster();
         this.collisionDistance = CONFIG.WEAPONS.CHAINGUN.PROJECTILE_SIZE * 2;
+        this.activationDelay = CONFIG.WEAPONS.CHAINGUN.ACTIVATION_DELAY;
+        this.activationTimer = 0;
+        this.isActivating = false;
         
         // Gun properties
         this.isVisible = CONFIG.DEBUG_SHOW_WEAPON;
@@ -103,19 +106,17 @@ export class Chaingun {
     }
 
     startShooting() {
-        if (this.isMousePressed) return; // Evita múltiplas chamadas
+        if (this.isMousePressed) return;
         this.isMousePressed = true;
-        
-        // Dispara imediatamente apenas se passou tempo suficiente
-        const now = performance.now();
-        if (now - this.lastShotTime >= this.shootRate) {
-            this.shoot();
-            this.lastShotTime = now;
-        }
-        
-        // Inicia o interval para disparos contínuos
+        this.isActivating = true;
+        this.activationTimer = 0;
+    
+        // Não dispara imediatamente, espera o tempo de ativação
         this.shootInterval = setInterval(() => {
-            if (this.isMousePressed) {
+            this.activationTimer += this.shootRate;
+        
+            if (this.activationTimer >= this.activationDelay && this.isMousePressed) {
+                this.isActivating = false;
                 this.shoot();
             }
         }, this.shootRate);
@@ -123,8 +124,14 @@ export class Chaingun {
 
     stopShooting() {
         this.isMousePressed = false;
+        this.isActivating = false;
+        this.activationTimer = 0;
         clearInterval(this.shootInterval);
         this.shootInterval = null;
+    }
+
+    isActivating() {
+       return this.isActivating && this.activationTimer < this.activationDelay;
     }
 
     shoot() {
