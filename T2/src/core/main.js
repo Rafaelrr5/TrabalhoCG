@@ -257,6 +257,11 @@ function init() {
         updateKeysDisplay();
     }, 100);
     
+    // Event listener para atualizar o display quando uma chave é removida
+    window.addEventListener('keyRemoved', () => {
+        updateKeysDisplay();
+    });
+    
     // Force start ambient music after everything is loaded
     setTimeout(() => {
         console.log('[MAIN] Force starting ambient music...');

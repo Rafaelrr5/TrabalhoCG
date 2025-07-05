@@ -162,7 +162,7 @@ function createArea2(scene, materials, collidableObjects) {
     enableShadowsForAll(area2); // Ativa sombras na área 2
     enableShadowsForAll(blueKeyPlatform); // Ativa sombras na plataforma da chave
 
-    //createDoor(scene, collidableObjects, 50.0, -63, 15.0, 4.0, 'red'); // Porta vermelha para a Área 3
+    createDoor(scene, collidableObjects, 50.0, -63, 15.0, 4.0, 'red'); // Porta vermelha para a Área 3
     createtotem(scene, collidableObjects, 60.0, -59.05, 'red'); // Totem vermelho para a Área 3
 
     let blocoCentral = new THREE.Mesh(areaGeometry, materials.area2);

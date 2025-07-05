@@ -45,7 +45,7 @@ export function updateTotem(delta, scene, hitbox, keyType, collidableObjects) {
 
     const hasKey = keyManager.hasKey(keyType);
 
-    if (playerDistance <= 3.5 && hasKey) {
+    if (playerDistance <= 3.5 && hasKey) {        
         // Remove a porta
         scene.remove(door);
         door.geometry.dispose();
@@ -61,11 +61,9 @@ export function updateTotem(delta, scene, hitbox, keyType, collidableObjects) {
         // Remove a chave do inventário e atualiza o display
         removeKeyType(keyType);
         
-        // Adicione esta linha para forçar a atualização do display:
-        if (typeof updateKeysDisplay === 'function') {
-            updateKeysDisplay();
-        }
-
+        // Dispara um evento customizado para atualizar o display das chaves
+        window.dispatchEvent(new CustomEvent('keyRemoved', { detail: { keyType } }));
+        
         console.log("Porta aberta e chave removida!");
     }
 }
