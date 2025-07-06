@@ -1,7 +1,7 @@
 // door.js - versão corrigida
 import * as THREE from '../../../build/three.module.js';
 import { CONFIG } from '../core/config.js';
-import { keyManager, removeKeyType } from '../entities/items/key.js';
+import { keyManager } from '../entities/items/key.js';
 import { gameAudioManager } from './index.js';
 
 export let door = null;
@@ -15,6 +15,18 @@ let doorAnimationState = {
     originalPosition: null,
     targetOffset: null, // Offset para onde a porta vai se mover
     hasStarted: false
+};
+
+// Estados da animação da chave no totem
+let keyAnimationState = {
+    isAnimating: false,
+    animationProgress: 0,
+    animationSpeed: 1.5, // Velocidade da animação da chave
+    keyMesh: null, // Referência para a chave CSG existente
+    keyObject: null, // Referência para o objeto Key completo
+    startPosition: null,
+    endPosition: null,
+    onComplete: null
 };
 
 export function createDoor(scene, collidableObjects, x, z, doorWidth, doorHeight, doorColor) {
@@ -62,34 +74,137 @@ export function updateTotem(delta, scene, hitbox, keyType, collidableObjects) {
     const hasKey = keyManager.hasKey(keyType);
 
     // Se não começou a animação e o jogador tem a chave e está próximo
-    if (playerDistance <= 3.5 && hasKey && !doorAnimationState.hasStarted) {
-      
-        // Toca o som de abertura da porta
-        gameAudioManager.playDoorOpeningSound();
+    if (playerDistance <= 3.5 && hasKey && !doorAnimationState.hasStarted && !keyAnimationState.isAnimating) {
         
-        // Inicia a animação
-        doorAnimationState.isAnimating = true;
-        doorAnimationState.hasStarted = true;
+        // Busca a chave CSG coletada do tipo correto
+        const collectedKey = keyManager.getAllKeys().find(key => 
+            key.getType() === keyType && key.isCollectedKey()
+        );
         
-        // Remove a porta da lista de colisão imediatamente para permitir passagem
-        const index = collidableObjects.indexOf(door);
-        if (index !== -1) {
-            collidableObjects.splice(index, 1);
-        }
+        if (collectedKey && collectedKey.getMesh()) {
+            // Prepara a chave CSG existente para a animação
+            prepareKeyForAnimation(collectedKey, keyType, scene);
+            
+            // Inicia a animação da chave
+            startKeyAnimation(() => {
+                // Callback executado quando a animação da chave termina
+                
+                // Toca o som de abertura da porta
+                gameAudioManager.playDoorOpeningSound();
+                
+                // Inicia a animação da porta
+                doorAnimationState.isAnimating = true;
+                doorAnimationState.hasStarted = true;
+                
+                // Remove a porta da lista de colisão imediatamente para permitir passagem
+                const index = collidableObjects.indexOf(door);
+                if (index !== -1) {
+                    collidableObjects.splice(index, 1);
+                }
+            });
 
-        // Remove a chave do inventário e atualiza o display
-        removeKeyType(keyType);
-        
-        // Dispara um evento customizado para atualizar o display das chaves
-        window.dispatchEvent(new CustomEvent('keyRemoved', { detail: { keyType } }));
+            // COMENTADO: Não remove a chave ainda, pois vamos usar ela na animação
+            // removeKeyType(keyType);
+            
+            // Dispara um evento customizado para atualizar o display das chaves
+            window.dispatchEvent(new CustomEvent('keyRemoved', { detail: { keyType } }));
+        }
     }
 }
 
-// Função para atualizar a animação da porta
+// Função para preparar a chave CSG existente para a animação
+function prepareKeyForAnimation(keyObject, keyType, scene) {
+    // Usa a chave CSG existente
+    keyAnimationState.keyMesh = keyObject.getMesh();
+    keyAnimationState.keyObject = keyObject; // Armazena referência para o objeto completo
+    
+    // Posição inicial da chave (acima do totem)
+    keyAnimationState.startPosition = new THREE.Vector3(
+        totem.position.x,
+        totem.position.y + 3.0, // Mais alto para ficar bem visível
+        totem.position.z
+    );
+    
+    // Posição final da chave (no topo do totem)
+    keyAnimationState.endPosition = new THREE.Vector3(
+        totem.position.x,
+        totem.position.y + 1.2, // Mais alto que o totem para ficar visível
+        totem.position.z
+    );
+    
+    // Prepara a chave para a animação
+    const result = keyObject.prepareForTotemAnimation(keyAnimationState.startPosition, keyAnimationState.endPosition, scene);
+}
+
+// Função para iniciar a animação da chave
+function startKeyAnimation(onComplete) {
+    keyAnimationState.isAnimating = true;
+    keyAnimationState.animationProgress = 0;
+    keyAnimationState.onComplete = onComplete;
+}
+
+// Função para atualizar a animação da chave
+export function updateKeyAnimation(delta, scene) {
+    if (!keyAnimationState.isAnimating || !keyAnimationState.keyMesh) return;
+
+    // SE A CHAVE FOI REMOVIDA DA CENA DURANTE A ANIMAÇÃO, ADICIONA DE VOLTA!
+    if (!keyAnimationState.keyMesh.parent) {
+        scene.add(keyAnimationState.keyMesh);
+    }
+
+    // Incrementa o progresso da animação
+    keyAnimationState.animationProgress += keyAnimationState.animationSpeed * delta;
+
+    // Clamp o progresso entre 0 e 1
+    keyAnimationState.animationProgress = Math.min(keyAnimationState.animationProgress, 1);
+
+    // Aplicar easing suave (ease-in-out)
+    const easedProgress = 0.5 - 0.5 * Math.cos(keyAnimationState.animationProgress * Math.PI);
+
+    // Interpola a posição da chave
+    keyAnimationState.keyMesh.position.lerpVectors(
+        keyAnimationState.startPosition, 
+        keyAnimationState.endPosition, 
+        easedProgress
+    );
+
+    // Adiciona uma leve rotação na chave para dar mais dinamismo
+    keyAnimationState.keyMesh.rotation.y = easedProgress * Math.PI * 2;
+
+    // Verifica se a animação terminou
+    if (keyAnimationState.animationProgress >= 1) {
+        keyAnimationState.isAnimating = false;
+        
+        // Finaliza a animação da chave, deixando-a encaixada no totem
+        if (keyAnimationState.keyObject) {
+            keyAnimationState.keyObject.finishTotemAnimation();
+        }
+        
+        // Agora que a animação terminou, podemos remover a chave do inventário
+        // mas deixar o mesh visível na cena para representar a chave inserida no totem
+        const keyType = keyAnimationState.keyObject ? keyAnimationState.keyObject.getType() : null;
+        if (keyType) {
+            // Remove apenas do inventário, mas mantém o mesh visível na cena
+            keyManager.collectedKeys.delete(keyType);
+        }
+        
+        // Limpa as referências após um breve delay
+        setTimeout(() => {
+            keyAnimationState.keyMesh = null;
+            keyAnimationState.keyObject = null;
+        }, 500);
+        
+        // Executa o callback
+        if (keyAnimationState.onComplete) {
+            keyAnimationState.onComplete();
+            keyAnimationState.onComplete = null;
+        }
+    }
+}
+
 export function updateDoorAnimation(delta, scene) {
     if (!door || !doorAnimationState.isAnimating) return;
 
-    // Incrementa o progresso da animação
     doorAnimationState.animationProgress += doorAnimationState.animationSpeed * delta;
 
     // Clamp o progresso entre 0 e 1
@@ -104,8 +219,7 @@ export function updateDoorAnimation(delta, scene) {
     
     door.position.lerpVectors(currentPosition, targetPosition, easedProgress);
 
-    // Opcional: adiciona uma leve rotação no eixo X para simular descida em trilho
-    door.rotation.x = easedProgress * 0.1; // Rotação muito sutil no eixo X
+    door.rotation.x = easedProgress * 0.1;
 
     // Efeito de transparência gradual
     if (door.material) {
@@ -128,14 +242,24 @@ export function updateDoorAnimation(delta, scene) {
     }
 }
 
-// Função para resetar o estado da animação (útil para múltiplas portas)
 export function resetDoorAnimationState() {
     doorAnimationState = {
         isAnimating: false,
         animationProgress: 0,
-        animationSpeed: 0.5,
+        animationSpeed: 2.0,
         originalPosition: null,
         targetOffset: null,
         hasStarted: false
+    };
+    
+    keyAnimationState = {
+        isAnimating: false,
+        animationProgress: 0,
+        animationSpeed: 1.5,
+        keyMesh: null,
+        keyObject: null,
+        startPosition: null,
+        endPosition: null,
+        onComplete: null
     };
 }

@@ -12,7 +12,7 @@ import { createHitbox, hitbox, player } from '../entities/player/player.js';
 import { updateElevator } from '../systems/elevator.js';
 import { keyManager } from '../entities/items/key.js';
 import { ambientAudioManager, playerAudioManager, gameAudioManager } from '../systems/index.js';
-import { updateTotem, updateDoorAnimation } from '../systems/door.js';
+import { updateTotem, updateDoorAnimation, updateKeyAnimation, totem } from '../systems/door.js';
 
 // Global function to handle player damage (called by Lost Soul kamikaze attacks)
 window.playerTakeDamage = function(damage) {
@@ -351,6 +351,7 @@ function animate() {
     updateElevator(delta);
 
     updateTotem(delta, scene, hitbox, 'red', collidableObjects);
+    updateKeyAnimation(delta, scene); // Atualiza animação da chave
     updateDoorAnimation(delta, scene); // Atualiza animação da porta
     
     // Update ambient music based on player position
@@ -363,7 +364,8 @@ function animate() {
     keyManager.updateKeys(delta);
     
     // Verificar coletas de chaves
-    const collectedKeys = keyManager.checkCollisions(camera.position, 1.5);
+    const totemPosition = totem ? totem.position : null;
+    const collectedKeys = keyManager.checkCollisions(camera.position, 1.5, totemPosition);
     if (collectedKeys.length > 0) {
         updateKeysDisplay(); // Atualizar display das chaves
         console.log(`[KEYS] Collected ${collectedKeys.length} key(s):`, collectedKeys.map(k => k.getType()));

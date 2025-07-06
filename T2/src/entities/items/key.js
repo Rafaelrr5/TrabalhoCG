@@ -9,6 +9,7 @@ export class Key {
         this.position = position.clone();
         this.mesh = null;
         this.isCollected = false;
+        this.isInTotemAnimation = false;
         this.rotationSpeed = 0.02;
         this.floatAmplitude = 0.3;
         this.floatSpeed = 2.0;
@@ -97,20 +98,25 @@ export class Key {
     }
 
     update(delta) {
-        if (!this.mesh || this.isCollected) return;
+        if (!this.mesh) return;
+        
+        // Se a chave foi coletada e NÃO está na animação do totem, não faz mais animações
+        if (this.isCollected && !this.isInTotemAnimation) return;
 
         // Rotate the key
         this.mesh.rotation.y += this.rotationSpeed;
 
-        // Float animation (apenas local)
-        this.floatOffset += this.floatSpeed * delta;
-        const floatY = this.originalY + Math.sin(this.floatOffset) * this.floatAmplitude;
-        this.mesh.position.y = floatY;
-        
-        // Update position reference usando posição global no mundo
-        const worldPosition = new THREE.Vector3();
-        this.mesh.getWorldPosition(worldPosition);
-        this.position.copy(worldPosition);
+        // Float animation (apenas se não estiver coletada)
+        if (!this.isCollected) {
+            this.floatOffset += this.floatSpeed * delta;
+            const floatY = this.originalY + Math.sin(this.floatOffset) * this.floatAmplitude;
+            this.mesh.position.y = floatY;
+            
+            // Update position reference usando posição global no mundo
+            const worldPosition = new THREE.Vector3();
+            this.mesh.getWorldPosition(worldPosition);
+            this.position.copy(worldPosition);
+        }
     }
 
     checkCollision(playerPosition, collectionDistance = null) {
@@ -122,7 +128,7 @@ export class Key {
         return distance <= checkDistance;
     }
 
-    collect() {
+    collect(totemPosition = null) {
         if (this.isCollected) return false;
 
         this.isCollected = true;
@@ -133,9 +139,20 @@ export class Key {
         // Create collection effect
         this.createCollectionEffect();
         
-        // Hide the key
-        if (this.mesh) {
+        // Se uma posição de totem foi fornecida, teleporta a chave para lá e esconde
+        if (totemPosition && this.mesh) {
+            this.mesh.position.set(
+                totemPosition.x,
+                totemPosition.y + 2.5, // 2.5 unidades acima do totem
+                totemPosition.z
+            );
             this.mesh.visible = false;
+            this.originalY = totemPosition.y + 2.5; // Atualiza a referência Y original
+        } else {
+            // Comportamento original - esconde a chave
+            if (this.mesh) {
+                this.mesh.visible = false;
+            }
         }
 
         if (CONFIG.DEBUG_CONSOLE_LOGS) {
@@ -218,6 +235,59 @@ export class Key {
         return this.isCollected;
     }
 
+    // Método para mostrar a chave novamente (usado na animação do totem)
+    showKey() {
+        if (this.mesh) {
+            this.mesh.visible = true;
+        }
+    }
+
+    // Método para preparar a chave para animação no totem
+    prepareForTotemAnimation(startPosition, endPosition, scene) {
+        if (!this.mesh) return false;
+        
+        // SE A CHAVE FOI REMOVIDA DA CENA, ADICIONA DE VOLTA!
+        if (!this.mesh.parent) {
+            scene.add(this.mesh);
+        }
+        
+        this.mesh.position.copy(startPosition);
+        this.originalY = endPosition.y; // Atualiza referência para a posição final
+        this.isInTotemAnimation = true; // Marca que está na animação do totem
+        
+        // Garante que a chave seja bem visível
+        this.mesh.visible = true;
+        this.mesh.scale.set(1, 1, 1); // Garante escala normal
+        
+        // Força opacidade do material se for transparente
+        this.mesh.traverse((child) => {
+            if (child.material) {
+                child.material.transparent = false;
+                child.material.opacity = 1.0;
+                child.material.needsUpdate = true;
+            }
+        });
+        
+        this.showKey();
+        
+        // Para garantir que a chave não se mova durante a animação do totem
+        this.floatOffset = 0; // Reset da animação de flutuação
+        
+        return true;
+    }
+
+    // Método para finalizar a animação e deixar a chave encaixada no totem
+    finishTotemAnimation() {
+        this.isInTotemAnimation = false; // Marca que terminou a animação
+        // A chave permanece visível e na posição final
+    }
+
+    // Método para obter a chave de um tipo específico que foi coletada
+    static getCollectedKeyOfType(keyType) {
+        const keys = keyManager.getAllKeys();
+        return keys.find(key => key.getType() === keyType && key.isCollectedKey());
+    }
+
     // Static methods for key management
     static createRedKey(position) {
         return new Key('red', position);
@@ -281,12 +351,12 @@ export class KeyManager {
         });
     }
 
-    checkCollisions(playerPosition, collectionDistance = null) {
+    checkCollisions(playerPosition, collectionDistance = null, totemPosition = null) {
         const collectedKeys = [];
 
         this.keys.forEach(key => {
             if (!key.isCollectedKey() && key.checkCollision(playerPosition, collectionDistance)) {
-                if (key.collect()) {
+                if (key.collect(totemPosition)) {
                     collectedKeys.push(key);
                     this.collectedKeys.add(key.getType());
                 }
@@ -337,8 +407,8 @@ export function updateKeys(delta) {
     keyManager.updateKeys(delta);
 }
 
-export function checkKeyCollections(playerPosition, collectionDistance = null) {
-    return keyManager.checkCollisions(playerPosition, collectionDistance);
+export function checkKeyCollections(playerPosition, collectionDistance = null, totemPosition = null) {
+    return keyManager.checkCollisions(playerPosition, collectionDistance, totemPosition);
 }
 
 export function hasCollectedKey(keyType) {
