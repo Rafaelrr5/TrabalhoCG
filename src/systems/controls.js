@@ -15,7 +15,7 @@ export let moveState = {
 let lastWeaponSwitch = 0; // Timestamp do último switch de arma
 
 // Configura todos os event listeners
-export function setupEventListeners(camera, scene) {
+export function setupEventListeners(camera, scene,) {
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
     document.addEventListener('mousedown', () => startShooting());

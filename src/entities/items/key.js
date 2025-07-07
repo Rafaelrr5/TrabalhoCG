@@ -9,22 +9,9 @@ export class Key {
         this.position = position.clone();
         this.mesh = null;
         this.isCollected = false;
-        this.rotationSpeed = 0.02;
-        this.floatAmplitude = 0.3;
-        this.floatSpeed = 2.0;
+        this.isInTotemAnimation = false;
         this.floatOffset = 0;
         this.originalY = position.y;
-        this.collectionDistance = 2.0; // Distance to trigger collection
-        
-        // Key properties
-        this.colors = {
-            red: 0xff0000,
-            blue: 0x0000ff,
-            green: 0x00ff00,
-            yellow: 0xffff00,
-            gold: 0xffd700
-        };
-        
         this.id = Key.generateId();
     }
 
@@ -48,18 +35,15 @@ export class Key {
         const keyGroup = new THREE.Group();
         keyGroup.name = `${this.keyType}Key`;
         
-        const keyColor = this.colors[this.keyType] || this.colors.red;
+        const keyColor = CONFIG.KEYS.COLORS[this.keyType] || CONFIG.KEYS.COLORS.red;
         const keyMaterial = new THREE.MeshPhongMaterial({ 
             color: keyColor, 
-            shininess: 50, 
-            specular: 0x444444 
+            shininess: CONFIG.KEYS.MATERIAL.SHININESS, 
+            specular: CONFIG.KEYS.MATERIAL.SPECULAR 
         });
 
-        // Create key using CSG operations
-        // Base cube
         const cube = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), keyMaterial);
         
-        // Cylindrical holes
         const holeGeom = new THREE.CylinderGeometry(0.25, 0.25, 1.4, 32);
         const holeX = new THREE.Mesh(holeGeom, keyMaterial);
         holeX.rotation.z = Math.PI / 2;
@@ -67,10 +51,8 @@ export class Key {
         holeY.rotation.x = Math.PI / 2;
         const holeZ = new THREE.Mesh(holeGeom, keyMaterial);
 
-        // Update matrices for CSG operations
         [cube, holeX, holeY, holeZ].forEach(mesh => mesh.updateMatrix());
 
-        // Perform CSG operations if CSG library is available
         if (typeof CSG !== 'undefined') {
             let csgBSP = CSG.fromMesh(cube)
                 .subtract(CSG.fromMesh(holeX))
@@ -80,11 +62,9 @@ export class Key {
             finalMesh.material = keyMaterial;
             keyGroup.add(finalMesh);
         } else {
-            // Fallback: simple key shape without holes
             keyGroup.add(cube);
         }
 
-        // Position the key
         keyGroup.position.copy(this.position);
         keyGroup.userData = {
             keyType: this.keyType,
@@ -97,45 +77,52 @@ export class Key {
     }
 
     update(delta) {
-        if (!this.mesh || this.isCollected) return;
-
-        // Rotate the key
-        this.mesh.rotation.y += this.rotationSpeed;
-
-        // Float animation (apenas local)
-        this.floatOffset += this.floatSpeed * delta;
-        const floatY = this.originalY + Math.sin(this.floatOffset) * this.floatAmplitude;
-        this.mesh.position.y = floatY;
+        if (!this.mesh) return;
         
-        // Update position reference usando posição global no mundo
-        const worldPosition = new THREE.Vector3();
-        this.mesh.getWorldPosition(worldPosition);
-        this.position.copy(worldPosition);
+        if (this.isCollected && !this.isInTotemAnimation) return;
+
+        this.mesh.rotation.y += CONFIG.KEYS.ANIMATION.ROTATION_SPEED;
+
+        if (!this.isCollected) {
+            this.floatOffset += CONFIG.KEYS.ANIMATION.FLOAT_SPEED * delta;
+            const floatY = this.originalY + Math.sin(this.floatOffset) * CONFIG.KEYS.ANIMATION.FLOAT_AMPLITUDE;
+            this.mesh.position.y = floatY;
+            
+            const worldPosition = new THREE.Vector3();
+            this.mesh.getWorldPosition(worldPosition);
+            this.position.copy(worldPosition);
+        }
     }
 
     checkCollision(playerPosition, collectionDistance = null) {
         if (this.isCollected) return false;
 
         const distance = this.position.distanceTo(playerPosition);
-        const checkDistance = collectionDistance || this.collectionDistance;
+        const checkDistance = collectionDistance || CONFIG.KEYS.ANIMATION.COLLECTION_DISTANCE;
         
         return distance <= checkDistance;
     }
 
-    collect() {
+    collect(totemPosition = null) {
         if (this.isCollected) return false;
 
         this.isCollected = true;
         
-        // Play item pickup sound
         gameAudioManager.playItemPickupSound();
-
-        // Create collection effect
         this.createCollectionEffect();
         
-        // Hide the key
-        if (this.mesh) {
+        if (totemPosition && this.mesh) {
+            this.mesh.position.set(
+                totemPosition.x,
+                totemPosition.y + CONFIG.KEYS.TOTEM.HEIGHT_OFFSET,
+                totemPosition.z
+            );
             this.mesh.visible = false;
+            this.originalY = totemPosition.y + CONFIG.KEYS.TOTEM.HEIGHT_OFFSET;
+        } else {
+            if (this.mesh) {
+                this.mesh.visible = false;
+            }
         }
 
         if (CONFIG.DEBUG_CONSOLE_LOGS) {
@@ -148,7 +135,6 @@ export class Key {
     createCollectionEffect() {
         if (!this.mesh) return;
 
-        // Create a simple sparkle effect
         const sparkleGeometry = new THREE.SphereGeometry(0.1, 8, 8);
         const sparkleMaterial = new THREE.MeshBasicMaterial({ 
             color: 0xffffff,
@@ -168,11 +154,10 @@ export class Key {
 
             this.mesh.parent.add(sparkle);
 
-            // Animate sparkles
             const startTime = Date.now();
             const animateSparkle = () => {
                 const elapsed = Date.now() - startTime;
-                const progress = elapsed / 1000; // 1 second animation
+                const progress = elapsed / 1000;
                 
                 if (progress >= 1.0) {
                     sparkle.parent?.remove(sparkle);
@@ -218,33 +203,81 @@ export class Key {
         return this.isCollected;
     }
 
-    // Static methods for key management
-    static createRedKey(position) {
-        return new Key('red', position);
+    showKey() {
+        if (this.mesh) {
+            this.mesh.visible = true;
+        }
     }
 
-    static createBlueKey(position) {
-        return new Key('blue', position);
+    prepareForTotemAnimation(startPosition, endPosition, scene) {
+        if (!this.mesh) return false;
+        
+        if (!this.mesh.parent) {
+            scene.add(this.mesh);
+        }
+        
+        this.mesh.position.copy(startPosition);
+        this.originalY = endPosition.y;
+        this.isInTotemAnimation = true;
+        
+        this.mesh.visible = true;
+        this.mesh.scale.set(1, 1, 1);
+        
+        this.mesh.traverse((child) => {
+            if (child.material) {
+                child.material.transparent = false;
+                child.material.opacity = 1.0;
+                child.material.needsUpdate = true;
+            }
+        });
+        
+        this.showKey();
+        this.floatOffset = 0;
+        
+        return true;
     }
 
-    static createGreenKey(position) {
-        return new Key('green', position);
+    finishTotemAnimation() {
+        this.isInTotemAnimation = false;
     }
 
-    static createYellowKey(position) {
-        return new Key('yellow', position);
+    use() {
+        if (!this.isCollected) {
+            console.warn(`[KEY] Trying to use a key that hasn't been collected: ${this.keyType}`);
+            return false;
+        }
+
+        const success = keyManager.useKey(this.keyType);
+        
+        if (success && CONFIG.DEBUG_CONSOLE_LOGS) {
+            console.log(`[KEY] ${this.keyType} key used and removed from inventory!`);
+        }
+
+        return success;
     }
 
-    static createGoldKey(position) {
-        return new Key('gold', position);
+    static getCollectedKeyOfType(keyType) {
+        const keys = keyManager.getAllKeys();
+        return keys.find(key => key.getType() === keyType && key.isCollectedKey());
     }
+
+    static create(keyType, position) {
+        if (!CONFIG.KEYS.COLORS[keyType]) {
+            console.warn(`Unknown key type: ${keyType}. Using red as default.`);
+            keyType = 'red';
+        }
+        return new Key(keyType, position);
+    }
+
+    static createRedKey(position) { return this.create('red', position); }
+    static createBlueKey(position) { return this.create('blue', position); }
 }
 
-// Key Manager class to handle multiple keys
 export class KeyManager {
     constructor() {
         this.keys = new Map();
         this.collectedKeys = new Set();
+        this.inventoryChangeCallbacks = new Set();
     }
 
     addKey(key, scene) {
@@ -281,14 +314,15 @@ export class KeyManager {
         });
     }
 
-    checkCollisions(playerPosition, collectionDistance = null) {
+    checkCollisions(playerPosition, collectionDistance = null, totemPosition = null) {
         const collectedKeys = [];
 
         this.keys.forEach(key => {
             if (!key.isCollectedKey() && key.checkCollision(playerPosition, collectionDistance)) {
-                if (key.collect()) {
+                if (key.collect(totemPosition)) {
                     collectedKeys.push(key);
                     this.collectedKeys.add(key.getType());
+                    this.notifyInventoryChange('added', key.getType());
                 }
             }
         });
@@ -316,43 +350,79 @@ export class KeyManager {
         return this.collectedKeys.size;
     }
 
-    // Clear all keys (useful for level resets)
     clearAll() {
         this.keys.forEach(key => key.remove());
         this.keys.clear();
         this.collectedKeys.clear();
+        this.notifyInventoryChange('cleared', null);
+    }
+
+    // Use a key (removes from inventory when used at totem)
+    useKey(keyType) {
+        if (!this.hasKey(keyType)) {
+            console.warn(`[KEY MANAGER] Trying to use key that is not in inventory: ${keyType}`);
+            return false;
+        }
+
+        this.collectedKeys.delete(keyType);
+        this.notifyInventoryChange('used', keyType);
+        
+        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+            console.log(`[KEY MANAGER] Used ${keyType} key - removed from inventory`);
+        }
+
+        return true;
+    }
+
+    getKeyByType(keyType) {
+        for (let key of this.keys.values()) {
+            if (key.getType() === keyType) {
+                return key;
+            }
+        }
+        return null;
+    }
+
+    canUseKey(keyType) {
+        return this.hasKey(keyType);
+    }
+
+    useKeyAndGetInstance(keyType) {
+        if (!this.canUseKey(keyType)) {
+            return null;
+        }
+
+        const keyInstance = this.getKeyByType(keyType);
+        const success = this.useKey(keyType);
+        
+        return success ? keyInstance : null;
+    }
+
+    onInventoryChange(callback) {
+        if (typeof callback === 'function') {
+            this.inventoryChangeCallbacks.add(callback);
+        }
+    }
+
+    removeInventoryChangeCallback(callback) {
+        this.inventoryChangeCallbacks.delete(callback);
+    }
+
+    notifyInventoryChange(action, keyType) {
+        this.inventoryChangeCallbacks.forEach(callback => {
+            try {
+                callback({
+                    action: action,
+                    keyType: keyType,
+                    collectedKeys: this.getCollectedKeys(),
+                    collectedKeyCount: this.getCollectedKeyCount()
+                });
+            } catch (error) {
+                console.error('[KEY MANAGER] Error in inventory change callback:', error);
+            }
+        });
     }
 }
 
 // Create a global key manager instance
 export const keyManager = new KeyManager();
-
-// Backward compatibility functions
-export function createKey(keyType, position, scene) {
-    const key = new Key(keyType, position);
-    return keyManager.addKey(key, scene) ? key : null;
-}
-
-export function updateKeys(delta) {
-    keyManager.updateKeys(delta);
-}
-
-export function checkKeyCollections(playerPosition, collectionDistance = null) {
-    return keyManager.checkCollisions(playerPosition, collectionDistance);
-}
-
-export function hasCollectedKey(keyType) {
-    return keyManager.hasKey(keyType);
-}
-
-export function getCollectedKeys() {
-    return keyManager.getCollectedKeys();
-}
-
-
-//isso aqui ta errado
-export function removeKeyType(keyType){
-    if (keyManager.hasKey(keyType)){
-        keyManager.removeKey(keyManager.getId(keyType));
-    }
-}

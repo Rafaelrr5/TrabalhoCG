@@ -27,11 +27,12 @@ export const CONFIG = {
         PROJECTILE_SIZE: 0.1,
         PROJECTILE_COLOR: 'lightyellow',
         DAMAGE: 0.4,
+        ACTIVATION_DELAY: 100, // Tempo de ativação em milissegundos
       },
     },
     
     // Configurações de movimento e física
-    MOVE_SPEED: 20,
+    MOVE_SPEED: 90,
     GRAVITY: -20,
       // Configurações do jogador
     CAMERA_HEIGHT: 1.8,
@@ -87,6 +88,26 @@ export const CONFIG = {
     ELEVATOR_ACTIVATION_DISTANCE: 2.0,
     ELEVEVATOR_MOVEMENT_SPEED: 1.5,
     ELEVATOR_HEIGHT: 3.9, // Altura máxima do elevador
+    
+    KEYS: {
+        COLORS: {
+            red: 0xff0000,
+            blue: 0x0000ff
+        },
+        ANIMATION: {
+            ROTATION_SPEED: 0.02,
+            FLOAT_AMPLITUDE: 0.3,
+            FLOAT_SPEED: 2.0,
+            COLLECTION_DISTANCE: 2.0
+        },
+        MATERIAL: {
+            SHININESS: 50,
+            SPECULAR: 0x444444
+        },
+        TOTEM: {
+            HEIGHT_OFFSET: 2.5
+        }
+    },
     
     // Configurações de inimigos (importadas do enemyConfig.js)
     ...getConfigCompatibilityValues()
