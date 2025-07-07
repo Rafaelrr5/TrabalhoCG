@@ -257,7 +257,20 @@ function init() {
         updateKeysDisplay();
     }, 100);
     
-    // Event listener para atualizar o display quando uma chave é removida
+    // Configurar callback para atualizar HUD quando inventário de chaves mudar
+    keyManager.onInventoryChange((inventoryData) => {
+        const { action, keyType, collectedKeys, collectedKeyCount } = inventoryData;
+        
+        // Atualizar display das chaves
+        updateKeysDisplay();
+        
+        // Log da mudança para debug
+        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+            console.log(`[MAIN] Inventory changed - Action: ${action}, Key: ${keyType}, Total: ${collectedKeyCount}`);
+        }
+    });
+    
+    // Event listener para atualizar o display quando uma chave é removida (compatibilidade)
     window.addEventListener('keyRemoved', () => {
         updateKeysDisplay();
     });

@@ -184,8 +184,8 @@ export function updateKeyAnimation(delta, scene) {
         // mas deixar o mesh visível na cena para representar a chave inserida no totem
         const keyType = keyAnimationState.keyObject ? keyAnimationState.keyObject.getType() : null;
         if (keyType) {
-            // Remove apenas do inventário, mas mantém o mesh visível na cena
-            keyManager.collectedKeys.delete(keyType);
+            // Usa o método oficial do KeyManager para remover e notificar mudanças no inventário
+            keyManager.useKey(keyType);
         }
         
         // Limpa as referências após um breve delay
