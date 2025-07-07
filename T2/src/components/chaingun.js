@@ -119,13 +119,14 @@ export class Chaingun {
         this.isMousePressed = true;
         this.isActivating = true;
         this.activationTimer = 0;
-    
+        this.actions.preparing.playloop();
         // Não dispara imediatamente, espera o tempo de ativação
         this.shootInterval = setInterval(() => {
             this.activationTimer += this.shootRate;
         
             if (this.activationTimer >= this.activationDelay && this.isMousePressed) {
                 this.isActivating = false;
+                this.actions.shooting.playloop();
                 this.shoot();
             }
         }, this.shootRate);
@@ -389,10 +390,16 @@ export class Chaingun {
             this.preparing = preparing;
             this.shooting = shooting;
 
+            this.chaingunSprite.visible = false;
+
+            this.chaingunSprite.matrixautoUpdate = true;
+            this.chaingunSprite.frustums = false;
+
 
             this.chaingunSprite.position.set(CONFIG.GUN_POSITION.x, -0.5, -1.0);
             this.chaingunSprite.scale.set(1.0,1.0,1.0);
             this.camera.add(this.chaingunSprite);
+            this.mesh = this.chaingunSprite;
         });
         //return this.loader;
     }
