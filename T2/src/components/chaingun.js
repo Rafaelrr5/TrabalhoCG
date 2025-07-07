@@ -3,6 +3,7 @@ import { setDefaultMaterial } from '../../../libs/util/util.js';
 import { CONFIG } from '../core/config.js';
 import { enemies } from '../entities/enemies/enemy.js';
 import { getCacodemons } from '../entities/enemies/enemy.js';
+import { SpriteMixer } from '../utils/spriteMixer.js';
 
 export class Chaingun {
     constructor(camera) {
@@ -58,9 +59,10 @@ export class Chaingun {
         const gunGeometry = new THREE.CylinderGeometry(CONFIG.GUN_RADIUS, CONFIG.GUN_RADIUS, CONFIG.GUN_LENGTH);
         const gunMaterial = new THREE.MeshLambertMaterial({color:'darkgrey'});
         this.mesh = new THREE.Mesh(gunGeometry, gunMaterial);
+        //this.mesh = this.createSprite();
         
         // Rotaciona para apontar para frente
-        this.mesh.rotation.x = Math.PI / 2;
+        //this.mesh.rotation.x = Math.PI / 2;
         // Posiciona relativo à câmera (inferior-direita da visão)
         this.mesh.position.set(CONFIG.GUN_POSITION.x, CONFIG.GUN_POSITION.y, CONFIG.GUN_POSITION.z);
         
@@ -366,6 +368,24 @@ export class Chaingun {
             console.log(`[GUN] Gun ${this.id} destroyed`);
         }
     }
+
+    createSprite(){
+        const spriteMixer = SpriteMixer();
+        const actions = {};
+        let chaingunSprite = null, preparing, shooting;
+        let loader = new THREE.TextureLoader();
+        loader.load('./assets/textures/ChaingunSpriteAtirando.png', (texture) => {
+            chaingunSprite = spriteMixer.ActionSprite(texture, 5, 1);
+            //chaingunSprite.add(axesHelperSprite);
+            chaingunSprite.setFrame(0);
+            actions.preparing = spriteMixer.Action(chaingunSprite, 0, 1, 40);
+            actions.shooting = spriteMixer.Action(chaingunSprite, 2, 3, 40);
+
+            chaingunSprite.scale.set(1.0,1.0,1.0);
+        });
+
+        return loader;
+    }
 }
 
 // Create a singleton instance for backward compatibility
@@ -429,3 +449,5 @@ export function getProjectiles() {
 export function getGun() {
     return gun;
 }
+
+
