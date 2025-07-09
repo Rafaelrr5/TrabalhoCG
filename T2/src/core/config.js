@@ -14,7 +14,7 @@ export const CONFIG = {
         NAME: 'Laucher',
         PROJECTILE_SPEED: 150,
         PROJECTILE_LIFETIME: 3.5,
-        SHOOT_RATE: 250,
+        SHOOT_RATE: 500,
         PROJECTILE_SIZE: 0.2,
         PROJECTILE_COLOR: 'lightgreen',
         DAMAGE: 10,
@@ -32,7 +32,7 @@ export const CONFIG = {
     },
     
     // Configurações de movimento e física
-    MOVE_SPEED: 90,
+    MOVE_SPEED: 20,
     GRAVITY: -20,
       // Configurações do jogador
     CAMERA_HEIGHT: 1.8,

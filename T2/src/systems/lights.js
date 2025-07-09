@@ -11,7 +11,7 @@ const LIGHTING_CONFIG = {
         position: { x: 481.86, y: 300, z: -458.45 },
         castShadow: true,
         shadow: {
-            mapSize: { width: 2048, height: 2048 },
+            mapSize: { width: 4096, height: 4096 },
             camera: {
                 near: 0.5,
                 far: 1000,
@@ -51,6 +51,7 @@ class LightingSystem {
     _setupShadows(renderer) {
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFShadowMap;
+        renderer.shadowMap.radius = 5.0;
         renderer.shadowMap.autoUpdate = true;
     }
 
