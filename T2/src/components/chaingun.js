@@ -3,6 +3,7 @@ import { setDefaultMaterial } from '../../../libs/util/util.js';
 import { CONFIG } from '../core/config.js';
 import { enemies } from '../entities/enemies/enemy.js';
 import { getCacodemons } from '../entities/enemies/enemy.js';
+import { SpriteMixer } from '../utils/spriteMixer.js';
 
 export class Chaingun {
     constructor(camera) {
@@ -17,6 +18,12 @@ export class Chaingun {
         this.activationDelay = CONFIG.WEAPONS.CHAINGUN.ACTIVATION_DELAY;
         this.activationTimer = 0;
         this.isActivating = false;
+        this.actions = {};
+        this.chaingunSprite = null;
+        this.spriteMixer;
+        this.preparing;
+        this.shooting;
+        this.loader;
         
         // Gun properties
         this.isVisible = CONFIG.DEBUG_SHOW_WEAPON;
@@ -45,6 +52,7 @@ export class Chaingun {
         
         this.scene = scene;
         this.createGunMesh();
+        //this.createSprite();
         this.initAudio();
         
         if (CONFIG.DEBUG_CONSOLE_LOGS) {
@@ -58,6 +66,7 @@ export class Chaingun {
         const gunGeometry = new THREE.CylinderGeometry(CONFIG.GUN_RADIUS, CONFIG.GUN_RADIUS, CONFIG.GUN_LENGTH);
         const gunMaterial = new THREE.MeshLambertMaterial({color:'darkgrey'});
         this.mesh = new THREE.Mesh(gunGeometry, gunMaterial);
+        //this.mesh = this.createSprite();
         
         // Rotaciona para apontar para frente
         this.mesh.rotation.x = Math.PI / 2;
@@ -110,13 +119,14 @@ export class Chaingun {
         this.isMousePressed = true;
         this.isActivating = true;
         this.activationTimer = 0;
-    
+        //this.actions.preparing.playLoop();
         // Não dispara imediatamente, espera o tempo de ativação
         this.shootInterval = setInterval(() => {
             this.activationTimer += this.shootRate;
         
             if (this.activationTimer >= this.activationDelay && this.isMousePressed) {
                 this.isActivating = false;
+                //this.actions.shooting.playLoop();
                 this.shoot();
             }
         }, this.shootRate);
@@ -266,8 +276,9 @@ export class Chaingun {
     }
 
     toggleVisibility() {
-        if (this.mesh) {
+        if (this.mesh && this.chaingunSprite) {
             this.mesh.visible = !this.mesh.visible;
+            this.chaingunSprite.visible = !this.chaingunSprite.visible;
             this.isVisible = this.mesh.visible;
             
             // Atualiza a configuração global
@@ -280,7 +291,8 @@ export class Chaingun {
     }
 
     setVisibility(visible) {
-        if (this.mesh) {
+        if (this.mesh && this.chaingunSprite) {
+            this.chaingunSprite.visible = visible;
             this.mesh.visible = visible;
             this.isVisible = visible;
             if (CONFIG.DEBUG_CONSOLE_LOGS) {
@@ -305,7 +317,7 @@ export class Chaingun {
 
     // Getters
     getMesh() {
-        return this.mesh;
+        return this.chaingunSprite;
     }
 
     getId() {
@@ -321,10 +333,10 @@ export class Chaingun {
     }
 
     getPosition() {
-        if (!this.mesh) return null;
+        if (!this.chaingunSprite) return null;
         
         const worldPosition = new THREE.Vector3();
-        this.mesh.getWorldPosition(worldPosition);
+        this.chaingunSprite.getWorldPosition(worldPosition);
         return worldPosition;
     }
 
@@ -354,17 +366,44 @@ export class Chaingun {
         this.projectiles = [];
         
         // Remove gun mesh
-        if (this.mesh && this.camera) {
-            this.camera.remove(this.mesh);
+        if (this.chaingunSprite && this.camera) {
+            this.camera.remove(this.chaingunSprite);
         }
         
-        this.mesh = null;
+        this.chaingunSprite = null;
         this.scene = null;
         this.camera = null;
         
         if (CONFIG.DEBUG_CONSOLE_LOGS) {
             console.log(`[GUN] Gun ${this.id} destroyed`);
         }
+    }
+
+    createSprite(){
+        this.spriteMixer = SpriteMixer();
+        let preparing, shooting;
+        this.loader = new THREE.TextureLoader();
+        this.loader.load('./assets/textures/ChaingunSpriteAtirando.png', (texture) => {
+            this.chaingunSprite = this.spriteMixer.ActionSprite(texture, 4, 1);
+            //chaingunSprite.add(axesHelperSprite);
+            this.chaingunSprite.setFrame(0);
+            this.actions.preparing = this.spriteMixer.Action(this.chaingunSprite, 0, 1, 40);
+            this.actions.shooting = this.spriteMixer.Action(this.chaingunSprite, 2, 3, 40);
+            this.preparing = preparing;
+            this.shooting = shooting;
+
+            this.chaingunSprite.visible = false;
+
+            this.chaingunSprite.matrixautoUpdate = true;
+            this.chaingunSprite.frustums = false;
+
+
+            this.chaingunSprite.position.set(CONFIG.GUN_POSITION.x, -0.5, -1.0);
+            this.chaingunSprite.scale.set(1.0,1.0,1.0);
+            this.camera.add(this.chaingunSprite);
+            this.mesh = this.chaingunSprite;
+        });
+        //return this.loader;
     }
 }
 
@@ -429,3 +468,5 @@ export function getProjectiles() {
 export function getGun() {
     return gun;
 }
+
+

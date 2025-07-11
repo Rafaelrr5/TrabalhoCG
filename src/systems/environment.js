@@ -8,7 +8,7 @@ import { enableShadowsForAll } from './lights.js';
 import { keyManager, Key } from '../entities/items/key.js';
 import { createDoor, createtotem } from './door.js';
 
-export let area1KeyPlatform = true;
+export let area1KeyPlatform = null;
 export let area2KeyPlatform = null;
 
 export function createWalls(scene, collidableObjects) {
@@ -127,15 +127,6 @@ function createArea2(scene, materials, collidableObjects) {
     let area2_left = new THREE.Mesh(areaGeometry, materials.area2);
     let area2_right = new THREE.Mesh(areaGeometry, materials.area2);
 
-    let bloco1 = new THREE.Mesh(areaGeometry, materials.area2);
-    let bloco2 = new THREE.Mesh(areaGeometry, materials.area2);
-    let bloco3 = new THREE.Mesh(areaGeometry, materials.area2);
-    let bloco4 = new THREE.Mesh(areaGeometry, materials.area2);
-    let bloco5 = new THREE.Mesh(areaGeometry, materials.area2);
-    let bloco6 = new THREE.Mesh(areaGeometry, materials.area2);
-    let bloco7 = new THREE.Mesh(areaGeometry, materials.area2);
-
-
     const area2 = new THREE.Group();
     area2.name = "Area2";
     //const stair2 = new THREE.Group();
@@ -147,38 +138,21 @@ function createArea2(scene, materials, collidableObjects) {
     area2_right.position.set(60.0, CONFIG.AREA_Y_POSITION, -66.0);
     area2_right.scale.set(5.0, CONFIG.AREA_HEIGHT, 6.0);
 
-    bloco1.scale.set(4.0 , 6.0, 100.0);
-    bloco1.position.set (0.0, CONFIG.AREA_Y_POSITION + 3.0, -125.0);
-    bloco2.scale.set(30.0, 20.0, 30.0);
-    bloco2.position.set(37.5, CONFIG.AREA_Y_POSITION + 20.0, -125.0);
-    bloco3.scale.set(60, 30.0, 4.0)
-    bloco3.position.set(31.25, CONFIG.AREA_Y_POSITION + 15.0, -185,5);
-    bloco4.scale.set(5.0, 15.0, 5.0);
-    bloco4.position.set(-30, CONFIG.AREA_Y_POSITION + 7.5, -125.0);
-    bloco5.scale.set(5.0,10.0,5.0);
-    bloco5.position.set(-30, CONFIG.AREA_Y_POSITION + 5.0, -105.0);
-    bloco6.scale.set(5.0, 20.0, 5.0);
-    bloco6.position.set(-30, CONFIG.AREA_Y_POSITION + 10.0, -145.0);
-    bloco7.scale.set(15.0, 2.0, 4.0);
-    bloco7.position.set(37.5, CONFIG.AREA_Y_POSITION + 20.0, -145.0);
-    
     area2.add(area2_center);
     area2.add(area2_left);
     area2.add(area2_right);
-    area2.add(bloco1);
-    area2.add(bloco2);
-    area2.add(bloco3);
-    area2.add(bloco4);
-    area2.add(bloco5);
-    area2.add(bloco6);
-    area2.add(bloco7);
+
+    const point1 = {x: -54.5, z: -74.5};
+    const point2 = {x: 56.5, z: -187.5};
+    const blockgroup = createGradientBlocksWithGap(point1, point2, scene, 4.0, collidableObjects);
+    area2.add(blockgroup);
+  
     
     // Adiciona plataforma para a chave azul no centro da área 2
     const blueKeyPlatform = createBlueKeyPlatform(scene);
     area2.add(blueKeyPlatform);
     
     scene.add(area2);
-
 
     //stair2.add(createStair(50.0, CONFIG.STAIR_HEIGHT_OFFSET, -62.8, CONFIG.AREA_HEIGHT, true, materials.stair));
     //scene.add(stair2);
@@ -188,8 +162,15 @@ function createArea2(scene, materials, collidableObjects) {
     enableShadowsForAll(area2); // Ativa sombras na área 2
     enableShadowsForAll(blueKeyPlatform); // Ativa sombras na plataforma da chave
 
-    createDoor(scene, collidableObjects, 50.0, -63, 15.0, 4.0, 'red');
-    createtotem(scene, collidableObjects, 60.0, -59, 'red');
+    createDoor(scene, collidableObjects, 50.0, -63, 15.0, 4.0, 'red'); // Porta vermelha para a Área 3
+    createtotem(scene, collidableObjects, 60.0, -59.05, 'red'); // Totem vermelho para a Área 3
+
+    let blocoCentral = new THREE.Mesh(areaGeometry, materials.area2);
+    blocoCentral.scale.set(8.0, 8.0, 8.0);
+    blocoCentral.position.set(0.0, 8.0 , -131.0);
+    scene.add(blocoCentral);
+    collidableObjects.push(blocoCentral);
+    blocoCentral.castShadow = true; // Ativa sombras no bloco central
 
 }
 
@@ -607,4 +588,90 @@ function markCollisionObject(object, collidableObjects){
             collidableObjects.push(child);
         }
     });
+}
+
+function createGradientBlocksWithGap(point1, point2, scene, baseHeight, collidableObjects) {
+    // Determinar os limites da área
+    const minX = Math.min(point1.x, point2.x);
+    const maxX = Math.max(point1.x, point2.x);
+    const minZ = Math.min(point1.z, point2.z);
+    const maxZ = Math.max(point1.z, point2.z);
+    
+    // Calcular o centro da área
+    const centerX = (minX + maxX) / 2;
+    const centerZ = (minZ + maxZ) / 2;
+    
+    // Tamanho do bloco e espaço total entre blocos
+    const blockSize = 4.0;
+    const gapSize = 6.0;
+    const totalSpacing = blockSize + gapSize;
+    
+    // Criar um grupo para os blocos
+    const blocksGroup = new THREE.Group();
+    
+    // Array para armazenar todos os blocos criados
+    const blocks = [];
+    
+    // Gerar blocos com o espaçamento correto
+    for (let x = minX; x <= maxX; x += totalSpacing) {
+        for (let z = minZ; z <= maxZ; z += totalSpacing) {
+            // Calcular distância normalizada do centro (0 a 1)
+            const maxDistX = (maxX - minX) / 2;
+            const maxDistZ = (maxZ - minZ) / 2;
+            const distX = Math.abs(x - centerX) / maxDistX;
+            const distZ = Math.abs(z - centerZ) / maxDistZ;
+            // Usar a maior distância (X ou Z) para determinar a altura
+            const dist = Math.max(distX, distZ);
+            
+            // Calcular altura baseada na distância (2.5 nas bordas, 20 no centro)
+            const heightVariation = 2.5 + (20 - 2.5) * (1 - dist);
+            
+            // Altura final é a baseHeight + a variação
+            const finalHeight = baseHeight + (heightVariation/2);
+            
+            // Criar geometria do bloco
+            const geometry = new THREE.BoxGeometry(blockSize, heightVariation, blockSize);
+            const material = new THREE.MeshLambertMaterial({ color: 'red' });
+            const block = new THREE.Mesh(geometry, material);
+            
+            // Posicionar o bloco considerando a baseHeight
+            block.position.set(x, finalHeight, z);
+            
+            // Armazenar informações do bloco
+            blocks.push({
+                mesh: block,
+                x: x,
+                z: z,
+                distanceToCenter: Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(z - centerZ, 2))
+            });
+            
+            // Adicionar ao grupo
+            blocksGroup.add(block);
+        }
+    }
+    
+    // Ordenar blocos por proximidade ao centro
+    blocks.sort((a, b) => a.distanceToCenter - b.distanceToCenter);
+    
+    // Determinar quantos blocos remover (1 se ímpar, 4 se par)
+    const blocksToRemove = blocks.length % 2 === 1 ? 
+        [blocks[0]] : // Se ímpar, remover o mais central
+        blocks.slice(0, 4); // Se par, remover os 4 mais centrais
+    
+    // Remover os blocos centrais
+    for (const block of blocksToRemove) {
+        blocksGroup.remove(block.mesh);
+        // Opcional: adicionar um marcador visual no espaço vazio
+        //const markerGeometry = new THREE.SphereGeometry(0.5);
+        //const markerMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        //const marker = new THREE.Mesh(markerGeometry, markerMaterial);
+        //marker.position.set(block.x, baseHeight + 0.5, block.z);
+        //blocksGroup.add(marker);
+    }
+    
+    // Adicionar o grupo à cena
+    scene.add(blocksGroup);
+    markCollisionObject(blocksGroup, collidableObjects);
+
+    return blocksGroup;
 }
