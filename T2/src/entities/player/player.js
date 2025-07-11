@@ -84,6 +84,14 @@ export class Player {
     takeDamage(damage) {
         if (!this.isAlive) return false;
 
+        // Check if player is immortal
+        if (CONFIG.PLAYER_IMMORTAL) {
+            if (CONFIG.DEBUG_CONSOLE_LOGS) {
+                console.log(`[PLAYER] Immortal mode - ignored ${damage} damage. Health: ${this.health}/${this.maxHealth}`);
+            }
+            return true; // Player doesn't take damage but is still alive
+        }
+
         this.health = Math.max(0, this.health - damage);
         
         // Play injured sound when taking damage

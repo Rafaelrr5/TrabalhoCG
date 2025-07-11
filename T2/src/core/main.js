@@ -29,6 +29,15 @@ window.playerTakeDamage = function(damage) {
 function updatePlayerHealthDisplay() {
   const healthDisplay = document.getElementById('player-health');
   if (healthDisplay) {
+    // Hide health display if player is immortal
+    if (CONFIG.PLAYER_IMMORTAL) {
+      healthDisplay.style.display = 'none';
+      return;
+    }
+    
+    // Show health display if player is not immortal
+    healthDisplay.style.display = 'block';
+    
     const healthStatus = player.getHealthStatus();
     healthDisplay.textContent = `Health: ${healthStatus.current}/${healthStatus.max}`;
     
@@ -184,8 +193,15 @@ function createPlayerHealthHUD() {
     healthDisplay.style.fontWeight = 'bold';
     healthDisplay.style.zIndex = '1000';
     healthDisplay.style.textShadow = '2px 2px 4px rgba(0,0,0,0.8)';
-    const healthStatus = player.getHealthStatus();
-    healthDisplay.textContent = `Health: ${healthStatus.current}/${healthStatus.max}`;
+    
+    // Hide health display if player is immortal
+    if (CONFIG.PLAYER_IMMORTAL) {
+        healthDisplay.style.display = 'none';
+    } else {
+        const healthStatus = player.getHealthStatus();
+        healthDisplay.textContent = `Health: ${healthStatus.current}/${healthStatus.max}`;
+    }
+    
     document.body.appendChild(healthDisplay);
 }
 

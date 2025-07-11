@@ -6,7 +6,6 @@ export const CONFIG = {
     DEBUG_SHOW_WEAPON: true,
     DEBUG_CONSOLE_LOGS: false,
 
-
     // Configurações de armas
     WEAPON_SWITCH_COOLDOWN: 300, // Tempo em milissegundos para
     WEAPONS:{
@@ -33,8 +32,10 @@ export const CONFIG = {
       },
     },
     
+    PLAYER_IMMORTAL: true,
+
     // Configurações de movimento e física
-    MOVE_SPEED: 20,
+    MOVE_SPEED: 90,
     GRAVITY: -20,
       // Configurações do jogador
     CAMERA_HEIGHT: 1.8,
