@@ -74,7 +74,7 @@ export function createAreas(scene, collidableObjects) {
     
     const area2Group = scene.getObjectByName("Area2");
     if (area2Group) {
-        area2KeyPlatform = area2Group.getObjectByName("BlueKeyPlatform");
+        area2KeyPlatform = area2Group.getObjectByName("CentralBlock");
     }
 }
 
@@ -147,31 +147,20 @@ function createArea2(scene, materials, collidableObjects) {
     const blockgroup = createGradientBlocksWithGap(point1, point2, scene, 4.0, collidableObjects);
     area2.add(blockgroup);
   
-    
-    // Adiciona plataforma para a chave azul no centro da área 2
-    const blueKeyPlatform = createBlueKeyPlatform(scene);
-    area2.add(blueKeyPlatform);
+    // Criar bloco central que irá se elevar para revelar a chave azul
+    const centralBlock = createCentralBlockWithKey(scene);
+    area2.add(centralBlock);
     
     scene.add(area2);
 
-    //stair2.add(createStair(50.0, CONFIG.STAIR_HEIGHT_OFFSET, -62.8, CONFIG.AREA_HEIGHT, true, materials.stair));
-    //scene.add(stair2);
     markCollisionObject(area2, collidableObjects);
-    //markCollisionObject(stair2, collidableObjects);
+    markCollisionObject(centralBlock, collidableObjects); // Tornar o bloco central colidível
+
     createElevator(scene, collidableObjects, 50.0, -66.05);
-    enableShadowsForAll(area2); // Ativa sombras na área 2
-    enableShadowsForAll(blueKeyPlatform); // Ativa sombras na plataforma da chave
+    enableShadowsForAll(area2);
 
-    createDoor(scene, collidableObjects, 50.0, -63, 15.0, 4.0, 'red'); // Porta vermelha para a Área 3
-    createtotem(scene, collidableObjects, 60.0, -59.05, 'red'); // Totem vermelho para a Área 3
-
-    let blocoCentral = new THREE.Mesh(areaGeometry, materials.area2);
-    blocoCentral.scale.set(8.0, 8.0, 8.0);
-    blocoCentral.position.set(0.0, 8.0 , -131.0);
-    scene.add(blocoCentral);
-    collidableObjects.push(blocoCentral);
-    blocoCentral.castShadow = true; // Ativa sombras no bloco central
-
+    createDoor(scene, collidableObjects, 50.0, -63, 15.0, 4.0, 'red');
+    createtotem(scene, collidableObjects, 60.0, -59.05, 'red');
 }
 
 // Cria a Área 3 (azul escuro)
@@ -335,7 +324,6 @@ function createKeyPlatform(scene) {
     
     // Adicionar a chave ao keyManager e à cena
     if (keyManager.addKey(redKeyInstance, scene)) {
-        console.log('[ENVIRONMENT] Red key added to KeyManager successfully');
         // Esconder a chave inicialmente (será mostrada quando a plataforma subir)
         if (redKeyInstance.getMesh()) {
             redKeyInstance.getMesh().visible = false;
@@ -355,6 +343,46 @@ function createKeyPlatform(scene) {
     return platformGroup;
 }
 
+function createCentralBlockWithKey(scene) {
+    const blockGroup = new THREE.Group();
+    blockGroup.name = "CentralBlock";
+    
+    const blockMaterial = new THREE.MeshLambertMaterial({ color: 0x8B0000 }); // Vermelho escuro
+    
+    // Criar bloco central como um cubo grande
+    const blockGeometry = new THREE.BoxGeometry(12, 12, 12);
+    const centralBlock = new THREE.Mesh(blockGeometry, blockMaterial);
+    centralBlock.position.set(0.0, CONFIG.AREA_Y_POSITION + 6, -131.0); // Posição inicial no chão
+    centralBlock.castShadow = true;
+    centralBlock.receiveShadow = true;
+    blockGroup.add(centralBlock);
+    
+    // Criar a chave amarela na posição final (mesma altura da chave vermelha após subir)
+    const redKeyTargetY = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + 0.5;
+    const finalKeyHeight = redKeyTargetY + 1.0; // Mesma altura da chave vermelha após subir
+    const keyPosition = new THREE.Vector3(0.0, finalKeyHeight, -131.0);
+    const yellowKeyInstance = new Key('yellow', keyPosition);
+    
+    if (keyManager.addKey(yellowKeyInstance, scene)) {
+        if (yellowKeyInstance.getMesh()) {
+            yellowKeyInstance.getMesh().visible = false; // Inicialmente invisível
+            yellowKeyInstance.getMesh().position.copy(keyPosition);
+            yellowKeyInstance.position.copy(keyPosition);
+            yellowKeyInstance.originalY = finalKeyHeight;
+        }
+    }
+    
+    // Configurar userData para controle da animação
+    blockGroup.userData.centralBlock = centralBlock;
+    blockGroup.userData.keyInstance = yellowKeyInstance;
+    blockGroup.userData.isRaised = false;
+    blockGroup.userData.shouldRaise = false;
+    blockGroup.userData.originalY = CONFIG.AREA_Y_POSITION + 6;
+    blockGroup.userData.targetY = CONFIG.AREA_Y_POSITION + 20; // Altura final
+    
+    return blockGroup;
+}
+
 function createBlueKeyPlatform(scene) {
     const platformGroup = new THREE.Group();
     platformGroup.name = "BlueKeyPlatform";
@@ -370,7 +398,6 @@ function createBlueKeyPlatform(scene) {
     const blueKeyInstance = new Key('blue', keyPosition);
     
     if (keyManager.addKey(blueKeyInstance, scene)) {
-        console.log('[ENVIRONMENT] Blue key added to KeyManager successfully');
         // Esconder a chave inicialmente (será mostrada quando a plataforma subir)
         if (blueKeyInstance.getMesh()) {
             blueKeyInstance.getMesh().visible = false;
@@ -394,7 +421,6 @@ export function updateArea1(delta) {
     if (!area1KeyPlatform) return;
     
     if (!area1KeyPlatform.userData.shouldRaise && areAllArea1EnemiesDefeated()) {
-        console.log('Todas Lost Souls da área 1 derrotadas! Subindo plataforma.');
         area1KeyPlatform.userData.shouldRaise = true;
         setTimeout(() => {
             cleanupDeadEnemies(area1KeyPlatform.parent);
@@ -409,14 +435,14 @@ export function updateArea2(delta) {
     if (!area2KeyPlatform) return;
     
     if (!area2KeyPlatform.userData.shouldRaise && areAllArea2EnemiesDefeated()) {
-        console.log('Todos Cacodemons da área 2 derrotados! Subindo plataforma.');
         area2KeyPlatform.userData.shouldRaise = true;
         setTimeout(() => {
             cleanupDeadEnemies(area2KeyPlatform.parent);
         }, 1000);
     }
+    
     if (area2KeyPlatform.userData.shouldRaise && !area2KeyPlatform.userData.isRaised) {
-        raisePlatform(area2KeyPlatform, delta);
+        raiseCentralBlock(area2KeyPlatform, delta);
     }
 }
 
@@ -427,7 +453,7 @@ export function isPlayerInArea1(camera) {
     const playerZ = camera.position.z;
     
     // Área 1 - posições baseadas nas definições em createArea1
-    // Centro: (-152.25, -131.0) com escala (125.0, 125.0)
+    // Centro: (-152.25, -131.0), dimensões 125x125
     // Esquerda: (-210.0, -66.0) com escala (9.5, 6.0)
     // Direita: (-140.0, -66.0) com escala (100.5, 6.0)
     
@@ -532,7 +558,6 @@ function raisePlatform(platformGroup, delta) {
             // Tornar a chave visível quando a plataforma começar a subir
             if (!keyMesh.visible) {
                 keyMesh.visible = true;
-                console.log(`[ENVIRONMENT] ${keyInstance.getType()} key is now visible!`);
             }
         }
         
@@ -546,7 +571,6 @@ function raisePlatform(platformGroup, delta) {
                 keyInstance.originalY = finalKeyY;
             }
             platformGroup.userData.isRaised = true;
-            console.log(`[ENVIRONMENT] Platform fully raised with ${keyInstance ? keyInstance.getType() : 'unknown'} key!`);
         }
     }
 }
@@ -674,4 +698,44 @@ function createGradientBlocksWithGap(point1, point2, scene, baseHeight, collidab
     markCollisionObject(blocksGroup, collidableObjects);
 
     return blocksGroup;
+}
+
+function raiseCentralBlock(blockGroup, delta) {
+    const centralBlock = blockGroup.userData.centralBlock;
+    const keyInstance = blockGroup.userData.keyInstance;
+    const originalY = blockGroup.userData.originalY;
+    const targetY = blockGroup.userData.targetY;
+    
+    if (centralBlock.position.y < targetY) {
+        const riseSpeed = 3; // Velocidade de elevação
+        const deltaY = riseSpeed * delta;
+        
+        // Elevar o bloco central
+        centralBlock.position.y += deltaY;
+        
+        // Tornar a chave visível quando o bloco começar a se elevar
+        if (keyInstance && keyInstance.getMesh()) {
+            const keyMesh = keyInstance.getMesh();
+            
+            if (!keyMesh.visible) {
+                keyMesh.visible = true;
+            }
+        }
+        
+        if (centralBlock.position.y >= targetY) {
+            centralBlock.position.y = targetY;
+            
+            // Quando o bloco atinge a altura final, posicionar a chave na mesma altura da chave vermelha
+            if (keyInstance && keyInstance.getMesh()) {
+                // Altura final da chave vermelha = targetY + 1.0 onde targetY = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + 0.5
+                const redKeyTargetY = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + 0.5;
+                const finalKeyHeight = redKeyTargetY + 1.0; // Mesma altura da chave vermelha após subir
+                keyInstance.getMesh().position.y = finalKeyHeight;
+                keyInstance.position.y = finalKeyHeight;
+                keyInstance.originalY = finalKeyHeight;
+            }
+            
+            blockGroup.userData.isRaised = true;
+        }
+    }
 }

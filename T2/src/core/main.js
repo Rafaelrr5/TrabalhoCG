@@ -472,20 +472,25 @@ async function resetGameAreas() {
     }
     
     if (area2KeyPlatform) {
-      console.log('[RESTART] Resetting area 2 platform');
+      console.log('[RESTART] Resetting area 2 central block');
       area2KeyPlatform.userData.shouldRaise = false;
       area2KeyPlatform.userData.isRaised = false;
       
-      const platform = area2KeyPlatform.userData.platform;
+      const centralBlock = area2KeyPlatform.userData.centralBlock;
       const keyInstance = area2KeyPlatform.userData.keyInstance;
       
-      if (platform) {
-        platform.position.y = CONFIG.AREA_Y_POSITION - 2;
+      if (centralBlock) {
+        centralBlock.position.y = CONFIG.AREA_Y_POSITION + 6; // Posição original do bloco
       }
       if (keyInstance && keyInstance.getMesh()) {
-        keyInstance.getMesh().position.y = CONFIG.AREA_Y_POSITION - 1.0;
-        keyInstance.getMesh().position.x = 20.0;
+        const redKeyTargetY = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + 0.5;
+        const finalKeyHeight = redKeyTargetY + 1.0; // Mesma altura da chave vermelha após subir
+        keyInstance.getMesh().position.y = finalKeyHeight;
+        keyInstance.getMesh().position.x = 0.0;
+        keyInstance.getMesh().position.z = -131.0;
         keyInstance.getMesh().visible = false;
+        keyInstance.position.y = finalKeyHeight;
+        keyInstance.originalY = finalKeyHeight;
       }
     }
 

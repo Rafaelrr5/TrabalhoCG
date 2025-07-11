@@ -92,7 +92,8 @@ export const CONFIG = {
     KEYS: {
         COLORS: {
             red: 0xff0000,
-            blue: 0x0000ff
+            blue: 0x0000ff,
+            yellow: 0xffff00
         },
         ANIMATION: {
             ROTATION_SPEED: 0.02,

@@ -182,7 +182,6 @@ export class Key {
         this.mesh = null;
     }
 
-    // Getters
     getType() {
         return this.keyType;
     }
@@ -357,7 +356,6 @@ export class KeyManager {
         this.notifyInventoryChange('cleared', null);
     }
 
-    // Use a key (removes from inventory when used at totem)
     useKey(keyType) {
         if (!this.hasKey(keyType)) {
             console.warn(`[KEY MANAGER] Trying to use key that is not in inventory: ${keyType}`);
@@ -424,5 +422,4 @@ export class KeyManager {
     }
 }
 
-// Create a global key manager instance
 export const keyManager = new KeyManager();
