@@ -114,13 +114,15 @@ export class PersistentPursuitBehavior {
     
     let multiplier = this.aggressionLevel;
     
-    // Distance-based speed scaling for persistent pursuit
-    if (distance > 50.0) {
+    // More aggressive distance-based speed scaling for persistent pursuit
+    if (distance > 40.0) {
       multiplier *= this.config.persistentChaseSpeedMultiplier; // Very fast when very far
-    } else if (distance > 25.0) {
-      multiplier *= 1.8; // Fast when far
-    } else if (distance > 15.0) {
-      multiplier *= 1.4; // Moderate when medium distance
+    } else if (distance > 20.0) {
+      multiplier *= 2.2; // Much faster when far
+    } else if (distance > 10.0) {
+      multiplier *= 1.8; // Fast when medium distance
+    } else if (distance > 5.0) {
+      multiplier *= 1.5; // Still fast when close
     }
     
     return multiplier;

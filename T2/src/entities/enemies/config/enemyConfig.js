@@ -114,11 +114,11 @@ export const CACODEMON_CONFIG = {
   AGGRO_RANGE: 50.0, // Increased from 40.0
   PATROL_RADIUS: 8.0,
   PURSUIT_RANGE: 100.0, // Increased from 70.0 for extended pursuit
-  MIN_DISTANCE_TO_PLAYER: 15.0, // Decreased from 18.0 - get even closer
-  MOVE_SPEED: 10.0, // Increased from 8.0 for faster movement
-  ACTIVATION_DISTANCE: 80.0, // Increased from 60.0 for earlier activation
-  OPTIMAL_ATTACK_DISTANCE: 12.0, // Decreased from 14.0 - attack even closer
-  MAX_ATTACK_DISTANCE: 25.0, // Increased from 20.0
+  MIN_DISTANCE_TO_PLAYER: 8.0, // Decreased from 15.0 - get much closer
+  MOVE_SPEED: 12.0, // Increased from 10.0 for faster movement
+  ACTIVATION_DISTANCE: 100.0, // Increased from 80.0 for earlier activation
+  OPTIMAL_ATTACK_DISTANCE: 6.0, // Decreased from 12.0 - attack much closer
+  MAX_ATTACK_DISTANCE: 15.0, // Decreased from 25.0
   
   SPAWN_AREAS: {
     area2: {
