@@ -1,3 +1,9 @@
+/**
+ * Responsável por:
+ * - Criar e inicializar todas as armas disponíveis
+ * - Gerenciar troca entre armas
+ * - Delegar chamadas para a arma atualmente ativa
+ */
 import * as THREE from '../../../build/three.module.js';
 import { Gun } from './weapon.js';
 import { Chaingun } from './chaingun.js';
