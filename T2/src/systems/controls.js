@@ -13,15 +13,30 @@ export let moveState = {
 };
 
 let lastWeaponSwitch = 0; // Timestamp do último switch de arma
+let isMousePressed = false; // Estado do botão do mouse
 
 // Configura todos os event listeners
 export function setupEventListeners(camera, scene,) {
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
-    document.addEventListener('mousedown', () => startShooting());
-    document.addEventListener('mouseup', stopShooting);
+    document.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mouseup', onMouseUp);
     document.addEventListener('wheel', (e)=> weaponSwitch(Date.now(), e.deltaY));
     window.addEventListener('resize', onWindowResize);
+}
+
+function onMouseDown() {
+    if (!isMousePressed) {
+        isMousePressed = true;
+        startShooting();
+    }
+}
+
+function onMouseUp() {
+    if (isMousePressed) {
+        isMousePressed = false;
+        stopShooting();
+    }
 }
 
 // ===== CONTROLES DE MOVIMENTO =====

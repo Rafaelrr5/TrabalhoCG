@@ -7,6 +7,10 @@ import { SpriteMixer } from '../utils/spriteMixer.js';
 
 export class Chaingun {
     constructor(camera) {
+        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+            console.log('[CHAINGUN] Constructor called');
+        }
+        
         this.camera = camera;
         this.mesh = null;
         this.projectiles = [];
@@ -14,6 +18,7 @@ export class Chaingun {
         this.lastShotTime = 0;
         this.isMousePressed = false;
         this.raycaster = new THREE.Raycaster();
+        this.raycaster.camera = camera; // Necessário para raycast com sprites
         this.collisionDistance = CONFIG.WEAPONS.CHAINGUN.PROJECTILE_SIZE * 2;
         this.activationDelay = CONFIG.WEAPONS.CHAINGUN.ACTIVATION_DELAY;
         this.activationTimer = 0;
@@ -24,6 +29,8 @@ export class Chaingun {
         this.preparing;
         this.shooting;
         this.loader;
+        this.isLoaded = false; // Flag para indicar se o sprite foi carregado
+        this.pendingVisibility = null; // Visibilidade pendente para quando carregar
         
         // Gun properties
         this.isVisible = CONFIG.DEBUG_SHOW_WEAPON;
@@ -33,6 +40,10 @@ export class Chaingun {
         this.projectileLifetime = CONFIG.WEAPONS.CHAINGUN.PROJECTILE_LIFETIME;
 
         this.id = Chaingun.generateId();
+        
+        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+            console.log(`[CHAINGUN] Constructor finished, ID: ${this.id}`);
+        }
         
         // Audio system
         this.fireSound = null;
@@ -45,45 +56,35 @@ export class Chaingun {
     }
 
     init(scene) {
+        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+            console.log(`[CHAINGUN] Init called for ${this.id}`);
+        }
+        
         if (!scene) {
             console.error("Scene is required for gun initialization");
             return false;
         }
         
         this.scene = scene;
-        this.createGunMesh();
-        //this.createSprite();
+        this.createSprite();
         this.initAudio();
         
         if (CONFIG.DEBUG_CONSOLE_LOGS) {
-            console.log(`[Chaingun] Chaingun created with ID: ${this.id}`);
+            console.log(`[CHAINGUN] Init completed for ${this.id}`);
         }
         
         return true;
     }
 
-    createGunMesh() {
-        const gunGeometry = new THREE.CylinderGeometry(CONFIG.GUN_RADIUS, CONFIG.GUN_RADIUS, CONFIG.GUN_LENGTH);
-        const gunMaterial = new THREE.MeshLambertMaterial({color:'darkgrey'});
-        this.mesh = new THREE.Mesh(gunGeometry, gunMaterial);
-        //this.mesh = this.createSprite();
-        
-        // Rotaciona para apontar para frente
-        this.mesh.rotation.x = Math.PI / 2;
-        // Posiciona relativo à câmera (inferior-direita da visão)
-        this.mesh.position.set(CONFIG.GUN_POSITION.x, CONFIG.GUN_POSITION.y, CONFIG.GUN_POSITION.z);
-        
-        // Define visibilidade baseada nas configurações de debug
-        this.mesh.visible = this.isVisible;
-        
-        // Anexa a arma na câmera para mover com o jogador
-        this.camera.add(this.mesh);
-        
-        if (CONFIG.DEBUG_CONSOLE_LOGS) {
-            console.log(`[Chaingun] Chaingun mesh created and attached to camera`);
+    update(delta) {
+        // Atualiza as animações do sprite
+        if (this.spriteMixer) {
+            this.spriteMixer.update(delta);
         }
     }
 
+    // update method moved earlier in the class
+    
     initAudio() {
         // Check if audio listener is available
         if (!window.listener) {
@@ -98,7 +99,6 @@ export class Chaingun {
             this.fireSound.setBuffer(buffer);
             this.fireSound.setVolume(0.3); // Lower volume to not overpower ambient music
             this.isAudioInitialized = true;
-            console.log('[CHAINGUN] Loaded chaingun fire sound');
         }, undefined, (error) => {
             console.warn('[CHAINGUN] Failed to load chaingun fire sound:', error);
         });
@@ -115,18 +115,41 @@ export class Chaingun {
     }
 
     startShooting() {
-        if (this.isMousePressed) return;
+        if (this.isMousePressed || this.shootInterval) {
+            if (CONFIG.DEBUG_CONSOLE_LOGS) {
+                console.log('[CHAINGUN] startShooting() called but already shooting or interval exists');
+            }
+            return;
+        }
+        
+        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+            console.log('[CHAINGUN] Starting shooting');
+        }
+        
         this.isMousePressed = true;
         this.isActivating = true;
         this.activationTimer = 0;
-        //this.actions.preparing.playLoop();
+        
+        // Inicia animação de preparação se o sprite estiver carregado
+        if (this.actions.preparing) {
+            this.actions.preparing.playLoop();
+        }
+        
         // Não dispara imediatamente, espera o tempo de ativação
         this.shootInterval = setInterval(() => {
             this.activationTimer += this.shootRate;
         
             if (this.activationTimer >= this.activationDelay && this.isMousePressed) {
                 this.isActivating = false;
-                //this.actions.shooting.playLoop();
+                
+                // Troca para animação de tiro
+                if (this.actions.preparing) {
+                    this.actions.preparing.stop();
+                }
+                if (this.actions.shooting) {
+                    this.actions.shooting.playLoop();
+                }
+                
                 this.shoot();
             }
         }, this.shootRate);
@@ -136,8 +159,27 @@ export class Chaingun {
         this.isMousePressed = false;
         this.isActivating = false;
         this.activationTimer = 0;
-        clearInterval(this.shootInterval);
-        this.shootInterval = null;
+        
+        // Limpa o interval se existir
+        if (this.shootInterval) {
+            clearInterval(this.shootInterval);
+            this.shootInterval = null;
+            
+            if (CONFIG.DEBUG_CONSOLE_LOGS) {
+                console.log('[CHAINGUN] Shooting stopped, interval cleared');
+            }
+        }
+        
+        // Para todas as animações e volta ao frame inicial
+        if (this.actions.preparing) {
+            this.actions.preparing.stop();
+        }
+        if (this.actions.shooting) {
+            this.actions.shooting.stop();
+        }
+        if (this.chaingunSprite) {
+            this.chaingunSprite.setFrame(0);
+        }
     }
 
     isActivating() {
@@ -145,7 +187,7 @@ export class Chaingun {
     }
 
     shoot() {
-        if (!this.mesh || !this.camera || !this.scene) return; // Verificação de segurança
+        if (!this.chaingunSprite || !this.camera || !this.scene) return; // Verificação de segurança
         
         // Atualiza timestamp do último disparo
         this.lastShotTime = performance.now();
@@ -161,7 +203,7 @@ export class Chaingun {
         
         // Calcula posição mundial da ponta da arma com precisão
         const gunWorldPosition = new THREE.Vector3();
-        this.mesh.getWorldPosition(gunWorldPosition);
+        this.chaingunSprite.getWorldPosition(gunWorldPosition);
         
         // Calcula offset da ponta da arma no espaço local
         const gunTipOffset = new THREE.Vector3(0, 0, CONFIG.GUN_TIP_OFFSET);
@@ -186,15 +228,19 @@ export class Chaingun {
 
         // Play fire sound
         this.playFireSound();
-
-        if (CONFIG.DEBUG_CONSOLE_LOGS) {
-            console.log(`[GUN] Projectile fired. Active projectiles: ${this.projectiles.length}`);
-        }
     }
 
     playFireSound() {
         if (this.fireSound && this.isAudioInitialized) {
-            this.fireSound.play();
+            try {
+                // Para o som anterior se ainda estiver tocando
+                if (this.fireSound.isPlaying) {
+                    this.fireSound.stop();
+                }
+                this.fireSound.play();
+            } catch (error) {
+                console.debug('[CHAINGUN] Fire sound play error:', error.message);
+            }
         }
     }
 
@@ -213,11 +259,19 @@ export class Chaingun {
 
             const intersects = this.raycaster.intersectObjects(this.scene.children, true);
 
-            // Filtra as colisões 
+            // Filtra as colisões - exclui sprites e objetos relacionados à arma
             const validIntersects = intersects.filter(intersect => {
-                return intersect.object !== this.mesh && 
-                       intersect.object !== projectile && 
-                       intersect.object.parent !== this.mesh;
+                const obj = intersect.object;
+                // Exclui o sprite da chaingun
+                if (obj === this.chaingunSprite) return false;
+                // Exclui o projétil atual
+                if (obj === projectile) return false;
+                // Exclui objetos filhos do sprite da chaingun
+                if (obj.parent === this.chaingunSprite) return false;
+                // Exclui outros sprites que podem estar na cena
+                if (obj.type === 'Sprite') return false;
+                
+                return true;
             });
 
             // Se colidiu com inimigo, aplica dano e remove projétil
@@ -276,39 +330,67 @@ export class Chaingun {
     }
 
     toggleVisibility() {
-        if (this.mesh && this.chaingunSprite) {
-            this.mesh.visible = !this.mesh.visible;
-            this.chaingunSprite.visible = !this.chaingunSprite.visible;
-            this.isVisible = this.mesh.visible;
+        this.isVisible = !this.isVisible;
+        
+        if (this.isLoaded && this.chaingunSprite) {
+            this.chaingunSprite.visible = this.isVisible;
             
             // Atualiza a configuração global
-            CONFIG.DEBUG_SHOW_WEAPON = this.mesh.visible;
+            CONFIG.DEBUG_SHOW_WEAPON = this.isVisible;
             
             if (CONFIG.DEBUG_CONSOLE_LOGS) {
-                console.log(`[GUN] Arma: ${this.mesh.visible ? 'VISÍVEL' : 'OCULTA'}`);
+                console.log(`[Chaingun] Arma: ${this.isVisible ? 'VISÍVEL' : 'OCULTA'}`);
+            }
+        } else {
+            this.pendingVisibility = this.isVisible;
+            if (CONFIG.DEBUG_CONSOLE_LOGS) {
+                console.log(`[Chaingun] Toggle pendente, será aplicado quando carregar`);
             }
         }
     }
 
     setVisibility(visible) {
-        if (this.mesh && this.chaingunSprite) {
+        this.isVisible = visible;
+        
+        if (this.isLoaded && this.chaingunSprite) {
             this.chaingunSprite.visible = visible;
-            this.mesh.visible = visible;
-            this.isVisible = visible;
             if (CONFIG.DEBUG_CONSOLE_LOGS) {
-                console.log(`[GUN] Arma definida como: ${visible ? 'VISÍVEL' : 'OCULTA'}`);
+                console.log(`[Chaingun] Arma definida como: ${visible ? 'VISÍVEL' : 'OCULTA'} - Aplicado imediatamente`);
             }
+        } else {
+            // Armazena a visibilidade para aplicar quando o sprite carregar
+            this.pendingVisibility = visible;
+            if (CONFIG.DEBUG_CONSOLE_LOGS) {
+                console.log(`[Chaingun] Sprite não carregado, visibilidade pendente: ${visible ? 'VISÍVEL' : 'OCULTA'}`);
+            }
+        }
+    }
+
+    forceVisible() {
+        if (this.chaingunSprite) {
+            this.chaingunSprite.visible = true;
+            this.isVisible = true;
+            console.log('[CHAINGUN] Forçando visibilidade do sprite');
+            console.log('[CHAINGUN] Sprite position:', this.chaingunSprite.position);
+            console.log('[CHAINGUN] Sprite scale:', this.chaingunSprite.scale);
+            console.log('[CHAINGUN] Sprite visible:', this.chaingunSprite.visible);
+            console.log('[CHAINGUN] Camera position:', this.camera.position);
+            console.log('[CHAINGUN] Camera rotation:', this.camera.rotation);
         }
     }
 
     debugInfo() {
         if (!CONFIG.DEBUG_CONSOLE_LOGS) return;
         
-        console.log('=== DEBUG ARMA ===');
+        console.log('=== DEBUG CHAINGUN ===');
         console.log(`ID: ${this.id}`);
-        console.log(`Posição da arma: (${this.mesh?.position.x.toFixed(2)}, ${this.mesh?.position.y.toFixed(2)}, ${this.mesh?.position.z.toFixed(2)})`);
-        console.log(`Rotação da arma: (${this.mesh?.rotation.x.toFixed(2)}, ${this.mesh?.rotation.y.toFixed(2)}, ${this.mesh?.rotation.z.toFixed(2)})`);
-        console.log(`Visível: ${this.mesh?.visible}`);
+        console.log(`Sprite carregado: ${this.isLoaded}`);
+        console.log(`Sprite existe: ${!!this.chaingunSprite}`);
+        console.log(`isVisible: ${this.isVisible}`);
+        console.log(`Sprite visible: ${this.chaingunSprite?.visible}`);
+        console.log(`Visibilidade pendente: ${this.pendingVisibility}`);
+        console.log(`Posição da arma: (${this.chaingunSprite?.position.x.toFixed(2)}, ${this.chaingunSprite?.position.y.toFixed(2)}, ${this.chaingunSprite?.position.z.toFixed(2)})`);
+        console.log(`Rotação da arma: (${this.chaingunSprite?.rotation.x.toFixed(2)}, ${this.chaingunSprite?.rotation.y.toFixed(2)}, ${this.chaingunSprite?.rotation.z.toFixed(2)})`);
         console.log(`Projéteis ativos: ${this.projectiles.length}`);
         console.log(`Dano: ${this.damage}`);
         console.log(`Taxa de tiro: ${this.shootRate}ms`);
@@ -365,45 +447,169 @@ export class Chaingun {
         });
         this.projectiles = [];
         
-        // Remove gun mesh
+        // Remove sprite
         if (this.chaingunSprite && this.camera) {
             this.camera.remove(this.chaingunSprite);
         }
         
         this.chaingunSprite = null;
+        this.mesh = null;
         this.scene = null;
         this.camera = null;
         
         if (CONFIG.DEBUG_CONSOLE_LOGS) {
-            console.log(`[GUN] Gun ${this.id} destroyed`);
+            console.log(`[Chaingun] Chaingun ${this.id} destroyed`);
         }
     }
 
     createSprite(){
-        this.spriteMixer = SpriteMixer();
-        let preparing, shooting;
-        this.loader = new THREE.TextureLoader();
-        this.loader.load('./assets/textures/ChaingunSpriteAtirando.png', (texture) => {
-            this.chaingunSprite = this.spriteMixer.ActionSprite(texture, 4, 1);
-            //chaingunSprite.add(axesHelperSprite);
-            this.chaingunSprite.setFrame(0);
-            this.actions.preparing = this.spriteMixer.Action(this.chaingunSprite, 0, 1, 40);
-            this.actions.shooting = this.spriteMixer.Action(this.chaingunSprite, 2, 3, 40);
-            this.preparing = preparing;
-            this.shooting = shooting;
+        try {
+            this.spriteMixer = SpriteMixer();
+            this.loader = new THREE.TextureLoader();
+            
+            // Lista de possíveis caminhos para a textura
+            const possiblePaths = [
+                'assets/textures/ChaingunSpriteAtirando.png',
+                './assets/textures/ChaingunSpriteAtirando.png',
+                '/T2/assets/textures/ChaingunSpriteAtirando.png',
+                '../assets/textures/ChaingunSpriteAtirando.png'
+            ];
+            
+            const tryLoadTexture = (pathIndex = 0) => {
+                if (pathIndex >= possiblePaths.length) {
+                    console.error('[Chaingun] Todos os caminhos falharam, usando fallback');
+                    this.createFallbackMesh();
+                    return;
+                }
+                
+                const currentPath = possiblePaths[pathIndex];
+                if (CONFIG.DEBUG_CONSOLE_LOGS) {
+                    console.log(`[Chaingun] Tentando carregar: ${currentPath}`);
+                }
+                
+                this.loader.load(currentPath, 
+                    (texture) => {
+                        // Callback de sucesso
+                        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+                            console.log(`[Chaingun] Sucesso ao carregar: ${currentPath}`);
+                        }
+                        
+                        this.chaingunSprite = this.spriteMixer.ActionSprite(texture, 4, 1);
+                        this.chaingunSprite.setFrame(0);
+                        
+                        // Ajustar o recorte vertical da textura para remover áreas vazias
+                        if (this.chaingunSprite.material && this.chaingunSprite.material.map) {
+                            const tex = this.chaingunSprite.material.map;
+                            // Limita a área vertical da textura
+                            tex.repeat.y = 0.99;  // Tira 1% pra nao mostrar a linha da imagem acima da sprite
+                            tex.needsUpdate = true;
+                        }
+                        
+                        // Configurar propriedades do material do sprite
+                        if (this.chaingunSprite.material) {
+                            this.chaingunSprite.material.transparent = true;
+                            this.chaingunSprite.material.alphaTest = 0.1;
+                            this.chaingunSprite.material.side = THREE.DoubleSide;
+                        }
+                        
+                        // Cria as ações de animação
+                        this.actions.preparing = this.spriteMixer.Action(this.chaingunSprite, 0, 1, 40);
+                        this.actions.shooting = this.spriteMixer.Action(this.chaingunSprite, 2, 3, 40);
 
-            this.chaingunSprite.visible = false;
+                        this.chaingunSprite.matrixAutoUpdate = true;
+                        this.chaingunSprite.frustumCulled = false;
 
-            this.chaingunSprite.matrixautoUpdate = true;
-            this.chaingunSprite.frustums = false;
+                        // Posiciona o sprite relativo à câmera - ajustado para ser mais visível
+                        this.chaingunSprite.position.set(CONFIG.GUN_POSITION.x + 0.3, CONFIG.GUN_POSITION.y + 0.2, CONFIG.GUN_POSITION.z - 0.5);
+                        
+                        // Ajustar a geometria do sprite para uma proporção melhor
+                        if (this.chaingunSprite.geometry) {
+                            // Reduz a altura da geometria para cortar as partes vazias
+                            this.chaingunSprite.scale.set(0.5, 0.3, 0.5); // Escala Y menor para cortar vertical
+                        }
 
+                        // Anexa o sprite na câmera
+                        this.camera.add(this.chaingunSprite);
+                        this.mesh = this.chaingunSprite;
+                        
+                        // Marca como carregado
+                        this.isLoaded = true;
+                        
+                        // Aplica visibilidade pendente ou padrão
+                        const finalVisibility = this.pendingVisibility !== null ? this.pendingVisibility : this.isVisible;
+                        this.chaingunSprite.visible = finalVisibility;
+                        this.isVisible = finalVisibility;
+                        
+                        // Verifica se o sprite está realmente visível
+                        setTimeout(() => {
+                            if (this.chaingunSprite && this.chaingunSprite.visible !== finalVisibility) {
+                                this.chaingunSprite.visible = finalVisibility;
+                                console.log(`[Chaingun] Corrigindo visibilidade do sprite para: ${finalVisibility}`);
+                            }
+                            
+                            // Debug adicional após carregamento
+                            if (CONFIG.DEBUG_CONSOLE_LOGS) {
+                                console.log(`[Chaingun] Verificação pós-carregamento:`);
+                                console.log(`[Chaingun] - Sprite visible: ${this.chaingunSprite?.visible}`);
+                                console.log(`[Chaingun] - Sprite position: (${this.chaingunSprite?.position.x}, ${this.chaingunSprite?.position.y}, ${this.chaingunSprite?.position.z})`);
+                                console.log(`[Chaingun] - Na camera: ${this.camera.children.includes(this.chaingunSprite)}`);
+                            }
+                        }, 50);
+                        
+                        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+                            console.log(`[Chaingun] Sprite carregado! Visibilidade aplicada: ${finalVisibility ? 'VISÍVEL' : 'OCULTA'}`);
+                            console.log(`[Chaingun] Sprite adicionado à câmera, position:`, this.chaingunSprite.position);
+                            console.log(`[Chaingun] Sprite scale:`, this.chaingunSprite.scale);
+                            console.log(`[Chaingun] Sprite material:`, this.chaingunSprite.material);
+                            console.log(`[Chaingun] Sprite parent:`, this.chaingunSprite.parent?.type);
+                            console.log(`[Chaingun] Camera children count:`, this.camera.children.length);
+                        }
+                    },
+                    (progress) => {
+                        // Callback de progresso
+                        if (CONFIG.DEBUG_CONSOLE_LOGS && progress.total > 0) {
+                            console.log(`[Chaingun] Carregando sprite: ${Math.round((progress.loaded / progress.total) * 100)}%`);
+                        }
+                    },
+                    (error) => {
+                        // Callback de erro - tenta próximo caminho
+                        console.warn(`[Chaingun] Falha ao carregar: ${currentPath}`, error);
+                        tryLoadTexture(pathIndex + 1);
+                    }
+                );
+            };
+            
+            tryLoadTexture();
+            
+        } catch (error) {
+            console.error('[Chaingun] Error creating sprite:', error);
+            this.createFallbackMesh();
+        }
+    }
 
-            this.chaingunSprite.position.set(CONFIG.GUN_POSITION.x, -0.5, -1.0);
-            this.chaingunSprite.scale.set(1.0,1.0,1.0);
-            this.camera.add(this.chaingunSprite);
-            this.mesh = this.chaingunSprite;
-        });
-        //return this.loader;
+    createFallbackMesh() {
+        // Cria um modelo 3D simples como fallback
+        const gunGeometry = new THREE.CylinderGeometry(CONFIG.GUN_RADIUS, CONFIG.GUN_RADIUS, CONFIG.GUN_LENGTH);
+        const gunMaterial = new THREE.MeshLambertMaterial({color:'darkgrey'});
+        this.chaingunSprite = new THREE.Mesh(gunGeometry, gunMaterial);
+        
+        this.chaingunSprite.rotation.x = Math.PI / 2;
+        this.chaingunSprite.position.set(CONFIG.GUN_POSITION.x + 0.3, CONFIG.GUN_POSITION.y + 0.2, CONFIG.GUN_POSITION.z - 0.5);
+        
+        this.camera.add(this.chaingunSprite);
+        this.mesh = this.chaingunSprite;
+        
+        // Marca como carregado e aplica visibilidade
+        this.isLoaded = true;
+        const finalVisibility = this.pendingVisibility !== null ? this.pendingVisibility : this.isVisible;
+        this.chaingunSprite.visible = finalVisibility;
+        this.isVisible = finalVisibility;
+        
+        console.warn('[Chaingun] Using fallback 3D mesh instead of sprite');
+    }
+
+    isReady() {
+        return this.isLoaded;
     }
 }
 
@@ -456,6 +662,18 @@ export function setWeaponVisibility(visible) {
 export function debugWeaponInfo() {
     if (gun) {
         gun.debugInfo();
+    }
+}
+
+export function forceWeaponVisible() {
+    if (gun) {
+        gun.forceVisible();
+    }
+}
+
+export function updateWeapon(delta) {
+    if (gun) {
+        gun.update(delta);
     }
 }
 

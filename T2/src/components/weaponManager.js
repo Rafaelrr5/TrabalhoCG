@@ -12,10 +12,6 @@ export class WeaponManager {
         this.activeProjectiles = [];
         
         this.initWeapons();
-        // Garante que a Gun/Launcher está visível se DEBUG_SHOW_WEAPON for true
-        if (this.weapons.length > 0) {
-        this.weapons[0].setVisibility(CONFIG.DEBUG_SHOW_WEAPON);
-    }
     }
     
     initWeapons() {
@@ -26,13 +22,14 @@ export class WeaponManager {
         ];
         
         // Inicializa todas as armas
-        this.weapons.forEach(weapon => {
+        this.weapons.forEach((weapon, index) => {
             weapon.init(this.scene);
-            weapon.setVisibility(false); // Todas começam ocultas
+            // Apenas a primeira arma começa visível se DEBUG_SHOW_WEAPON for true
+            weapon.setVisibility(index === 0 ? CONFIG.DEBUG_SHOW_WEAPON : false);
         });
         
-        // Ativa a primeira arma por padrão
-        this.switchWeapon(0);
+        // Define o índice da arma atual
+        this.currentWeaponIndex = 0;
     }
     
     switchWeapon(index) {
@@ -45,10 +42,22 @@ export class WeaponManager {
             
             // Mostra a nova arma
             this.currentWeaponIndex = index;
-            this.weapons[this.currentWeaponIndex].setVisibility(CONFIG.DEBUG_SHOW_WEAPON);
+            const newWeapon = this.weapons[this.currentWeaponIndex];
+            
+            // Define visibilidade - a arma vai lidar com o carregamento internamente
+            newWeapon.setVisibility(CONFIG.DEBUG_SHOW_WEAPON);
             
             if (CONFIG.DEBUG_CONSOLE_LOGS) {
                 console.log(`[WEAPON] Switched to weapon ${index}`);
+                console.log(`[WEAPON] New weapon type: ${newWeapon.constructor.name}`);
+                
+                // Se for chaingun, chama debug info após um breve delay
+                if (newWeapon.constructor.name === 'Chaingun') {
+                    setTimeout(() => {
+                        console.log('[WEAPON] Chaingun debug info:');
+                        newWeapon.debugInfo();
+                    }, 100);
+                }
             }
         }
     }
@@ -78,7 +87,13 @@ export class WeaponManager {
     
       updateProjectiles(delta) {
         //atualiza os projéteis de todas as armas
-        this.weapons.forEach(weapon => weapon.updateProjectiles(delta));
+        this.weapons.forEach(weapon => {
+            weapon.updateProjectiles(delta);
+            // Atualiza as animações das armas que têm sprites
+            if (weapon.update) {
+                weapon.update(delta);
+            }
+        });
     }
     
     
@@ -142,4 +157,11 @@ export function previousWeapon() {
 
 export function getCurrentWeapon() {
     return weaponManager?.getCurrentWeapon();
+}
+
+export function forceWeaponVisible() {
+    const weapon = weaponManager?.getCurrentWeapon();
+    if (weapon && weapon.forceVisible) {
+        weapon.forceVisible();
+    }
 }

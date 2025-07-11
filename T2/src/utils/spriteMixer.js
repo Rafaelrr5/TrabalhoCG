@@ -3,7 +3,7 @@
 // Based on Lee Stemkoski's work who coded the core texture offsetting part :
 // http://stemkoski.github.io/Three.js/Texture-Animation.html
 
-import * as THREE from 'three';
+import * as THREE from '../../../build/three.module.js';
 
 export function SpriteMixer() {
 

@@ -13,6 +13,7 @@ export class Gun {
         this.lastShotTime = 0;
         this.isMousePressed = false;
         this.raycaster = new THREE.Raycaster();
+        this.raycaster.camera = camera; // Necessário para raycast com sprites
         this.collisionDistance = CONFIG.WEAPONS.LAUNCHER.PROJECTILE_SIZE * 2;
         
         // Gun properties
