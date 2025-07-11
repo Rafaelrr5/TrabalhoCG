@@ -17,6 +17,7 @@ export const CONFIG = {
         SHOOT_RATE: 500,
         PROJECTILE_SIZE: 0.2,
         PROJECTILE_COLOR: 'lightgreen',
+        PROJECTILE_VISIBILITY: true,
         DAMAGE: 10,
       },
       CHAINGUN:{
@@ -26,6 +27,7 @@ export const CONFIG = {
         SHOOT_RATE: 50,
         PROJECTILE_SIZE: 0.1,
         PROJECTILE_COLOR: 'lightyellow',
+        PROJECTILE_VISIBILITY: false,
         DAMAGE: 0.4,
         ACTIVATION_DELAY: 100, // Tempo de ativação em milissegundos
       },

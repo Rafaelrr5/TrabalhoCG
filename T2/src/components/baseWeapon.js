@@ -22,6 +22,7 @@ export class BaseWeapon {
         this.projectileLifetime = weaponConfig.PROJECTILE_LIFETIME;
         this.projectileSize = weaponConfig.PROJECTILE_SIZE;
         this.projectileColor = weaponConfig.PROJECTILE_COLOR;
+        this.projectileVisibility = weaponConfig.PROJECTILE_VISIBILITY
         
         this.id = this.generateId();
         this.scene = null;
@@ -116,7 +117,7 @@ export class BaseWeapon {
         
         // Cria geometria e material do projétil
         const projectileGeometry = new THREE.SphereGeometry(this.projectileSize);
-        const projectileMaterial = new THREE.MeshLambertMaterial({ color: this.projectileColor });
+        const projectileMaterial = new THREE.MeshLambertMaterial({ color: this.projectileColor , visible: this.projectileVisibility});
         const projectile = new THREE.Mesh(projectileGeometry, projectileMaterial);
         
         // Pega direção que a câmera está olhando no momento do tiro
