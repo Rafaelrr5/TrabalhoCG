@@ -227,11 +227,11 @@ export class Chaingun extends BaseWeapon {
                         }
                         
                         // Cria as ações de animação
-                        this.actions.preparing = this.spriteMixer.Action(this.chaingunSprite, 0, 1, 40);
-                        this.actions.shooting = this.spriteMixer.Action(this.chaingunSprite, 2, 3, 40);
+                        this.actions.preparing = this.spriteMixer.Action(this.chaingunSprite, 0, 1, 0.0001);
+                        this.actions.shooting = this.spriteMixer.Action(this.chaingunSprite, 2, 3, 0.0001);
 
-                        this.chaingunSprite.matrixAutoUpdate = true;
-                        this.chaingunSprite.frustumCulled = false;
+                        //this.chaingunSprite.matrixAutoUpdate = true;
+                        //this.chaingunSprite.frustumCulled = false;
 
                         // Posiciona o sprite relativo à câmera
                         this.chaingunSprite.position.set(CONFIG.GUN_POSITION.x, CONFIG.GUN_POSITION.y - 0.2, CONFIG.GUN_POSITION.z - 1.23);

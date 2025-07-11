@@ -159,7 +159,7 @@ function createArea2(scene, materials, collidableObjects) {
     createElevator(scene, collidableObjects, 50.0, -66.05);
     enableShadowsForAll(area2);
 
-    createDoor(scene, collidableObjects, 50.0, -63, 15.0, 4.0, 'red');
+    createDoor(scene, collidableObjects, 50.0, -63, 15.0, 4.0, 'blue');
     createtotem(scene, collidableObjects, 60.0, -59.05, 'red');
 }
 
@@ -627,7 +627,7 @@ function createGradientBlocksWithGap(point1, point2, scene, baseHeight, collidab
     
     // Tamanho do bloco e espaço total entre blocos
     const blockSize = 4.0;
-    const gapSize = 6.0;
+    const gapSize = 12.0;
     const totalSpacing = blockSize + gapSize;
     
     // Criar um grupo para os blocos

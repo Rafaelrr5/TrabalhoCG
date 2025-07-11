@@ -28,7 +28,7 @@ export const CONFIG = {
         PROJECTILE_SIZE: 0.1,
         PROJECTILE_COLOR: 'lightyellow',
         PROJECTILE_VISIBILITY: false,
-        DAMAGE: 0.4,
+        DAMAGE: 2.0, //isso gera 1 de dado/100ms
         ACTIVATION_DELAY: 100, // Tempo de ativação em milissegundos
       },
     },

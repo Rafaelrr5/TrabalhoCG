@@ -10,7 +10,7 @@ const riseSpeed = CONFIG.ELEVEVATOR_MOVEMENT_SPEED;
 const elevatorHeight = CONFIG.ELEVATOR_HEIGHT;
 
 export function createElevator(scene, collidableObjects, x, z) {
-    let elevatorMaterial = new THREE.MeshLambertMaterial({ color: 0xA9A9A9 });
+    let elevatorMaterial = new THREE.MeshLambertMaterial({ color: 'blue' });
     let elevatorGeometry = new THREE.BoxGeometry(15.0, 4.0, 4.8);
     elevator = new THREE.Mesh(elevatorGeometry, elevatorMaterial);
     elevator.position.set(x, -1.9, z);

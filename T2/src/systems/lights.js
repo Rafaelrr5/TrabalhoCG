@@ -2,13 +2,13 @@ import * as THREE from '../../../build/three.module.js';
 
 const LIGHTING_CONFIG = {
     ambient: {
-        color: "rgb(80,80,80)",
+        color: "rgb(50,50,50)",
         intensity: 0.8
     },
     directional: {
         color: 0xffffff,
         intensity: 5.0,
-        position: { x: 481.86, y: 300, z: -458.45 },
+        position: { x: 300.00, y: 450, z: -300.00 },
         castShadow: true,
         shadow: {
             mapSize: { width: 4096, height: 4096 },
@@ -24,8 +24,14 @@ const LIGHTING_CONFIG = {
         }
     },
     helpers: {
-        enabled: false,
+        enabled: true,
         directionalLightHelperSize: 5
+    },
+    oposeLight: {
+        color: "rgb(150,150,150)",
+        intensity: 2.0,
+        position: {x: -300.00, y:450, z:300.00},
+        castShadow: false,
     }
 };
 
@@ -34,6 +40,8 @@ class LightingSystem {
         this.ambientLight = null;
         this.directionalLight = null;
         this.directionalLightHelper = null;
+        this.oposeLight = null;
+        this.oposeLightHelper = null;
         this.lights = [];
         this.helpers = [];
     }
@@ -43,8 +51,10 @@ class LightingSystem {
         this._setupShadows(renderer);
         this._setupAmbientLight(scene, config.ambient);
         this._setupDirectionalLight(scene, config.directional);
+        this._setupOposeLight(scene, config.oposeLight);
         if (config.helpers.enabled) {
             this._setupLightHelpers(scene, config.helpers);
+            this._setupOposeLightHelpers(scene, config.helpers);
         }
     }
 
@@ -86,6 +96,31 @@ class LightingSystem {
         this.lights.push(this.directionalLight);
     }
 
+    _setupOposeLight(scene, config) {
+        this.oposeLight = new THREE.DirectionalLight(config.color, config.intensity);
+        this.oposeLight.position.set(
+            config.position.x,
+            config.position.y,
+            config.position.z
+        );
+        if (config.castShadow) {
+            this.directionalLight.castShadow = true;
+            const shadow = this.directionalLight.shadow;
+            shadow.mapSize.width = config.shadow.mapSize.width;
+            shadow.mapSize.height = config.shadow.mapSize.height;
+            const camera = shadow.camera;
+            camera.near = config.shadow.camera.near;
+            camera.far = config.shadow.camera.far;
+            camera.left = config.shadow.camera.left;
+            camera.right = config.shadow.camera.right;
+            camera.top = config.shadow.camera.top;
+            camera.bottom = config.shadow.camera.bottom;
+            shadow.bias = config.shadow.bias;
+        }
+        scene.add(this.oposeLight);
+        this.lights.push(this.oposeLight);
+    }
+
     _setupLightHelpers(scene, config) {
         if (this.directionalLight) {
             this.directionalLightHelper = new THREE.DirectionalLightHelper(
@@ -94,6 +129,17 @@ class LightingSystem {
             );
             scene.add(this.directionalLightHelper);
             this.helpers.push(this.directionalLightHelper);
+        }
+    }
+
+    _setupOposeLightHelpers(scene, config) {
+        if (this.oposeLight) {
+            this.oposeLightHelper = new THREE.DirectionalLightHelper(
+                this.oposeLight,
+                config.directionalLightHelperSize
+            );
+            scene.add(this.oposeLightHelper);
+            this.helpers.push(this.oposeLightHelper);
         }
     }
 
