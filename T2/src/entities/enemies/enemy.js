@@ -37,9 +37,9 @@ export async function createEnemies(scene) {
   });
 
   const cacodeemonPositions = [
-    [37.5, 34.0, -125.0],
-    [-30, 19.0, -125.0],
-    [-30, 24.0, -145.0],
+    [-22.5, 20, -155.5],
+    [25.5, 20, -123.5],
+    [-6.5, 20, -107.0],
   ];
 
   cacodeemonPositions.forEach(([x, y, z]) => {
