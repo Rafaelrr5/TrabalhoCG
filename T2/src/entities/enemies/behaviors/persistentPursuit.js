@@ -91,18 +91,19 @@ export class PersistentPursuitBehavior {
    * Get effective target position (current player or last known position)
    */
   getEffectiveTarget(currentPlayerPosition) {
-    // Always prefer current player position if available
-    if (currentPlayerPosition) {
-      return currentPlayerPosition;
+   if (currentPlayerPosition) {
+      return currentPlayerPosition.clone(); // Já inclui a altura
     }
-    
-    // If activated and we have a last known position within time limit
+  
+    // Se usando última posição conhecida, mantém a altura atual do inimigo
     if (this.hasBeenActivated && 
         this.timeWithoutPlayer < this.maxTimeWithoutPlayer &&
         this.lastKnownPlayerPosition.length() > 0) {
-      return this.lastKnownPlayerPosition;
+      const target = this.lastKnownPlayerPosition.clone();
+      target.y = this.enemy.mesh.position.y; // Mantém a altura atual
+      return target;
     }
-    
+  
     return null;
   }
 

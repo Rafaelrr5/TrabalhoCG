@@ -32,18 +32,18 @@ export class Cacodemon extends Enemy {
     this.floatTime = Math.random() * Math.PI * 2;
     this.aiState = 'IDLE'; // IDLE, ACTIVATED, PURSUING, ATTACKING, CIRCLING
     this.stateChangeTime = 0;
-    this.activationDistance = this.config.activationDistance || 100.0;
-    this.optimalAttackDistance = this.config.optimalAttackDistance || 8.0;
-    this.maxAttackDistance = this.config.maxAttackDistance || 12.0;
+    this.activationDistance = 30.0;
+    this.optimalAttackDistance = 10.0;
+    this.maxAttackDistance = 14.0;
     this.velocity = new THREE.Vector3();
     this.targetVelocity = new THREE.Vector3();
-    this.acceleration = this.config.acceleration || 15.0;
-    this.maxSpeed = this.config.moveSpeed || 12.0;
+    this.acceleration = 8.0;
+    this.maxSpeed = 4.0;
     this.smoothing = 0.92;
     this.rotationSpeed = this.config.rotationSpeed || 4.0;
     this.spawnPosition = new THREE.Vector3().copy(this.mesh.position);
     this.targetPosition = new THREE.Vector3().copy(this.mesh.position);
-    this.moveSpeed = this.config.moveSpeed || 8.0;
+    this.moveSpeed = 4.0;
     this.circleRadius = 6.0;
     this.circleAngle = Math.random() * Math.PI * 2;
     this.circleSpeed = 1.0;
@@ -106,6 +106,34 @@ export class Cacodemon extends Enemy {
       this.modelLoaded = false;
     }
   }
+
+  adjustHeightToPlayer(playerPosition, delta) {
+  const targetHeight = playerPosition.y;
+  const currentHeight = this.mesh.position.y;
+  const heightDifference = targetHeight - currentHeight;
+  
+  // Configurações de suavização
+  const maxSpeed = 5.0;          // Velocidade máxima de ajuste
+  const acceleration = 8.0;      // Aceleração do movimento
+  const damping = 0.4;           // Suavização na aproximação do alvo
+  
+  // Calcula a direção e aplica aceleração
+  let speed = Math.min(Math.abs(heightDifference) * acceleration, maxSpeed);
+  speed *= Math.sign(heightDifference);
+  
+  // Aplica damping quando próximo do alvo
+  if (Math.abs(heightDifference) < 1.0) {
+    speed *= Math.abs(heightDifference) * damping;
+  }
+  
+  // Movimento suave baseado em delta time
+  this.mesh.position.y += speed * delta;
+  
+  // Trava a altura se estiver muito próximo (evita oscilação)
+  if (Math.abs(heightDifference) < 0.1) {
+    this.mesh.position.y = targetHeight;
+  }
+}
 
   removePlaceholder() {
     if (this.placeholderMesh) {
@@ -207,16 +235,19 @@ export class Cacodemon extends Enemy {
   }
 
   updateFloatingBehavior(delta) {
-    this.floatTime += delta * this.floatFrequency;
-    const floatOffset = Math.sin(this.floatTime) * this.floatAmplitude;
-
-    if (!this.hasStoredBaseY) {
-      this.originalBaseY = this.mesh.position.y;
-      this.hasStoredBaseY = true;
-    }
-
-    this.mesh.position.y = this.originalBaseY + floatOffset;
+  // Se estiver ajustando a altura, não aplica flutuação
+  if (this.aiState !== 'IDLE') return;
+  
+  this.floatTime += delta * this.floatFrequency;
+  const floatOffset = Math.sin(this.floatTime) * this.floatAmplitude;
+  
+  if (!this.hasStoredBaseY) {
+    this.originalBaseY = this.mesh.position.y;
+    this.hasStoredBaseY = true;
   }
+  
+  this.mesh.position.y = this.originalBaseY + floatOffset;
+}
 
   // Smooth movement method similar to lost souls
   smoothMoveTowards(targetPosition, speed, delta) {
@@ -255,27 +286,20 @@ export class Cacodemon extends Enemy {
   }
 
   updateAttackSystem(delta, camera, playerHitbox) {
-    this.timeSinceLastAttack += delta;
-    
-    const distanceToPlayer = this.mesh.position.distanceTo(camera.position);
-    
-    let effectiveAttackRange = this.attackRange * 1.2;
-    let effectiveAttackCooldown = this.attackCooldown * 0.7;
-    
-    if (this.pursuitBehavior.hasBeenActivated) {
-      effectiveAttackRange *= 1.5;
-      effectiveAttackCooldown *= 0.8;
-    }
-    
-    if (distanceToPlayer <= effectiveAttackRange && 
-        this.timeSinceLastAttack >= effectiveAttackCooldown &&
-        !this.isAttacking) {
-      
-      this.attemptAttack(camera.position);
-    }
-    
-    this.updateProximityAudio(camera.position);
+  this.timeSinceLastAttack += delta;
+  const distanceToPlayer = this.mesh.position.distanceTo(camera.position);
+
+  // Alinha a altura sempre que o jogador estiver dentro do alcance de ataque
+  if (distanceToPlayer <= this.attackRange * 2.0) {
+    this.adjustHeightToPlayer(camera.position, delta);
   }
+
+  if (distanceToPlayer <= this.attackRange && 
+      this.timeSinceLastAttack >= this.attackCooldown &&
+      !this.isAttacking) {
+    this.attemptAttack(camera.position);
+  }
+}
 
   attemptAttack(playerPosition) {
     this.isAttacking = true;
@@ -432,68 +456,35 @@ export class Cacodemon extends Enemy {
   }
 
   executePursuingBehavior(playerPosition, delta, collidableObjects) {
-    const distanceToPlayer = this.mesh.position.distanceTo(playerPosition);
-    
-    const speedMultiplier = this.pursuitBehavior.getSpeedMultiplier(distanceToPlayer);
-    let pursuitSpeed = this.maxSpeed * speedMultiplier;
-    
-    if (distanceToPlayer > 30.0) {
-      pursuitSpeed *= 1.5;
-    } else if (distanceToPlayer > 15.0) {
-      pursuitSpeed *= 1.2;
-    }
-    
-    const time = Date.now() * 0.001;
-    const variation = new THREE.Vector3(
-      Math.sin(time * 2.0) * 0.8,
-      0,
-      Math.cos(time * 1.8) * 0.8
-    );
-    
-    const targetWithVariation = playerPosition.clone().add(variation);
-    this.smoothMoveTowards(targetWithVariation, pursuitSpeed, delta);
-  }
+  const distanceToPlayer = this.mesh.position.distanceTo(playerPosition);
+  const speedMultiplier = this.pursuitBehavior.getSpeedMultiplier(distanceToPlayer);
+  let pursuitSpeed = this.maxSpeed * speedMultiplier;
+
+  // Suaviza a transição de altura
+  const targetPosition = playerPosition.clone();
+  targetPosition.y = this.mesh.position.y; // Mantém a altura atual (o ajuste vertical é feito separadamente)
+  
+  this.smoothMoveTowards(targetPosition, pursuitSpeed, delta);
+}
 
   executeAttackingBehavior(playerPosition, delta) {
-    const distanceToPlayer = this.mesh.position.distanceTo(playerPosition);
-    const distanceDiff = distanceToPlayer - this.optimalAttackDistance;
-    
-    let targetPos = playerPosition.clone();
-    
-    if (Math.abs(distanceDiff) > 0.5) {
-      const direction = new THREE.Vector3()
-        .subVectors(this.mesh.position, playerPosition)
-        .normalize();
-      
-      targetPos = playerPosition.clone().add(
-        direction.multiplyScalar(this.optimalAttackDistance)
-      );
-    } else {
-      const time = Date.now() * 0.001;
-      const movement = new THREE.Vector3(
-        Math.sin(time * 2.5) * 1.0,
-        0,
-        Math.cos(time * 2.2) * 1.0
-      );
-      targetPos = this.mesh.position.clone().add(movement);
-    }
-    
-    const adjustSpeed = this.maxSpeed * 0.8;
-    this.smoothMoveTowards(targetPos, adjustSpeed, delta);
-  }
+  const targetPos = playerPosition.clone();
+  targetPos.y = this.mesh.position.y; // Mantém a altura atual (já alinhada)
+
+  const adjustSpeed = this.maxSpeed * 0.8;
+  this.smoothMoveTowards(targetPos, adjustSpeed, delta);
+}
 
   executeCirclingBehavior(playerPosition, delta) {
-    this.circleAngle += this.circleSpeed * delta;
-    
-    const targetX = playerPosition.x + Math.cos(this.circleAngle) * this.circleRadius;
-    const targetZ = playerPosition.z + Math.sin(this.circleAngle) * this.circleRadius;
-    const targetY = this.mesh.position.y;
-    
-    const circleTarget = new THREE.Vector3(targetX, targetY, targetZ);
-    
-    const circleSpeed = this.maxSpeed * 0.8;
-    this.smoothMoveTowards(circleTarget, circleSpeed, delta);
-  }
+  this.circleAngle += this.circleSpeed * delta;
+  
+  const targetX = playerPosition.x + Math.cos(this.circleAngle) * this.circleRadius;
+  const targetZ = playerPosition.z + Math.sin(this.circleAngle) * this.circleRadius;
+  const targetY = playerPosition.y; // Usa a altura do jogador
+
+  const circleTarget = new THREE.Vector3(targetX, targetY, targetZ);
+  this.smoothMoveTowards(circleTarget, this.maxSpeed * 0.8, delta);
+}
 
   checkCollision(newPosition, collidableObjects) {
     return false;
