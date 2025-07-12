@@ -25,8 +25,8 @@ export class Chaingun extends BaseWeapon {
         //flag de animação
         //this.preparingIslooping = false;
         //this.shootingIslooping = false;
-        this.isShootingAnimationActive = false;
-        this.onLoop = "none";
+        //this.isShootingAnimationActive = false;
+        this.onLoop = false;
         
         // Audio system
         this.fireSound = null;
@@ -91,9 +91,9 @@ export class Chaingun extends BaseWeapon {
     //    this.actions.preparing.stop();
     //    this.onLoop = 'none';
     //}
-    if (this.onLoop === "shooting") {
+    if (this.onLoop) {
         this.actions.shooting.stop();
-        this.onLoop = "none";
+        this.onLoop = false;
     }
     if (this.chaingunSprite) {
         this.chaingunSprite.setFrame(0);
@@ -119,20 +119,20 @@ startShooting() {
             // Verifica se a animação de shooting já está rodando
             
 
-            if (this.onLoop === "shooting") {
+            if (this.onLoop) {
                 this.shoot();
                 return;
             }
                         
             // Para qualquer animação anterior e inicia 'shooting' em loop
-            if (this.onLoop !== "shooting") {
+            if (!this.onLoop) {
                 // Para a animação atual se houver uma
                 ///if (this.actions[this.onLoop]) {
                 //    this.actions[this.onLoop].stop();
                 //}
                 
                 this.actions.shooting.playLoop(); // Mantém em loop
-                this.onLoop = "shooting";
+                this.onLoop = true;
             }
 
             this.shoot();
@@ -147,9 +147,9 @@ onStopShooting() {
     this.isShootingAnimationActive = false;
 
     // Para a animação de shooting se estiver ativa
-    if (this.onLoop === 'shooting') {
+    if (this.onLoop) {
         this.actions.shooting.stop();
-        this.onLoop = 'none';
+        this.onLoop = false;
     }
     
     // Reseta para o frame inicial
