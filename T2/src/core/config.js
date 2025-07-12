@@ -26,7 +26,7 @@ export const CONFIG = {
         SHOOT_RATE: 50,
         PROJECTILE_SIZE: 0.1,
         PROJECTILE_COLOR: 'lightyellow',
-        PROJECTILE_VISIBILITY: false,
+        PROJECTILE_VISIBILITY: true,
         DAMAGE: 2.0, //isso gera 1 de dado/100ms
         ACTIVATION_DELAY: 100, // Tempo de ativação em milissegundos
       },
@@ -35,7 +35,7 @@ export const CONFIG = {
     PLAYER_IMMORTAL: true,
 
     // Configurações de movimento e física
-    MOVE_SPEED: 90,
+    MOVE_SPEED: 20,
     GRAVITY: -20,
       // Configurações do jogador
     CAMERA_HEIGHT: 1.8,

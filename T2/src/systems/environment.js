@@ -32,12 +32,12 @@ export function createWalls(scene, collidableObjects) {
     const walls = new THREE.Group();
 
     // Posiciona as paredes
-    wall0.position.set(0.0, CONFIG.WALL_Y_POSITION, -CONFIG.WORLD_SIZE/2);
-    wall1.position.set(0.0, CONFIG.WALL_Y_POSITION, CONFIG.WORLD_SIZE/2);
+    wall0.position.set(0.0, CONFIG.WALL_Y_POSITION, (-CONFIG.WORLD_SIZE/2)+0.1);
+    wall1.position.set(0.0, CONFIG.WALL_Y_POSITION, CONFIG.WORLD_SIZE/2-0.1);
     wall1.rotateY(-1 * Math.PI);
-    wall2.position.set(-CONFIG.WORLD_SIZE/2, CONFIG.WALL_Y_POSITION, 0.0);
+    wall2.position.set((-CONFIG.WORLD_SIZE/2)+0.1, CONFIG.WALL_Y_POSITION, 0.0);
     wall2.rotateY(Math.PI / 2);
-    wall3.position.set(CONFIG.WORLD_SIZE/2, CONFIG.WALL_Y_POSITION, 0.0);
+    wall3.position.set((CONFIG.WORLD_SIZE/2)-0.1, CONFIG.WALL_Y_POSITION, 0.0);
     wall3.rotateY(-1 * Math.PI / 2);
 
     // Adiciona paredes à cena
