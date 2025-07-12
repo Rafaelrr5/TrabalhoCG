@@ -24,7 +24,7 @@ const LIGHTING_CONFIG = {
         }
     },
     helpers: {
-        enabled: true,
+        enabled: false,
         directionalLightHelperSize: 5
     },
     oposeLight: {
