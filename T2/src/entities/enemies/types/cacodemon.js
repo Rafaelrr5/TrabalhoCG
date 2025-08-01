@@ -35,7 +35,7 @@ export class Cacodemon extends Enemy {
     this.activationDistance = 30.0;
     this.optimalAttackDistance = 10.0;
     this.maxAttackDistance = 14.0;
-    this.velocity = new THREE.Vector3();
+    // Remove duplicate velocity - use inherited one
     this.targetVelocity = new THREE.Vector3();
     this.acceleration = 8.0;
     this.maxSpeed = 4.0;
@@ -94,15 +94,11 @@ export class Cacodemon extends Enemy {
       
       this.mesh.add(this.model);
       
-      // Ensure health bar is positioned correctly above the model
-      this.repositionHealthBar();
-      
       this.modelLoaded = true;
       
     } catch (error) {
       console.error('Failed to load Cacodemon GLB model:', error);
       this.createPlaceholderGeometry();
-      this.repositionHealthBar();
       this.modelLoaded = false;
     }
   }
@@ -209,12 +205,15 @@ export class Cacodemon extends Enemy {
   }
 
   update(delta, camera, playerHitbox, collidableObjects = []) {
-    super.update(delta, camera, playerHitbox, collidableObjects);
+    // Call base update first (essential!)
+    super.update(delta, camera, playerHitbox);
     
+    // Update projectiles
     this.updateProjectiles(delta, collidableObjects, camera);
     
-    if (!this.isAlive || this.isDying) return;
+    if (!this.isAlive || this.deathEffects.isDying) return;
 
+    // Cacodemon-specific behaviors
     this.updateFloatingBehavior(delta);
     this.updateAttackSystem(delta, camera, playerHitbox);
     this.updateMovement(delta, collidableObjects, camera);
@@ -225,13 +224,6 @@ export class Cacodemon extends Enemy {
         this.aiState === 'ATTACKING' || this.aiState === 'PURSUING' || this.aiState === 'CIRCLING')) {
       this.smoothLookAt(camera.position, 10.0, delta);
     }
-    
-    this.updateHealthBar();
-    if (this.healthBarGroup && camera) {
-      this.healthBarGroup.lookAt(camera.position);
-    }
-    
-    this.updateBoundingBox();
   }
 
   updateFloatingBehavior(delta) {
@@ -249,7 +241,6 @@ export class Cacodemon extends Enemy {
   this.mesh.position.y = this.originalBaseY + floatOffset;
 }
 
-  // Smooth movement method similar to lost souls
   smoothMoveTowards(targetPosition, speed, delta) {
     const direction = new THREE.Vector3()
       .subVectors(targetPosition, this.mesh.position)
@@ -311,6 +302,7 @@ export class Cacodemon extends Enemy {
       .normalize();
     this.mesh.rotation.y = Math.atan2(direction.x, direction.z);
     
+    // Use wrapper method
     this.playAttackSound();
     
     const startPosition = this.mesh.position.clone();
@@ -452,6 +444,7 @@ export class Cacodemon extends Enemy {
   executeActivatedBehavior(playerPosition, delta) {
     const activationSpeed = this.maxSpeed * 0.8;
     this.smoothMoveTowards(playerPosition, activationSpeed, delta);
+    // Use wrapper method
     this.updateProximityAudio(playerPosition);
   }
 
@@ -508,7 +501,7 @@ export class Cacodemon extends Enemy {
     ));
     
     this.smoothMoveTowards(idleTarget, this.maxSpeed * 0.15, delta);
-    this.updateHealthBar();
+    // Remove updateHealthBar() call - it's handled by base class
   }
 
   takeDamage(damage) {
@@ -518,18 +511,13 @@ export class Cacodemon extends Enemy {
   die() {
     if (this.isDying) return;
     
-    this.isAlive = false;
-    this.onDeath();
+    super.die();
   }
 
   handleDeathAnimation(delta) {
     if (this.fadeCompleted) {
       return;
     }
-  }
-
-  onDeath() {
-    super.onDeath();
   }
 
   dispose() {

@@ -93,11 +93,13 @@ export class LostSoul extends Enemy {
       
       skullWrapper.add(clonedModel);
       
-      skullWrapper.rotation.set(
-        Math.PI / 2,
-        this.config.skullYRotationOffset,
-        this.config.skullZRotationOffset
-      );
+      // Não aplicar rotação inicial - será aplicada dinamicamente no orientSkull
+      // skullWrapper.rotation.set(
+      //   this.config.skullXRotationOffset,
+      //   this.config.skullYRotationOffset,
+      //   this.config.skullZRotationOffset
+      // );
+      
       skullWrapper.scale.setScalar(this.config.skullScale);
       
       skullWrapper.traverse((child) => {
@@ -126,6 +128,7 @@ export class LostSoul extends Enemy {
     const group = new THREE.Group();
     group.position.copy(oldPosition);
     group.rotation.copy(oldRotation);
+    
     group.add(model);
     
     this.skullModel = model;
@@ -318,14 +321,50 @@ export class LostSoul extends Enemy {
   orientSkull(targetPosition) {
     if (!this.skullModel) return;
     
-    this.orientModelToTarget(this.skullModel, targetPosition, {
-      useVelocity: CONFIG.SKULL_ORIENT_TO_MOVEMENT,
-      smoothRotation: CONFIG.SKULL_SMOOTH_ROTATION,
-      rotationSpeed: CONFIG.SKULL_ROTATION_SPEED || 5.0,
-      rotationOffsets: {
-        x: this.config.skullXRotationOffset,
-        y: this.config.skullYRotationOffset,
-        z: this.config.skullZRotationOffset
+    // Calcular direção para o target
+    let direction;
+    
+    if (this.config.skullOrientToMovement && this.velocity && this.velocity.length() > 0.1) {
+      direction = this.velocity.clone().normalize();
+    } else {
+      direction = new THREE.Vector3()
+        .subVectors(targetPosition, this.mesh.position)
+        .normalize();
+    }
+    
+    // Criar quaternion base para olhar na direção do target
+    const targetQuaternion = new THREE.Quaternion();
+    const lookAtMatrix = new THREE.Matrix4();
+    const up = new THREE.Vector3(0, 1, 0);
+    const currentPos = this.skullModel.position.clone();
+    const targetPos = currentPos.clone().add(direction);
+    
+    lookAtMatrix.lookAt(currentPos, targetPos, up);
+    targetQuaternion.setFromRotationMatrix(lookAtMatrix);
+    
+    // Aplicar os offsets de rotação
+    this.applySkullRotationOffsets(targetQuaternion);
+    
+    // Aplicar rotação suave ou direta
+    if (this.config.skullSmoothRotation) {
+      const speed = (this.config.skullRotationSpeed || 5.0) * 0.016; // Assuming 60fps
+      this.skullModel.quaternion.slerp(targetQuaternion, Math.min(speed, 1.0));
+    } else {
+      this.skullModel.quaternion.copy(targetQuaternion);
+    }
+  }
+
+  applySkullRotationOffsets(quaternion) {
+    const rotationOffsets = [
+      { axis: new THREE.Vector3(0, 1, 0), angle: this.config.skullYRotationOffset },
+      { axis: new THREE.Vector3(1, 0, 0), angle: this.config.skullXRotationOffset },
+      { axis: new THREE.Vector3(0, 0, 1), angle: this.config.skullZRotationOffset }
+    ];
+    
+    rotationOffsets.forEach(({ axis, angle }) => {
+      if (angle !== 0) {
+        const adjustment = new THREE.Quaternion().setFromAxisAngle(axis, angle);
+        quaternion.multiplyQuaternions(quaternion, adjustment);
       }
     });
   }
@@ -346,7 +385,7 @@ export class LostSoul extends Enemy {
                         !this.movementState.isNearPlayer;
     
     if (canStartDash) {
-      this.playAttackSound();
+      this.audio.playAttackSound();
       
       this.isDashing = true;
       this.timeSinceLastDash = 0;
@@ -460,9 +499,10 @@ export class LostSoul extends Enemy {
   }
 
   update(delta, camera, targetPosition, collidableObjects = []) {
-    super.update(delta, camera, targetPosition, collidableObjects);
+    // Call base update first (essential!)
+    super.update(delta, camera, targetPosition);
     
-    if (!this.isAlive || this.isDying) return;
+    if (!this.isAlive || this.deathEffects.isDying) return;
 
     const activationDistance = 30.0;
     const isPursuing = PersistentPursuitManager.updatePursuitBehavior(

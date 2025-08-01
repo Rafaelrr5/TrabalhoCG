@@ -1,80 +1,22 @@
 import * as THREE from '../../../../../build/three.module.js';
 import { CONFIG } from '../../../core/config.js';
-import { checkLostSoulCollision, applyLostSoulCollisionCorrection } from '../../../systems/collision.js';
-import { getEnemySoundConfig, ENEMY_AUDIO_CONFIG } from '../config/audioConfig.js';
+import { SimpleEventEmitter } from '../components/SimpleEventEmitter.js';
+import { EnemyAudio } from '../components/EnemyAudio.js';
+import { EnemyHealthBar } from '../components/EnemyHealthBar.js';
+import { EnemyMovement } from '../components/EnemyMovement.js';
+import { EnemyCollision } from '../components/EnemyCollision.js';
+import { EnemyDeathEffects } from '../components/EnemyDeathEffects.js';
 
-/**
- * Simple Event Emitter for Enemy events
- */
-class EventEmitter {
-  constructor() {
-    this.events = new Map();
-  }
-
-  on(eventName, callback) {
-    if (!this.events.has(eventName)) {
-      this.events.set(eventName, new Set());
-    }
-    this.events.get(eventName).add(callback);
-    return this; // For chaining
-  }
-
-  off(eventName, callback) {
-    if (this.events.has(eventName)) {
-      this.events.get(eventName).delete(callback);
-    }
-    return this;
-  }
-
-  emit(eventName, ...args) {
-    if (this.events.has(eventName)) {
-      this.events.get(eventName).forEach(callback => {
-        try {
-          callback(...args);
-        } catch (error) {
-          console.error(`[EVENT] Error in ${eventName} callback:`, error);
-        }
-      });
-    }
-    return this;
-  }
-
-  once(eventName, callback) {
-    const onceWrapper = (...args) => {
-      this.off(eventName, onceWrapper);
-      callback(...args);
-    };
-    return this.on(eventName, onceWrapper);
-  }
-
-  removeAllListeners(eventName) {
-    if (eventName) {
-      this.events.delete(eventName);
-    } else {
-      this.events.clear();
-    }
-    return this;
-  }
-}
-
-// Default enemy configuration
 export const DEFAULT_ENEMY_CONFIG = {
-  // Visual properties
   radius: 0.5,
   color: 0xff0000,
-  
-  // Health and combat
   maxHealth: 100,
+  speed: 0.5,
   damage: 10,
   destroyOnHit: false,
-  
-  // Movement
-  speed: 0.5,
-  
-  // Collision
   collisionRadius: null, // will use radius if null
   
-  // Audio
+  // Audio settings
   audio: {
     enabled: true,
     volume: 1.0,
@@ -84,7 +26,7 @@ export const DEFAULT_ENEMY_CONFIG = {
     }
   },
   
-  // Visual effects
+  // Health bar settings
   healthBar: {
     enabled: true,
     offset: 0.3,
@@ -95,9 +37,9 @@ export const DEFAULT_ENEMY_CONFIG = {
     }
   },
   
-  // Performance
+  // Performance settings
   performance: {
-    boundingBoxUpdateInterval: 100, // ms
+    boundingBoxUpdateInterval: 100,
     enableThrottling: true
   }
 };
@@ -134,7 +76,7 @@ export function mergeEnemyConfig(userConfig = {}) {
   };
 }
 
-export class Enemy extends EventEmitter {
+export class Enemy extends SimpleEventEmitter {
   constructor(position = [0, 0, 0], config = {}) {
     super(); // Initialize EventEmitter
     
@@ -144,6 +86,8 @@ export class Enemy extends EventEmitter {
     // Validate configuration
     this.validateConfig();
 
+    // Basic properties
+    this.id = this.generateId();
     this.mesh = new THREE.Group();
     this.mesh.position.set(position[0], position[1], position[2]);
     this.mesh.userData.enemy = this;
@@ -151,20 +95,18 @@ export class Enemy extends EventEmitter {
     this.currentHealth = this.maxHealth;
     this.isAlive = true;
     this.isDying = false;
-    this.fadeCompleted = false;
+    
+    // Velocity for backward compatibility with custom enemy types
     this.velocity = new THREE.Vector3();
-    this.boundingBox = new THREE.Box3();
     
-    // Performance optimization: reusable objects
-    this._tempVector3 = new THREE.Vector3();
-    this._tempQuaternion = new THREE.Quaternion();
-    this._tempMatrix4 = new THREE.Matrix4();
+    // Components (Composition over inheritance)
+    this.audio = new EnemyAudio(this);
+    this.healthBar = new EnemyHealthBar(this);
+    this.movement = new EnemyMovement(this);
+    this.collision = new EnemyCollision(this);
+    this.deathEffects = new EnemyDeathEffects(this);
     
-    // Throttling for expensive operations
-    this.lastBoundingBoxUpdate = 0;
-    this.boundingBoxUpdateInterval = this.config.performance.boundingBoxUpdateInterval;
-    
-    this.initializeEnemy();
+    this.initialize();
   }
 
   /**
@@ -190,649 +132,150 @@ export class Enemy extends EventEmitter {
     }
   }
 
-  initializeEnemy() {
-    this.createHealthBar();
-    this.updateBoundingBox();
-    this.initSounds();
+  initialize() {
+    this.audio.initialize();
+    this.healthBar.initialize();
+    this.collision.updateBoundingBox();
   }
 
-  createHealthBar() {
-    if (!this.config.healthBar.enabled) {
-      console.log(`[ENEMY] Health bar disabled for ${this.constructor.name}`);
-      return;
-    }
-    
-    try {
-      this.healthBarGroup = new THREE.Group();
-      
-      // Background
-      const bgGeometry = new THREE.PlaneGeometry(
-        this.config.healthBar.width, 
-        this.config.healthBar.height.background
-      );
-      const bgMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0x000000, 
-        transparent: true, 
-        opacity: 0.8 
-      });
-      this.healthBarBg = new THREE.Mesh(bgGeometry, bgMaterial);
-      
-      // Fill
-      const fillGeometry = new THREE.PlaneGeometry(
-        this.config.healthBar.width, 
-        this.config.healthBar.height.fill
-      );
-      const fillMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-      this.healthBarFill = new THREE.Mesh(fillGeometry, fillMaterial);
-      this.healthBarFill.position.z = 0.001;
-      
-      // Position health bar above enemy
-      const yOffset = this.config.radius + this.config.healthBar.offset;
-      this.healthBarGroup.position.set(0, yOffset, 0);
-      
-      this.healthBarGroup.add(this.healthBarBg);
-      this.healthBarGroup.add(this.healthBarFill);
-      this.mesh.add(this.healthBarGroup);
-      
-      console.log(`[ENEMY] Health bar created for ${this.constructor.name}`);
-    } catch (error) {
-      console.error(`[ENEMY] Failed to create health bar for ${this.constructor.name}:`, error);
-      this.config.healthBar.enabled = false; // Disable on failure
-    }
+  generateId() {
+    return `enemy_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  initSounds() {
-    if (!this.config.audio.enabled) {
-      console.log(`[ENEMY] Audio disabled for ${this.constructor.name}`);
-      return;
-    }
-    
-    if (!window.listener) {
-      console.warn('[ENEMY] Audio listener not available, skipping sound initialization');
-      this.config.audio.enabled = false; // Disable audio if no listener
-      return;
-    }
-    
-    this.sounds = {};
-    this.audioState = {
-      lastNearbyTime: 0,
-      nearbyPlaying: false,
-      hasSightedPlayer: false
-    };
-    
-    this.loadEnemySounds();
-  }
-
-  loadEnemySounds() {
-    const soundConfig = this.getSoundConfig();
-    if (!soundConfig) return;
-    
-    const loader = new THREE.AudioLoader();
-    
-    Object.entries(soundConfig).forEach(([soundType, config]) => {
-      const audio = new THREE.Audio(window.listener);
-      
-      loader.load(
-        config.path, 
-        buffer => {
-          this.sounds[soundType] = audio;
-          audio.setBuffer(buffer);
-          audio.setVolume(config.volume);
-          if (config.loop) audio.setLoop(true);
-          this.mesh.add(audio);
-        },
-        undefined,
-        error => {
-          console.warn(`[ENEMY] Failed to load ${soundType} sound for ${this.constructor.name}:`, error);
-          console.warn(`[ENEMY] Path attempted: ${config.path}`);
-        }
-      );
-    });
-  }
-
-  getSoundConfig() {
-    const type = this.constructor.name;
-    return getEnemySoundConfig(type);
-  }
-
-  playSound(soundType) {
-    try {
-      const sound = this.sounds[soundType];
-      if (!sound || !sound.buffer || sound.isPlaying) return false;
-      
-      sound.play();
-      return true;
-    } catch (error) {
-      console.warn(`[ENEMY] Failed to play ${soundType} sound for ${this.constructor.name}:`, error.message);
-      // Mark sound as failed to avoid repeated attempts
-      if (this.sounds[soundType]) {
-        this.sounds[soundType].failed = true;
-      }
-      return false;
-    }
-  }
-
-  stopSound(soundType) {
-    try {
-      const sound = this.sounds[soundType];
-      if (!sound || !sound.isPlaying || sound.failed) return false;
-      
-      sound.stop();
-      console.log(`[ENEMY] Stopping ${soundType} sound`);
-      return true;
-    } catch (error) {
-      console.warn(`[ENEMY] Failed to stop ${soundType} sound:`, error.message);
-      return false;
-    }
-  }
-
-  playAttackSound() { this.playSound('attack'); }
-  
-  playSightSound() {
-    if (!this.audioState.hasSightedPlayer) {
-      this.playSound('sight');
-      this.audioState.hasSightedPlayer = true;
-    }
-  }
-  
-  playNearbySound() {
-    if (!this.audioState.nearbyPlaying) {
-      this.playSound('nearby');
-      this.audioState.nearbyPlaying = true;
-    }
-  }
-  
-  stopNearbySound() {
-    if (this.audioState.nearbyPlaying) {
-      this.stopSound('nearby');
-      this.audioState.nearbyPlaying = false;
-    }
-  }
-
-  updateProximityAudio(playerPosition, activationDistance, nearbyDistance) {
-    if (!this.config.audio.enabled) return;
-    
-    // Use config values if parameters not provided
-    const activation = activationDistance || this.config.audio.distances.activation;
-    const nearby = nearbyDistance || this.config.audio.distances.nearby;
-    
-    const distanceToPlayer = this.mesh.position.distanceTo(playerPosition);
-    
-    if (distanceToPlayer <= activation && !this.audioState.hasSightedPlayer) {
-      this.playSightSound();
-      // Emit sight event
-      this.emit('playerSighted', {
-        enemy: this,
-        playerPosition: playerPosition.clone(),
-        distance: distanceToPlayer
-      });
-    }
-    
-    if (distanceToPlayer <= nearby) {
-      this.playNearbySound();
-      // Emit proximity event (throttled)
-      const now = performance.now();
-      if (now - (this.lastProximityEmit || 0) > 1000) { // Every 1 second
-        this.emit('playerNearby', {
-          enemy: this,
-          playerPosition: playerPosition.clone(),
-          distance: distanceToPlayer
-        });
-        this.lastProximityEmit = now;
-      }
-    } else {
-      this.stopNearbySound();
-    }
-  }
-
+  // Wrapper method for backward compatibility
   updateHealthBar() {
-    try {
-      if (!this.healthBarFill || !this.healthBarFill.material) return;
-      
-      const healthPercent = Math.max(0, Math.min(1, this.currentHealth / this.maxHealth));
-      this.healthBarFill.scale.x = healthPercent;
-      
-      const color = healthPercent > 0.6 ? 0x00ff00 : 
-                   healthPercent > 0.3 ? 0xffff00 : 0xff0000;
-      
-      this.healthBarFill.material.color.setHex(color);
-    } catch (error) {
-      console.warn(`[ENEMY] Health bar update error for ${this.constructor.name}:`, error.message);
-      // Disable health bar if it's consistently failing
-      this.healthBarFill = null;
-    }
+    this.healthBar.update();
+  }
+
+  // Audio wrappers for backward compatibility
+  playAttackSound() {
+    this.audio.playAttackSound();
+  }
+
+  playSightSound() {
+    this.audio.playSightSound();
+  }
+
+  updateProximityAudio(playerPosition) {
+    this.audio.updateProximity(playerPosition);
+  }
+
+  // Collision wrapper for backward compatibility
+  updateBoundingBox() {
+    this.collision.updateBoundingBox();
   }
 
   takeDamage(damage) {
-    try {
-      if (!this.isAlive) return false;
-      
-      // Validate damage value
-      const validDamage = Math.max(0, Number(damage) || 0);
-      if (validDamage === 0) {
-        console.warn(`[ENEMY] Invalid damage value: ${damage}`);
-        return false;
-      }
+    if (!this.isAlive) return false;
+    
+    const validDamage = Math.max(0, Number(damage) || 0);
+    if (validDamage === 0) return false;
 
-      const previousHealth = this.currentHealth;
-      this.currentHealth = Math.max(0, this.currentHealth - validDamage);
-      this.updateHealthBar();
-      
-      // Emit damage event
-      this.emit('damaged', {
-        enemy: this,
-        damage: validDamage,
-        previousHealth,
-        currentHealth: this.currentHealth,
-        healthPercent: this.currentHealth / this.maxHealth
-      });
-      
-      this.playSound('hit');
-      
-      if (this.currentHealth <= 0) {
-        this.isAlive = false;
-        this.onDeath();
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error(`[ENEMY] Error in takeDamage for ${this.constructor.name}:`, error);
-      // Emit error event
-      this.emit('error', { enemy: this, error, method: 'takeDamage' });
-      
-      // Fail gracefully - still apply damage but don't crash
-      this.currentHealth = Math.max(0, this.currentHealth - (damage || 0));
-      if (this.currentHealth <= 0) {
-        this.isAlive = false;
-        return true;
-      }
-      return false;
+    const previousHealth = this.currentHealth;
+    this.currentHealth = Math.max(0, this.currentHealth - validDamage);
+    
+    this.healthBar.update();
+    this.audio.playHitSound();
+    
+    // Emit damage event
+    this.emit('damaged', {
+      enemy: this,
+      damage: validDamage,
+      previousHealth,
+      currentHealth: this.currentHealth,
+      healthPercent: this.currentHealth / this.maxHealth
+    });
+    
+    if (this.currentHealth <= 0) {
+      this.die();
+      return true;
     }
+    return false;
   }
 
-  onDeath() {
-    // Emit death event before starting death sequence
+  die() {
+    this.isAlive = false;
     this.emit('death', {
       enemy: this,
       position: this.mesh.position.clone(),
       finalHealth: this.currentHealth
     });
 
-    if (this.healthBarGroup) {
-      this.healthBarGroup.visible = false;
-    }
+    this.healthBar.hide();
+    this.audio.playDeathSound();
+    this.deathEffects.start();
     
-    this.playSound('death');
-    
-    if (CONFIG.ENEMY_DEATH_FADE_ENABLED) {
-      this.startDeathFade();
-    } else {
-      this.removeFromScene();
-    }
+    // Call onDeath hook for derived classes
+    this.onDeath();
+  }
+  
+  // Override this method in derived classes for custom death behavior
+  onDeath() {
+    // Base implementation - can be overridden
   }
 
-  startDeathFade() {
-    if (this.isDying) return;
+  // Base collision check (can be overridden by specific enemies)
+  checkPlayerCollision(playerPosition, options = {}) {
+    const result = this.collision.checkPlayerCollision(playerPosition, options);
     
-    this.deathStartTime = performance.now();
-    this.isDying = true;
-    this.originalOpacity = new Map();
-    this.originalScale = this.mesh.scale.clone();
-    
-    this.mesh.traverse((child) => {
-      if (child.isMesh && child.material) {
-        const materials = Array.isArray(child.material) ? child.material : [child.material];
-        materials.forEach((material, index) => {
-          const key = `${child.uuid}_${index}`;
-          this.originalOpacity.set(key, material.opacity !== undefined ? material.opacity : 1.0);
-          material.transparent = true;
-          material.needsUpdate = true;
-        });
-      }
-    });
-  }
-
-  updateDeathFade(currentTime) {
-    try {
-      if (!this.isDying || !this.originalOpacity) return;
-      
-      const elapsedTime = (currentTime - this.deathStartTime) / 1000;
-      const fadeDelay = CONFIG.ENEMY_DEATH_FADE_DELAY || 0.5;
-      const fadeDuration = CONFIG.ENEMY_DEATH_FADE_DURATION || 2.0;
-      
-      if (elapsedTime < fadeDelay) return;
-      
-      const fadeElapsed = elapsedTime - fadeDelay;
-      const fadeProgress = Math.min(fadeElapsed / fadeDuration, 1.0);
-      const fadeFactor = Math.max(0, 1.0 - fadeProgress);
-      
-      this.mesh.traverse((child) => {
-        if (child.isMesh && child.material) {
-          try {
-            const materials = Array.isArray(child.material) ? child.material : [child.material];
-            materials.forEach((material, index) => {
-              const key = `${child.uuid}_${index}`;
-              const originalOpacity = this.originalOpacity.get(key) || 1.0;
-              material.opacity = originalOpacity * fadeFactor;
-            });
-          } catch (materialError) {
-            console.warn(`[ENEMY] Material fade error:`, materialError.message);
-          }
-        }
+    if (result) {
+      this.emit('playerCollision', {
+        enemy: this,
+        playerPosition: playerPosition.clone(),
+        damage: options.damage || this.config.damage
       });
       
-      if (CONFIG.ENEMY_DEATH_SCALE_EFFECT) {
-        const scaleMultiplier = 1.0 + (1.0 - fadeFactor) * 0.2;
-        this.mesh.scale.copy(this.originalScale).multiplyScalar(scaleMultiplier);
-      }
+      this.audio.playAttackSound();
       
-      if (CONFIG.ENEMY_DEATH_ROTATION_EFFECT) {
-        const rotationAmount = (1.0 - fadeFactor) * Math.PI * 2;
-        this.mesh.rotation.y = rotationAmount;
+      if (options.destroyOnHit || this.config.destroyOnHit) {
+        this.die();
       }
-      
-      if (fadeProgress >= 1.0) {
-        this.fadeCompleted = true;
-        setTimeout(() => {
-          this.removeFromScene();
-        }, (CONFIG.ENEMY_DEATH_REMOVE_DELAY || 0.2) * 1000);
-      }
-    } catch (error) {
-      console.error(`[ENEMY] Death fade error for ${this.constructor.name}:`, error);
-      // Fallback: just remove immediately
-      this.fadeCompleted = true;
-      this.removeFromScene();
     }
+    
+    return result;
+  }
+
+  // Base update method (specific enemies should override this)
+  update(delta, camera, targetPosition) {
+    if (this.deathEffects.isDying) {
+      this.deathEffects.update();
+      return;
+    }
+
+    if (!this.isAlive) return;
+
+    // Only basic updates in base class
+    this.audio.updateProximity(camera?.position);
+    this.healthBar.update(camera);
+    this.collision.updateBoundingBox();
+    
+    // SPECIFIC ENEMIES SHOULD OVERRIDE THIS METHOD
+    // to implement their specific behavior (movement, AI, attacks, etc.)
   }
 
   removeFromScene() {
-    Object.values(this.sounds || {}).forEach(sound => {
-      if (sound && sound.isPlaying) {
-        try {
-          sound.stop();
-        } catch (error) {
-          console.debug('[AUDIO] Audio stop error (non-critical):', error.message);
-        }
-      }
-    });
-    
-    if (this.mesh && this.mesh.parent) {
+    if (this.mesh?.parent) {
       this.mesh.parent.remove(this.mesh);
     }
     this.dispose();
-  }
-
-  updateBoundingBox(force = false) {
-    if (!this.config.performance.enableThrottling) {
-      this.boundingBox.setFromObject(this.mesh);
-      return;
-    }
-    
-    const now = performance.now();
-    if (!force && now - this.lastBoundingBoxUpdate < this.boundingBoxUpdateInterval) {
-      return;
-    }
-    
-    this.boundingBox.setFromObject(this.mesh);
-    this.lastBoundingBoxUpdate = now;
-  }
-
-  checkCollision(otherBoundingBox) {
-    return this.boundingBox.intersectsBox(otherBoundingBox);
-  }
-
-  checkEnvironmentCollision(targetPosition, collidableObjects, delta) {
-    if (!CONFIG.LOST_SOUL_ENABLE_COLLISION || !collidableObjects.length) return null;
-    const currentPosition = this.mesh.position;
-    const intendedPosition = currentPosition.clone().addScaledVector(this.velocity, delta);
-    return checkLostSoulCollision(
-      currentPosition,
-      intendedPosition,
-      collidableObjects,
-      this.config.radius || CONFIG.LOST_SOUL_COLLISION_RADIUS
-    );
-  }
-
-  applyCollisionCorrection(targetPosition, collidableObjects) {
-    if (!CONFIG.LOST_SOUL_ENABLE_COLLISION || !collidableObjects.length) return false;
-    const correction = applyLostSoulCollisionCorrection(this, collidableObjects, targetPosition);
-    if (correction.corrected) {
-      this.velocity.copy(correction.newDirection)
-        .multiplyScalar(this.config.speed * (CONFIG.LOST_SOUL_WALL_AVOIDANCE || 1.0));
-      return true;
-    }
-    return false;
-  }
-
-  moveTowardsTarget(targetPosition, delta, options = {}) {
-    if (!this.isAlive) return;
-    
-    const {
-      use6DOF = false,
-      enableCollision = false,
-      collidableObjects = [],
-      speedMultiplier = 1.0
-    } = options;
-    
-    // Reuse temp vector instead of creating new ones
-    const direction = this._tempVector3
-      .subVectors(targetPosition, this.mesh.position);
-    
-    if (!use6DOF) {
-      direction.setY(0);
-    }
-    
-    direction.normalize();
-    
-    this.velocity.copy(direction).multiplyScalar(this.config.speed * speedMultiplier);
-    
-    if (enableCollision && collidableObjects.length > 0) {
-      const collision = this.checkEnvironmentCollision(targetPosition, collidableObjects, delta);
-      
-      if (collision && collision.hasCollision) {
-        const safeDistance = CONFIG.LOST_SOUL_COLLISION_DISTANCE || 2.0;
-        
-        if (collision.distance < safeDistance) {
-          const corrected = this.applyCollisionCorrection(targetPosition, collidableObjects);
-          
-          if (!corrected) {
-            this.velocity.multiplyScalar(0.2);
-          }
-        }
-      }
-    }
-    
-    this.mesh.position.addScaledVector(this.velocity, delta);
-    this.updateBoundingBox();
-    
-    return this.velocity.clone();
-  }
-
-  moveTowards(targetPosition, delta) {
-    return this.moveTowardsTarget(targetPosition, delta, { use6DOF: false });
-  }
-
-  moveTowards6DOF(targetPosition, delta) {
-    return this.moveTowardsTarget(targetPosition, delta, { use6DOF: true });
-  }
-
-  moveTowardsWithCollision(targetPosition, delta, collidableObjects = []) {
-    return this.moveTowardsTarget(targetPosition, delta, { 
-      use6DOF: false, 
-      enableCollision: true, 
-      collidableObjects 
-    });
-  }
-
-  moveTowards6DOFWithCollision(targetPosition, delta, collidableObjects = []) {
-    return this.moveTowardsTarget(targetPosition, delta, { 
-      use6DOF: true, 
-      enableCollision: true, 
-      collidableObjects 
-    });
-  }
-
-  checkPlayerCollision(targetPosition, options = {}) {
-    const {
-      collisionRadius = this.config.collisionRadius || this.config.radius,
-      radiusMultiplier = 1.0,
-      damage = 10,
-      destroyOnHit = false
-    } = options;
-    
-    const distanceToPlayer = this.mesh.position.distanceTo(targetPosition);
-    const effectiveRadius = collisionRadius * radiusMultiplier;
-    
-    if (distanceToPlayer <= effectiveRadius) {
-      // Emit collision event
-      this.emit('playerCollision', {
-        enemy: this,
-        playerPosition: targetPosition.clone(),
-        distance: distanceToPlayer,
-        damage,
-        destroyOnHit
-      });
-
-      this.playAttackSound();
-      this.dealDamageToPlayer(damage);
-      
-      if (destroyOnHit) {
-        this.currentHealth = 0;
-        this.isAlive = false;
-        this.onDeath();
-      }
-      
-      return true;
-    }
-    
-    return false;
-  }
-
-  dealDamageToPlayer(damage) {
-    if (typeof window.playerTakeDamage === 'function') {
-      window.playerTakeDamage(damage);
-      console.log(`[${this.constructor.name}] Dealt ${damage} damage to player`);
-    } else {
-      console.warn(`[${this.constructor.name}] Player damage system not available!`);
-    }
-  }
-
-  orientModelToTarget(model, targetPosition, options = {}) {
-    if (!model) return;
-    
-    const {
-      useVelocity = false,
-      smoothRotation = true,
-      rotationSpeed = 5.0,
-      rotationOffsets = {}
-    } = options;
-    
-    let direction;
-    
-    if (useVelocity && this.velocity && this.velocity.length() > 0.1) {
-      direction = this.velocity.clone().normalize();
-    } else {
-      // Reuse temp vector for direction calculation
-      direction = this._tempVector3
-        .subVectors(targetPosition, this.mesh.position)
-        .normalize();
-    }
-    
-    // Reuse temp objects for rotation calculation
-    const targetQuaternion = this._tempQuaternion;
-    const lookAtMatrix = this._tempMatrix4;
-    const up = new THREE.Vector3(0, 1, 0);
-    const currentPos = model.position.clone();
-    const targetPos = currentPos.clone().add(direction);
-    
-    lookAtMatrix.lookAt(currentPos, targetPos, up);
-    targetQuaternion.setFromRotationMatrix(lookAtMatrix);
-    
-    this.applyRotationOffsets(targetQuaternion, rotationOffsets);
-    
-    if (smoothRotation) {
-      const speed = rotationSpeed * 0.016; // Assuming 60fps
-      model.quaternion.slerp(targetQuaternion, Math.min(speed, 1.0));
-    } else {
-      model.quaternion.copy(targetQuaternion);
-    }
-  }
-
-  applyRotationOffsets(quaternion, offsets = {}) {
-    const {
-      x = 0,
-      y = 0,
-      z = 0
-    } = offsets;
-    
-    const rotationOffsets = [
-      { axis: new THREE.Vector3(0, 1, 0), angle: y },
-      { axis: new THREE.Vector3(1, 0, 0), angle: x },
-      { axis: new THREE.Vector3(0, 0, 1), angle: z }
-    ];
-    
-    rotationOffsets.forEach(({ axis, angle }) => {
-      if (angle !== 0) {
-        const adjustment = new THREE.Quaternion().setFromAxisAngle(axis, angle);
-        quaternion.multiplyQuaternions(quaternion, adjustment);
-      }
-    });
-  }
-
-  update(delta, camera, targetPosition, collidableObjects = []) {
-    if (this.isDying) {
-      this.updateDeathFade(performance.now());
-      return;
-    }
-
-    if (!this.isAlive) return;
-
-    if (camera && camera.position) {
-      this.updateProximityAudio(camera.position);
-    }
-
-    this.updateBoundingBox();
-
-    if (this.healthBarGroup && camera) {
-      this.healthBarGroup.lookAt(camera.position);
-    }
   }
 
   dispose() {
     // Emit dispose event before cleanup
     this.emit('disposing', { enemy: this });
 
-    // Audio cleanup
-    Object.values(this.sounds || {}).forEach(sound => {
-      if (sound) {
-        try {
-          if (sound.isPlaying) sound.stop();
-          if (sound.source && sound.context && sound.context.state !== 'closed') {
-            sound.disconnect();
-          }
-        } catch (error) {
-          console.debug('[AUDIO] Audio disconnect error (non-critical):', error.message);
-        }
-      }
-    });
+    // Dispose components
+    this.audio.dispose();
+    this.healthBar.dispose();
+    this.movement.dispose();
+    this.collision.dispose();
+    this.deathEffects.dispose();
     
-    // Health bar cleanup
-    if (this.healthBarBg) {
-      this.healthBarBg.geometry.dispose();
-      this.healthBarBg.material.dispose();
-    }
-    if (this.healthBarFill) {
-      this.healthBarFill.geometry.dispose();
-      this.healthBarFill.material.dispose();
-    }
-    
-    // Complete mesh cleanup
+    // Clean up mesh
     if (this.mesh) {
       this.mesh.traverse((child) => {
         if (child.isMesh) {
-          if (child.geometry) {
-            child.geometry.dispose();
-          }
+          if (child.geometry) child.geometry.dispose();
           if (child.material) {
             const materials = Array.isArray(child.material) ? child.material : [child.material];
             materials.forEach(material => {
@@ -845,33 +288,19 @@ export class Enemy extends EventEmitter {
           }
         }
       });
-      
-      // Remove from parent if still attached
-      if (this.mesh.parent) {
-        this.mesh.parent.remove(this.mesh);
-      }
     }
     
-    // Clear references to prevent memory leaks
-    this.sounds = null;
-    this.healthBarGroup = null;
-    this.healthBarBg = null;
-    this.healthBarFill = null;
+    // Clear references
     this.mesh = null;
     this.velocity = null;
-    this.boundingBox = null;
-    this.originalOpacity = null;
     this.config = null;
-    this._tempVector3 = null;
-    this._tempQuaternion = null;
-    this._tempMatrix4 = null;
     
     // Clear event listeners
     this.removeAllListeners();
   }
 }
 
-export class EnemyManager extends EventEmitter {
+export class EnemyManager extends SimpleEventEmitter {
   constructor() {
     super(); // Initialize EventEmitter
     this.enemies = new Map(); // Use Map for better performance
