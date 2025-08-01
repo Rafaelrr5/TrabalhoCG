@@ -221,7 +221,18 @@ export function getLostSoulConfig() {
     skullYRotationOffset: baseConfig.SKULL_Y_ROTATION_OFFSET,
     skullXRotationOffset: baseConfig.SKULL_X_ROTATION_OFFSET,
     skullZRotationOffset: baseConfig.SKULL_Z_ROTATION_OFFSET,
-    maintainPivotOnScale: true
+    maintainPivotOnScale: true,
+    
+    // Health bar configuration
+    healthBar: {
+      enabled: true,
+      offset: 0.8,  // Higher offset for Lost Souls since they move more
+      width: 1.2,
+      height: {
+        background: 0.12,
+        fill: 0.10
+      }
+    }
   };
 }
 
@@ -249,7 +260,18 @@ export function getCacodeemonConfig() {
     attackRange: baseConfig.ATTACK_RANGE,
     projectileSpeed: baseConfig.PROJECTILE_SPEED,
     floatAmplitude: baseConfig.FLOAT_AMPLITUDE,
-    floatFrequency: baseConfig.FLOAT_FREQUENCY
+    floatFrequency: baseConfig.FLOAT_FREQUENCY,
+    
+    // Health bar configuration
+    healthBar: {
+      enabled: true,
+      offset: 1.0,  // Higher offset for Cacodemons since they're larger
+      width: 1.5,   // Wider bar for boss-like enemies
+      height: {
+        background: 0.15,
+        fill: 0.12
+      }
+    }
   };
 }
 

@@ -6,11 +6,16 @@ import { CONFIG } from '../../core/config.js';
 import { isPlayerInArea1, isPlayerInArea2 } from '../../systems/environment.js';
 import { cleanupAllProjectiles } from './systems/cacodeemonProjectile.js';
 import { EnemyPersistentPursuitManager } from './components/EnemyPersistentPursuitBehavior.js';
+import { forceShowAllHealthBars, debugAllHealthBars } from './base/enemies.js';
 
 export const enemies = [];
 
 let area1LostSoulsActivated = false;
 let area2CacodemonsActivated = false;
+
+// Health bar debugging - remove this in production
+let healthBarDebugCounter = 0;
+const HEALTH_BAR_DEBUG_INTERVAL = 300; // Every 5 seconds at 60fps
 
 export async function preloadEnemies() {
   await preloadSkullModel();
@@ -59,6 +64,14 @@ export function updateEnemies(delta, scene, camera, gun = null, collidableObject
   );
   
   const aliveEnemies = enemies.filter(e => e.isAlive);
+  
+  // Health bar debugging - periodically check and force visibility
+  healthBarDebugCounter++;
+  if (healthBarDebugCounter >= HEALTH_BAR_DEBUG_INTERVAL) {
+    console.log('[HEALTH_BAR_DEBUG] Periodic check...');
+    forceShowAllHealthBars(aliveEnemies);
+    healthBarDebugCounter = 0;
+  }
   
   enemies.forEach(enemy => {
     if (shouldUpdateEnemy(camera, enemy)) {
@@ -209,6 +222,34 @@ export function resetArea2Activation() {
   area2CacodemonsActivated = false;
   EnemyPersistentPursuitManager.resetAllPursuitBehaviors(getCacodemons());
 }
+
+// ============================================================================
+// DEBUG FUNCTIONS FOR HEALTH BARS
+// ============================================================================
+
+/**
+ * Debug function to check health bar status - can be called from browser console
+ */
+window.debugEnemyHealthBars = function() {
+  console.log('=== ENEMY HEALTH BAR DEBUG ===');
+  debugAllHealthBars(enemies);
+  return enemies.map(enemy => ({
+    type: enemy.constructor.name,
+    alive: enemy.isAlive,
+    health: `${enemy.currentHealth}/${enemy.maxHealth}`,
+    hasHealthBar: !!enemy.healthBar,
+    healthBarEnabled: enemy.healthBar?.enabled,
+    healthBarVisible: enemy.healthBar?.healthBarGroup?.visible
+  }));
+};
+
+/**
+ * Force all health bars to show - can be called from browser console
+ */
+window.forceShowHealthBars = function() {
+  console.log('=== FORCING HEALTH BAR VISIBILITY ===');
+  forceShowAllHealthBars(enemies);
+};
 
 export function activateLostSoulsInArea1() {
   if (area1LostSoulsActivated) return;

@@ -83,6 +83,22 @@ export class Enemy extends SimpleEventEmitter {
     // Merge user config with defaults
     this.config = mergeEnemyConfig(config);
     
+    // Ensure health bar config exists
+    if (!this.config.healthBar) {
+      console.warn(`[ENEMY] No health bar config found for ${this.constructor.name}, using defaults`);
+      this.config.healthBar = {
+        enabled: true,
+        offset: 0.5,
+        width: 1.0,
+        height: {
+          background: 0.1,
+          fill: 0.08
+        }
+      };
+    }
+    
+    console.log(`[ENEMY] Creating ${this.constructor.name} with health bar config:`, this.config.healthBar);
+    
     // Validate configuration
     this.validateConfig();
 
@@ -133,9 +149,11 @@ export class Enemy extends SimpleEventEmitter {
   }
 
   initialize() {
+    console.log(`[ENEMY] Initializing ${this.constructor.name} with config:`, this.config);
     this.audio.initialize();
     this.healthBar.initialize();
     this.collision.updateBoundingBox();
+    console.log(`[ENEMY] ${this.constructor.name} initialization complete`);
   }
 
   generateId() {
@@ -497,4 +515,40 @@ export class EnemyManager extends SimpleEventEmitter {
     // Clear all event listeners
     this.removeAllListeners();
   }
+}
+
+// ============================================================================
+// UTILITY FUNCTIONS FOR HEALTH BAR DEBUGGING
+// ============================================================================
+
+/**
+ * Forces all enemy health bars to be visible (debugging utility)
+ */
+export function forceShowAllHealthBars(enemies) {
+  console.log(`[HEALTH_BAR_DEBUG] Forcing visibility for ${enemies.length} enemies`);
+  enemies.forEach((enemy, index) => {
+    if (enemy && enemy.healthBar) {
+      enemy.healthBar.show();
+      console.log(`[HEALTH_BAR_DEBUG] Enemy ${index} (${enemy.constructor.name}): Health bar visible = ${enemy.healthBar.healthBarGroup?.visible}`);
+    }
+  });
+}
+
+/**
+ * Logs health bar status for all enemies (debugging utility)
+ */
+export function debugAllHealthBars(enemies) {
+  console.log(`[HEALTH_BAR_DEBUG] Status for ${enemies.length} enemies:`);
+  enemies.forEach((enemy, index) => {
+    if (enemy && enemy.healthBar) {
+      const hb = enemy.healthBar;
+      console.log(`[HEALTH_BAR_DEBUG] Enemy ${index} (${enemy.constructor.name}):`, {
+        enabled: hb.enabled,
+        hasGroup: !!hb.healthBarGroup,
+        visible: hb.healthBarGroup?.visible,
+        position: hb.healthBarGroup?.position,
+        inScene: !!hb.healthBarGroup?.parent
+      });
+    }
+  });
 }
