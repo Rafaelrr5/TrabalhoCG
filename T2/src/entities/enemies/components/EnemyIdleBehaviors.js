@@ -1,6 +1,6 @@
 import * as THREE from '../../../../../build/three.module.js';
 
-export class IdleBehaviors {
+export class EnemyIdleBehaviors {
   static initializeIdle(enemy, options = {}) {
     if (!enemy.idleState) {
       enemy.idleState = {

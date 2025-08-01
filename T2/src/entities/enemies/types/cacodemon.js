@@ -3,7 +3,7 @@ import { loadGLTFModel } from '../../../utils/modelLoader.js';
 import { Enemy } from '../base/enemies.js';
 import { getCacodeemonConfig } from '../config/enemyConfig.js';
 import { createCacodeemonProjectile } from '../systems/cacodeemonProjectile.js';
-import { PersistentPursuitManager } from '../behaviors/persistentPursuit.js';
+import { EnemyPersistentPursuitManager } from '../components/EnemyPersistentPursuitBehavior.js';
 
 export class Cacodemon extends Enemy {
   constructor(position = [0, 0, 0], config = {}) {
@@ -53,7 +53,7 @@ export class Cacodemon extends Enemy {
     this.idleRotationSpeed = 0.5;
     this.activeProjectiles = [];
     
-    this.pursuitBehavior = PersistentPursuitManager.attachPursuitBehavior(this, {
+    this.pursuitBehavior = EnemyPersistentPursuitManager.attachPursuitBehavior(this, {
       baseAggressionLevel: 1.5,
       speedMultiplier: 2.0,
       attackRangeMultiplier: 1.3,
@@ -360,11 +360,11 @@ export class Cacodemon extends Enemy {
   updateMovement(delta, collidableObjects, camera, otherEnemies = []) {
     const playerPosition = camera ? camera.position : null;
     
-    const isPursuing = PersistentPursuitManager.updatePursuitBehavior(
+    const isPursuing = EnemyPersistentPursuitManager.updatePursuitBehavior(
       this, playerPosition, delta, this.activationDistance
     );
     
-    const effectiveTarget = PersistentPursuitManager.getEffectiveTarget(this, playerPosition);
+    const effectiveTarget = EnemyPersistentPursuitManager.getEffectiveTarget(this, playerPosition);
     
     // Update legacy properties for compatibility
     this.hasBeenActivated = this.pursuitBehavior.hasBeenActivated;

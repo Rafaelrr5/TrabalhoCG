@@ -5,7 +5,7 @@ import { preloadSkullModel } from '../../utils/skullLoader.js';
 import { CONFIG } from '../../core/config.js';
 import { isPlayerInArea1, isPlayerInArea2 } from '../../systems/environment.js';
 import { cleanupAllProjectiles } from './systems/cacodeemonProjectile.js';
-import { PersistentPursuitManager } from './behaviors/persistentPursuit.js';
+import { EnemyPersistentPursuitManager } from './components/EnemyPersistentPursuitBehavior.js';
 
 export const enemies = [];
 
@@ -101,7 +101,7 @@ function shouldUpdateEnemy(camera, enemy) {
 export function cleanupDeadEnemies(scene) {
   for (let i = enemies.length - 1; i >= 0; i--) {
     const enemy = enemies[i];
-    if (!enemy.isAlive && (!enemy.mesh.parent || enemy.fadeCompleted)) {
+    if (!enemy.isAlive && enemy.mesh && (!enemy.mesh.parent || enemy.fadeCompleted)) {
       if (enemy.mesh.parent) {
         enemy.mesh.parent.remove(enemy.mesh);
       }
@@ -207,7 +207,7 @@ export function activateCacodemonsInArea2() {
 
 export function resetArea2Activation() {
   area2CacodemonsActivated = false;
-  PersistentPursuitManager.resetAllPursuitBehaviors(getCacodemons());
+  EnemyPersistentPursuitManager.resetAllPursuitBehaviors(getCacodemons());
 }
 
 export function activateLostSoulsInArea1() {
@@ -228,7 +228,7 @@ export function activateLostSoulsInArea1() {
 
 export function resetArea1Activation() {
   area1LostSoulsActivated = false;
-  PersistentPursuitManager.resetAllPursuitBehaviors(getLostSouls());
+  EnemyPersistentPursuitManager.resetAllPursuitBehaviors(getLostSouls());
 }
 
 // Debug functions for development

@@ -1,6 +1,6 @@
 import * as THREE from '../../../../../build/three.module.js';
 
-export class ExplosionEffects {
+export class EnemyExplosionEffects {
   static createParticleExplosion(position, parent, options = {}) {
     const {
       particleCount = 8,

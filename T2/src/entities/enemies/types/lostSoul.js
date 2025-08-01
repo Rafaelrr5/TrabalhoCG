@@ -2,9 +2,9 @@ import * as THREE from '../../../../../build/three.module.js';
 import { Enemy } from '../base/enemies.js';
 import { loadSkullModel, preloadSkullModel } from '../../../utils/skullLoader.js';
 import { CONFIG } from '../../../core/config.js';
-import { ExplosionEffects } from '../utils/explosionEffects.js';
-import { IdleBehaviors } from '../utils/idleBehaviors.js';
-import { PersistentPursuitManager } from '../behaviors/persistentPursuit.js';
+import { EnemyExplosionEffects } from '../components/EnemyExplosionEffects.js';
+import { EnemyIdleBehaviors } from '../components/EnemyIdleBehaviors.js';
+import { EnemyPersistentPursuitManager } from '../components/EnemyPersistentPursuitBehavior.js';
 import { getLostSouls } from '../enemy.js';
 import { getLostSoulConfig } from '../config/enemyConfig.js';
 
@@ -53,7 +53,7 @@ export class LostSoul extends Enemy {
     
     this.skullModel = null;
     
-    this.pursuitBehavior = PersistentPursuitManager.attachPursuitBehavior(this, {
+    this.pursuitBehavior = EnemyPersistentPursuitManager.attachPursuitBehavior(this, {
       baseAggressionLevel: 1.3,
       speedMultiplier: 1.5,
       attackRangeMultiplier: 1.0,
@@ -472,7 +472,7 @@ export class LostSoul extends Enemy {
   }
 
   idleBehavior(delta) {
-    IdleBehaviors.combinedIdleBehavior(this, delta, {
+    EnemyIdleBehaviors.combinedIdleBehavior(this, delta, {
       movement: '6dof',
       enableModelRotation: true,
       model: this.skullModel,
@@ -499,11 +499,11 @@ export class LostSoul extends Enemy {
     if (!this.isAlive || this.deathEffects.isDying) return;
 
     const activationDistance = 30.0;
-    const isPursuing = PersistentPursuitManager.updatePursuitBehavior(
+    const isPursuing = EnemyPersistentPursuitManager.updatePursuitBehavior(
       this, targetPosition, delta, activationDistance
     );
     
-    const effectiveTarget = PersistentPursuitManager.getEffectiveTarget(this, targetPosition);
+    const effectiveTarget = EnemyPersistentPursuitManager.getEffectiveTarget(this, targetPosition);
     
     this.hasBeenActivated = this.pursuitBehavior.hasBeenActivated;
     this.aggressionLevel = this.pursuitBehavior.aggressionLevel;
@@ -531,7 +531,7 @@ export class LostSoul extends Enemy {
   createExplosionEffect() {
     if (!this.mesh || !this.mesh.parent) return;
     
-    ExplosionEffects.createExplosion(this.mesh.position, this.mesh.parent, {
+    EnemyExplosionEffects.createExplosion(this.mesh.position, this.mesh.parent, {
       particles: {
         particleCount: 8,
         colors: [0xff4444, 0xff6666, 0xff8888, 0xffaaaa],
