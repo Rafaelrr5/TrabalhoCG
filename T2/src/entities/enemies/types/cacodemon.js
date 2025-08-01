@@ -208,6 +208,12 @@ export class Cacodemon extends Enemy {
     // Call base update first (essential!)
     super.update(delta, camera, playerHitbox, otherEnemies);
     
+    // Ensure health bar exists (for consistency with Lost Souls)
+    if (!this.healthBar?.healthBarGroup) {
+      console.log(`[CACODEMON] Health bar missing, reinitializing...`);
+      this.healthBar?.initialize();
+    }
+    
     // Update projectiles
     this.updateProjectiles(delta, collidableObjects, camera);
     

@@ -110,6 +110,12 @@ export class LostSoul extends Enemy {
       
       
       this.setupSkullModel(skullWrapper);
+      
+      // Ensure health bar is visible after model setup
+      if (this.healthBar && this.healthBar.healthBarGroup) {
+        this.healthBar.show();
+        console.log(`[LOST_SOUL] Health bar shown after model loading`);
+      }
     } catch (error) {
       console.warn('Failed to load Lost Soul skull model:', error);
     }
@@ -118,9 +124,18 @@ export class LostSoul extends Enemy {
   setupSkullModel(model) {
     if (!this.mesh || !this.mesh.parent) return;
     
+    console.log(`[LOST_SOUL] Setting up skull model, preserving health bar...`);
+    
     const parent = this.mesh.parent;
     const oldPosition = this.mesh.position.clone();
     const oldRotation = this.mesh.rotation.clone();
+    
+    // Preserve the health bar before removing the mesh
+    let preservedHealthBar = null;
+    if (this.healthBar && this.healthBar.healthBarGroup) {
+      preservedHealthBar = this.healthBar.healthBarGroup;
+      console.log(`[LOST_SOUL] Preserving health bar:`, preservedHealthBar);
+    }
     
     parent.remove(this.mesh);
     
@@ -132,7 +147,18 @@ export class LostSoul extends Enemy {
     
     this.skullModel = model;
     
-    if (this.healthBarGroup) group.add(this.healthBarGroup);
+    // Re-add the preserved health bar
+    if (preservedHealthBar) {
+      group.add(preservedHealthBar);
+      console.log(`[LOST_SOUL] Re-added health bar to new group`);
+    } else if (this.healthBar) {
+      // If no health bar group exists, try to recreate it
+      console.log(`[LOST_SOUL] No health bar found, trying to reinitialize...`);
+      this.healthBar.initialize();
+      if (this.healthBar.healthBarGroup) {
+        group.add(this.healthBar.healthBarGroup);
+      }
+    }
     
     this.mesh = group;
     this.mesh.userData.enemy = this;
@@ -140,6 +166,12 @@ export class LostSoul extends Enemy {
     
     parent.add(this.mesh);
     this.updateBoundingBox();
+    
+    console.log(`[LOST_SOUL] Skull model setup complete, health bar status:`, {
+      hasHealthBar: !!this.healthBar,
+      hasHealthBarGroup: !!this.healthBar?.healthBarGroup,
+      healthBarVisible: this.healthBar?.healthBarGroup?.visible
+    });
   }
 
   updateMovementState(targetPosition, delta) {
@@ -493,8 +525,29 @@ export class LostSoul extends Enemy {
     });
   }
 
+  ensureHealthBarExists() {
+    if (!this.healthBar || !this.healthBar.healthBarGroup) {
+      console.log(`[LOST_SOUL] Ensuring health bar exists for Lost Soul`);
+      
+      if (this.healthBar) {
+        this.healthBar.initialize();
+        
+        // Make sure it's added to the current mesh
+        if (this.healthBar.healthBarGroup && this.mesh) {
+          if (!this.mesh.children.includes(this.healthBar.healthBarGroup)) {
+            this.mesh.add(this.healthBar.healthBarGroup);
+            console.log(`[LOST_SOUL] Health bar re-added to mesh`);
+          }
+        }
+      }
+    }
+  }
+
   update(delta, camera, targetPosition, collidableObjects = [], otherEnemies = []) {
     super.update(delta, camera, targetPosition, collidableObjects, otherEnemies);
+    
+    // Ensure health bar is always present
+    this.ensureHealthBarExists();
     
     if (!this.isAlive || this.deathEffects.isDying) return;
 

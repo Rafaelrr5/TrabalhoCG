@@ -233,6 +233,22 @@ export function resetArea2Activation() {
 window.debugEnemyHealthBars = function() {
   console.log('=== ENEMY HEALTH BAR DEBUG ===');
   debugAllHealthBars(enemies);
+  
+  // Special focus on Lost Souls since they were having issues
+  const lostSouls = enemies.filter(e => e.constructor.name === 'LostSoul');
+  console.log(`\n=== LOST SOUL SPECIFIC DEBUG (${lostSouls.length} found) ===`);
+  lostSouls.forEach((soul, index) => {
+    console.log(`Lost Soul ${index}:`, {
+      hasHealthBar: !!soul.healthBar,
+      hasHealthBarGroup: !!soul.healthBar?.healthBarGroup,
+      healthBarEnabled: soul.healthBar?.enabled,
+      healthBarVisible: soul.healthBar?.healthBarGroup?.visible,
+      healthBarInMesh: soul.mesh?.children?.includes(soul.healthBar?.healthBarGroup),
+      skullModelLoaded: !!soul.skullModel,
+      meshChildren: soul.mesh?.children?.length || 0
+    });
+  });
+  
   return enemies.map(enemy => ({
     type: enemy.constructor.name,
     alive: enemy.isAlive,
