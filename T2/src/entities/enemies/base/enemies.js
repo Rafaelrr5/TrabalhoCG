@@ -165,6 +165,42 @@ export class Enemy extends SimpleEventEmitter {
     this.collision.updateBoundingBox();
   }
 
+  checkPlayerCollision(playerPosition, options = {}) {
+    return this.collision.checkPlayerCollision(playerPosition, options);
+  }
+
+  checkEnvironmentCollision(collidableObjects, newPosition = null) {
+    return this.collision.checkEnvironmentCollision(collidableObjects, newPosition);
+  }
+
+  getCollisionAvoidance(collidableObjects, targetPosition, lookaheadDistance = 2.0) {
+    return this.collision.getAvoidanceDirection(collidableObjects, targetPosition, lookaheadDistance);
+  }
+
+  checkEnemyCollisions(otherEnemies, separationRadius = null) {
+    return this.collision.checkEnemyCollisions(otherEnemies, separationRadius);
+  }
+
+  applySeparationForce(separationForce, delta, strength = 1.0) {
+    return this.collision.applySeparationForce(separationForce, delta, strength);
+  }
+
+  canMoveTo(targetPosition, collidableObjects) {
+    return this.collision.canMoveTo(targetPosition, collidableObjects);
+  }
+
+  getValidMovementDirection(targetPosition, collidableObjects) {
+    return this.collision.getValidMovementDirection(targetPosition, collidableObjects);
+  }
+
+  correctPosition(collidableObjects, delta) {
+    return this.collision.correctPosition(collidableObjects, delta);
+  }
+
+  preventOverlap(collidableObjects, delta) {
+    return this.collision.preventOverlap(collidableObjects, delta);
+  }
+
   takeDamage(damage) {
     if (!this.isAlive) return false;
     
@@ -226,17 +262,13 @@ export class Enemy extends SimpleEventEmitter {
       });
       
       this.audio.playAttackSound();
-      
-      if (options.destroyOnHit || this.config.destroyOnHit) {
-        this.die();
-      }
     }
     
     return result;
   }
 
   // Base update method (specific enemies should override this)
-  update(delta, camera, targetPosition) {
+  update(delta, camera, targetPosition, collidableObjects = [], otherEnemies = []) {
     if (this.deathEffects.isDying) {
       this.deathEffects.update();
       return;
@@ -244,13 +276,9 @@ export class Enemy extends SimpleEventEmitter {
 
     if (!this.isAlive) return;
 
-    // Only basic updates in base class
     this.audio.updateProximity(camera?.position);
     this.healthBar.update(camera);
     this.collision.updateBoundingBox();
-    
-    // SPECIFIC ENEMIES SHOULD OVERRIDE THIS METHOD
-    // to implement their specific behavior (movement, AI, attacks, etc.)
   }
 
   removeFromScene() {

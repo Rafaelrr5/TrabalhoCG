@@ -204,9 +204,9 @@ export class Cacodemon extends Enemy {
     }
   }
 
-  update(delta, camera, playerHitbox, collidableObjects = []) {
+  update(delta, camera, playerHitbox, collidableObjects = [], otherEnemies = []) {
     // Call base update first (essential!)
-    super.update(delta, camera, playerHitbox);
+    super.update(delta, camera, playerHitbox, otherEnemies);
     
     // Update projectiles
     this.updateProjectiles(delta, collidableObjects, camera);
@@ -216,7 +216,7 @@ export class Cacodemon extends Enemy {
     // Cacodemon-specific behaviors
     this.updateFloatingBehavior(delta);
     this.updateAttackSystem(delta, camera, playerHitbox);
-    this.updateMovement(delta, collidableObjects, camera);
+    this.updateMovement(delta, collidableObjects, camera, otherEnemies);
     
     // Always face the player when close enough or in combat states
     const distanceToPlayer = camera ? this.mesh.position.distanceTo(camera.position) : Infinity;
@@ -241,17 +241,39 @@ export class Cacodemon extends Enemy {
   this.mesh.position.y = this.originalBaseY + floatOffset;
 }
 
-  smoothMoveTowards(targetPosition, speed, delta) {
+  smoothMoveTowards(targetPosition, speed, delta, otherEnemies = []) {
     const direction = new THREE.Vector3()
       .subVectors(targetPosition, this.mesh.position)
       .normalize();
     
     this.targetVelocity.copy(direction).multiplyScalar(speed);
+    
+    // Add collision avoidance
+    if (otherEnemies && otherEnemies.length > 0) {
+      const separationRadius = 8.0;
+      const separationForce = new THREE.Vector3();
+      
+      for (const other of otherEnemies) {
+        if (other === this || !other.isAlive) continue;
+        
+        const distance = this.mesh.position.distanceTo(other.mesh.position);
+        if (distance < separationRadius && distance > 0) {
+          const pushDirection = new THREE.Vector3()
+            .subVectors(this.mesh.position, other.mesh.position)
+            .normalize();
+          const pushStrength = (separationRadius - distance) / separationRadius;
+          separationForce.addScaledVector(pushDirection, pushStrength * speed * 2.0);
+        }
+      }
+      
+      this.targetVelocity.add(separationForce);
+    }
+    
     this.velocity.lerp(this.targetVelocity, this.acceleration * delta);
     this.velocity.multiplyScalar(this.smoothing);
     
     const movement = this.velocity.clone();
-    movement.y = 0; // Keep floating behavior separate
+    movement.y = 0;
     this.mesh.position.addScaledVector(movement, delta);
   }
 
@@ -335,7 +357,7 @@ export class Cacodemon extends Enemy {
     }
   }
 
-  updateMovement(delta, collidableObjects, camera) {
+  updateMovement(delta, collidableObjects, camera, otherEnemies = []) {
     const playerPosition = camera ? camera.position : null;
     
     const isPursuing = PersistentPursuitManager.updatePursuitBehavior(
@@ -350,7 +372,7 @@ export class Cacodemon extends Enemy {
     this.lastKnownPlayerPosition.copy(this.pursuitBehavior.lastKnownPlayerPosition);
     
     if (!effectiveTarget) {
-      this.idleBehavior(delta);
+      this.idleBehavior(delta, otherEnemies);
       return;
     }
     
@@ -358,19 +380,19 @@ export class Cacodemon extends Enemy {
     
     switch (this.aiState) {
       case 'IDLE':
-        this.executeIdleBehavior(delta);
+        this.executeIdleBehavior(delta, otherEnemies);
         break;
       case 'ACTIVATED':
-        this.executeActivatedBehavior(effectiveTarget, delta);
+        this.executeActivatedBehavior(effectiveTarget, delta, otherEnemies);
         break;
       case 'PURSUING':
-        this.executePursuingBehavior(effectiveTarget, delta, collidableObjects);
+        this.executePursuingBehavior(effectiveTarget, delta, collidableObjects, otherEnemies);
         break;
       case 'ATTACKING':
-        this.executeAttackingBehavior(effectiveTarget, delta);
+        this.executeAttackingBehavior(effectiveTarget, delta, otherEnemies);
         break;
       case 'CIRCLING':
-        this.executeCirclingBehavior(effectiveTarget, delta);
+        this.executeCirclingBehavior(effectiveTarget, delta, otherEnemies);
         break;
     }
   }
@@ -448,36 +470,90 @@ export class Cacodemon extends Enemy {
     this.updateProximityAudio(playerPosition);
   }
 
-  executePursuingBehavior(playerPosition, delta, collidableObjects) {
-  const distanceToPlayer = this.mesh.position.distanceTo(playerPosition);
-  const speedMultiplier = this.pursuitBehavior.getSpeedMultiplier(distanceToPlayer);
-  let pursuitSpeed = this.maxSpeed * speedMultiplier;
+  executePursuingBehavior(playerPosition, delta, collidableObjects, otherEnemies = []) {
+    const distanceToPlayer = this.mesh.position.distanceTo(playerPosition);
+    const speedMultiplier = this.pursuitBehavior.getSpeedMultiplier(distanceToPlayer);
+    let pursuitSpeed = this.maxSpeed * speedMultiplier;
 
-  // Suaviza a transição de altura
-  const targetPosition = playerPosition.clone();
-  targetPosition.y = this.mesh.position.y; // Mantém a altura atual (o ajuste vertical é feito separadamente)
-  
-  this.smoothMoveTowards(targetPosition, pursuitSpeed, delta);
-}
+    // Movimento base em direção ao jogador
+    const targetPosition = playerPosition.clone();
+    targetPosition.y = this.mesh.position.y; // Mantém a altura atual
+    
+    // Verificar se há colisão com o ambiente
+    const avoidanceDirection = this.getCollisionAvoidance(collidableObjects, targetPosition, 2.0);
+    
+    let finalDirection;
+    if (avoidanceDirection) {
+      // Usar direção de evasão se há obstáculo
+      finalDirection = avoidanceDirection.normalize();
+    } else {
+      // Movimento normal em direção ao jogador
+      finalDirection = new THREE.Vector3()
+        .subVectors(targetPosition, this.mesh.position)
+        .normalize();
+    }
+    
+    // Adicionar separação de outros inimigos (mais suave)
+    const separationResult = this.checkEnemyCollisions(otherEnemies);
+    if (separationResult.hasCollision) {
+      this.applySeparationForce(separationResult.separationForce, delta, 0.3);
+    }
+    
+    // Aplicar movimento
+    const velocity = finalDirection.clone().multiplyScalar(pursuitSpeed);
+    this.mesh.position.addScaledVector(velocity, delta);
+    
+    // Prevenir overlap de forma suave
+    this.preventOverlap(collidableObjects, delta);
+    
+    // Orientar para a direção do movimento
+    if (finalDirection.length() > 0) {
+      this.mesh.lookAt(
+        this.mesh.position.x + finalDirection.x,
+        this.mesh.position.y,
+        this.mesh.position.z + finalDirection.z
+      );
+    }
+  }
 
-  executeAttackingBehavior(playerPosition, delta) {
-  const targetPos = playerPosition.clone();
-  targetPos.y = this.mesh.position.y; // Mantém a altura atual (já alinhada)
+  executeAttackingBehavior(playerPosition, delta, otherEnemies = []) {
+    const targetPos = playerPosition.clone();
+    targetPos.y = this.mesh.position.y; // Mantém a altura atual (já alinhada)
 
-  const adjustSpeed = this.maxSpeed * 0.8;
-  this.smoothMoveTowards(targetPos, adjustSpeed, delta);
-}
+    const adjustSpeed = this.maxSpeed * 0.8;
+    
+    // Verificar separação de outros inimigos (mais suave)
+    const separationResult = this.checkEnemyCollisions(otherEnemies);
+    if (separationResult.hasCollision) {
+      this.applySeparationForce(separationResult.separationForce, delta, 0.2);
+    }
+    
+    this.smoothMoveTowards(targetPos, adjustSpeed, delta, otherEnemies);
+    
+    // Prevenir overlap suavemente
+    this.preventOverlap([], delta);
+  }
 
-  executeCirclingBehavior(playerPosition, delta) {
-  this.circleAngle += this.circleSpeed * delta;
-  
-  const targetX = playerPosition.x + Math.cos(this.circleAngle) * this.circleRadius;
-  const targetZ = playerPosition.z + Math.sin(this.circleAngle) * this.circleRadius;
-  const targetY = playerPosition.y; // Usa a altura do jogador
+  executeCirclingBehavior(playerPosition, delta, otherEnemies = []) {
+    this.circleAngle += this.circleSpeed * delta;
+    
+    const targetX = playerPosition.x + Math.cos(this.circleAngle) * this.circleRadius;
+    const targetZ = playerPosition.z + Math.sin(this.circleAngle) * this.circleRadius;
+    const targetY = playerPosition.y; // Usa a altura do jogador
 
-  const circleTarget = new THREE.Vector3(targetX, targetY, targetZ);
-  this.smoothMoveTowards(circleTarget, this.maxSpeed * 0.8, delta);
-}
+    const circleTarget = new THREE.Vector3(targetX, targetY, targetZ);
+    
+    // Verificar separação de outros inimigos (mais suave)
+    const separationResult = this.checkEnemyCollisions(otherEnemies);
+    if (separationResult.hasCollision) {
+      this.applySeparationForce(separationResult.separationForce, delta, 0.2);
+    }
+    
+    this.smoothMoveTowards(circleTarget, this.maxSpeed * 0.8, delta, otherEnemies);
+    
+    // Prevenir overlap suavemente
+    this.preventOverlap([], delta);
+  }
 
   checkCollision(newPosition, collidableObjects) {
     return false;

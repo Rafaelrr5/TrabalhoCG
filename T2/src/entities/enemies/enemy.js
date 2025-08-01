@@ -58,9 +58,12 @@ export function updateEnemies(delta, scene, camera, gun = null, collidableObject
     camera.position.z
   );
   
+  const aliveEnemies = enemies.filter(e => e.isAlive);
+  
   enemies.forEach(enemy => {
     if (shouldUpdateEnemy(camera, enemy)) {
-      enemy.update(delta, camera, hitboxTop, collidableObjects);
+      const otherEnemies = aliveEnemies.filter(e => e !== enemy);
+      enemy.update(delta, camera, hitboxTop, collidableObjects, otherEnemies);
     } else if (typeof enemy.idleBehavior === 'function') {
       enemy.idleBehavior(delta);
     }

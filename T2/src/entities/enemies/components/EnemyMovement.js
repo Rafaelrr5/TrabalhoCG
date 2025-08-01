@@ -31,7 +31,6 @@ export class EnemyMovement {
     
     this.enemy.velocity.copy(direction).multiplyScalar(this.enemy.config.speed * speedMultiplier);
     
-    // Handle collision if enabled
     if (enableCollision && collidableObjects.length > 0) {
       this.handleCollision(targetPosition, collidableObjects, delta);
     }

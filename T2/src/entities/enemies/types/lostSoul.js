@@ -2,7 +2,6 @@ import * as THREE from '../../../../../build/three.module.js';
 import { Enemy } from '../base/enemies.js';
 import { loadSkullModel, preloadSkullModel } from '../../../utils/skullLoader.js';
 import { CONFIG } from '../../../core/config.js';
-import { applyLostSoulCollisionCorrection, checkLostSoulInterCollision } from '../../../systems/collision.js';
 import { ExplosionEffects } from '../utils/explosionEffects.js';
 import { IdleBehaviors } from '../utils/idleBehaviors.js';
 import { PersistentPursuitManager } from '../behaviors/persistentPursuit.js';
@@ -216,32 +215,30 @@ export class LostSoul extends Enemy {
       return false;
     }
     
-    const collisionResult = applyLostSoulCollisionCorrection(
-      this, 
-      collidableObjects, 
-      targetPosition
-    );
+    // Verificar colisão com ambiente
+    const avoidanceDirection = this.getCollisionAvoidance(collidableObjects, targetPosition, 2.0);
     
-    if (collisionResult.corrected) {
+    if (avoidanceDirection && avoidanceDirection.length() > 0) {
       state.lastCollisionTime = currentTime;
       
-      if (collisionResult.newDirection) {
-        const avoidanceStrength = Math.min(1.0, (currentTime - state.lastCollisionTime) / 500);
-        state.collisionAvoidanceForce.lerp(collisionResult.newDirection, avoidanceStrength);
-      }
+      // Suavizar a força de evasão
+      const avoidanceStrength = Math.min(0.5, (currentTime - state.lastCollisionTime) / 1000);
+      state.collisionAvoidanceForce.lerp(avoidanceDirection, avoidanceStrength);
+      
+      // Prevenir overlap de forma suave
+      this.preventOverlap(collidableObjects, delta);
       
       return true;
     }
     
-    state.collisionAvoidanceForce.multiplyScalar(0.9);
+    state.collisionAvoidanceForce.multiplyScalar(0.95); // Decay mais suave
     return false;
   }
 
-  checkLostSoulInterCollision(delta) {
+  checkLostSoulInterCollision(delta, otherEnemies = []) {
     const currentTime = Date.now();
     const state = this.movementState;
     
-    // Throttle inter-collision checks for performance
     if (currentTime - state.lastInterCollisionCheck < state.interCollisionCheckInterval) {
       return false;
     }
@@ -252,23 +249,20 @@ export class LostSoul extends Enemy {
       return false;
     }
     
-    // Get other alive Lost Souls
-    const otherLostSouls = getLostSouls().filter(ls => ls !== this && ls.isAlive);
+    const lostSoulEnemies = otherEnemies.filter(e => e.constructor.name === 'LostSoul' && e.isAlive);
     
-    if (otherLostSouls.length === 0) {
+    if (lostSoulEnemies.length === 0) {
       state.separationForce.set(0, 0, 0);
       return false;
     }
     
-    const collisionResult = checkLostSoulInterCollision(this, otherLostSouls);
+    const collisionResult = this.checkEnemyCollisions(lostSoulEnemies, 4.0);
     
     if (collisionResult.hasCollision) {
-      // Apply separation force with smoothing
-      const smoothingFactor = Math.min(delta * 3.0, 1.0);
+      const smoothingFactor = Math.min(delta * 5.0, 1.0);
       state.separationForce.lerp(collisionResult.separationForce, smoothingFactor);
       return true;
     } else {
-      // Gradually reduce separation force when no collision
       state.separationForce.multiplyScalar(0.9);
       return false;
     }
@@ -293,10 +287,12 @@ export class LostSoul extends Enemy {
     
     // Apply Lost Soul separation force (reduced when very close to player)
     if (state.separationForce.length() > 0.1) {
-      // Reduce separation force when very close to player to allow final approach
       const playerDistanceFactor = Math.min(1.0, distance / 5.0);
-      const separationWeight = Math.min(0.4, state.separationForce.length()) * playerDistanceFactor;
+      const separationWeight = Math.min(0.8, state.separationForce.length()) * playerDistanceFactor;
       finalDirection.addScaledVector(state.separationForce, separationWeight).normalize();
+      
+      const directSeparation = state.separationForce.clone().multiplyScalar(this.config.speed * 2.0 * delta);
+      this.mesh.position.add(directSeparation);
     }
     
     if (this.stuckTimer > this.stuckThreshold) {
@@ -407,48 +403,42 @@ export class LostSoul extends Enemy {
     }
   }
 
-  executeMovement(targetPosition, delta, collidableObjects = []) {
+  executeMovement(targetPosition, delta, collidableObjects = [], otherEnemies = []) {
     if (!this.isAlive) return;
     
     this.updateMovementState(targetPosition, delta);
     
     if (this.isDashing) {
-      return this.executeDashMovement(targetPosition, delta, collidableObjects);
+      return this.executeDashMovement(targetPosition, delta, collidableObjects, otherEnemies);
     }
     
-    return this.executeNormalMovement(targetPosition, delta, collidableObjects);
+    return this.executeNormalMovement(targetPosition, delta, collidableObjects, otherEnemies);
   }
   
-  executeDashMovement(targetPosition, delta, collidableObjects = []) {
+  executeDashMovement(targetPosition, delta, collidableObjects = [], otherEnemies = []) {
     const dashVelocity = this.dashDirection.clone().multiplyScalar(this.dashSpeed);
     const newPosition = this.mesh.position.clone().addScaledVector(dashVelocity, delta);
     
-    // Check for Lost Soul inter-collision during dash (with reduced impact)
-    this.checkLostSoulInterCollision(delta);
+    this.checkLostSoulInterCollision(delta, otherEnemies);
     
-    // Apply reduced separation force during dash to prevent overlap but maintain dash aggression
     const state = this.movementState;
     if (state.separationForce.length() > 0.1) {
-      const dashSeparationWeight = 0.2; // Reduced weight during dash
+      const dashSeparationWeight = 0.2;
       const separationVelocity = state.separationForce.clone().multiplyScalar(this.config.speed * dashSeparationWeight);
       newPosition.addScaledVector(separationVelocity, delta);
     }
     
     if (CONFIG.LOST_SOUL_ENABLE_COLLISION && collidableObjects.length > 0) {
-      const collisionResult = applyLostSoulCollisionCorrection(
-        { mesh: { position: newPosition }, config: this.config }, 
-        collidableObjects, 
-        targetPosition
-      );
+      const collision = this.checkEnvironmentCollision(collidableObjects, newPosition);
       
-      if (collisionResult.corrected) {
+      if (collision.hasCollision) {
         this.isDashing = false;
         this.dashCooldown = this.config.dashInterval * 0.5;
         
         let correctedVelocity = new THREE.Vector3();
-        if (collisionResult.newDirection) {
-          this.dashDirection.copy(collisionResult.newDirection);
-          correctedVelocity = collisionResult.newDirection.multiplyScalar(this.config.speed);
+        if (collision.normal) {
+          this.dashDirection.reflect(collision.normal);
+          correctedVelocity = this.dashDirection.multiplyScalar(this.config.speed);
           this.mesh.position.addScaledVector(correctedVelocity, delta);
         }
         return correctedVelocity;
@@ -461,13 +451,22 @@ export class LostSoul extends Enemy {
     return dashVelocity;
   }
   
-  executeNormalMovement(targetPosition, delta, collidableObjects = []) {
+  executeNormalMovement(targetPosition, delta, collidableObjects = [], otherEnemies = []) {
     this.performCollisionCheck(targetPosition, collidableObjects, delta);
-    this.checkLostSoulInterCollision(delta);
+    this.checkLostSoulInterCollision(delta, otherEnemies);
+    
+    // Verificar separação de outros inimigos (mais suave)
+    const separationResult = this.checkEnemyCollisions(otherEnemies);
+    if (separationResult.hasCollision) {
+      this.applySeparationForce(separationResult.separationForce, delta, 0.5);
+    }
     
     const finalVelocity = this.calculateFinalMovement(targetPosition, delta);
     
     this.mesh.position.addScaledVector(finalVelocity, delta);
+    
+    // Prevenir overlap de forma suave após o movimento
+    this.preventOverlap(collidableObjects, delta);
     
     return finalVelocity;
   }
@@ -482,10 +481,6 @@ export class LostSoul extends Enemy {
     });
   }
 
-  onDeath() {
-    super.onDeath();
-  }
-
   checkPlayerCollision(targetPosition) {
     // When player is immortal, Lost Souls should not explode on collision
     const shouldDestroy = !CONFIG.PLAYER_IMMORTAL;
@@ -498,9 +493,8 @@ export class LostSoul extends Enemy {
     });
   }
 
-  update(delta, camera, targetPosition, collidableObjects = []) {
-    // Call base update first (essential!)
-    super.update(delta, camera, targetPosition);
+  update(delta, camera, targetPosition, collidableObjects = [], otherEnemies = []) {
+    super.update(delta, camera, targetPosition, collidableObjects, otherEnemies);
     
     if (!this.isAlive || this.deathEffects.isDying) return;
 
@@ -518,7 +512,7 @@ export class LostSoul extends Enemy {
     if (!effectiveTarget) return;
     
     this.updateDash(delta, effectiveTarget, collidableObjects);
-    this.executeMovement(effectiveTarget, delta, collidableObjects);
+    this.executeMovement(effectiveTarget, delta, collidableObjects, otherEnemies);
     
     this.orientSkull(effectiveTarget);
     
@@ -532,10 +526,6 @@ export class LostSoul extends Enemy {
         }
       }
     }
-  }
-
-  dispose() {
-    super.dispose();
   }
 
   createExplosionEffect() {
