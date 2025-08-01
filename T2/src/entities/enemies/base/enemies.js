@@ -107,25 +107,33 @@ export class Enemy {
   }
 
   playSound(soundType) {
-    const sound = this.sounds[soundType];
-    if (!sound || !sound.buffer || sound.isPlaying) return;
-    
     try {
+      const sound = this.sounds[soundType];
+      if (!sound || !sound.buffer || sound.isPlaying) return false;
+      
       sound.play();
+      return true;
     } catch (error) {
-      console.debug(`[AUDIO] ${soundType} sound play error:`, error.message);
+      console.warn(`[ENEMY] Failed to play ${soundType} sound for ${this.constructor.name}:`, error.message);
+      // Mark sound as failed to avoid repeated attempts
+      if (this.sounds[soundType]) {
+        this.sounds[soundType].failed = true;
+      }
+      return false;
     }
   }
 
   stopSound(soundType) {
-    const sound = this.sounds[soundType];
-    if (!sound || !sound.isPlaying) return;
-    
     try {
+      const sound = this.sounds[soundType];
+      if (!sound || !sound.isPlaying || sound.failed) return false;
+      
       sound.stop();
       console.log(`[ENEMY] Stopping ${soundType} sound`);
+      return true;
     } catch (error) {
-      console.debug(`[AUDIO] ${soundType} sound stop error:`, error.message);
+      console.warn(`[ENEMY] Failed to stop ${soundType} sound:`, error.message);
+      return false;
     }
   }
 
@@ -167,26 +175,55 @@ export class Enemy {
   }
 
   updateHealthBar() {
-    if (!this.healthBarFill) return;
-    const healthPercent = Math.max(0, this.currentHealth / this.maxHealth);
-    this.healthBarFill.scale.x = healthPercent;
-    const color = healthPercent > 0.6 ? 0x00ff00 : healthPercent > 0.3 ? 0xffff00 : 0xff0000;
-    this.healthBarFill.material.color.setHex(color);
+    try {
+      if (!this.healthBarFill || !this.healthBarFill.material) return;
+      
+      const healthPercent = Math.max(0, Math.min(1, this.currentHealth / this.maxHealth));
+      this.healthBarFill.scale.x = healthPercent;
+      
+      const color = healthPercent > 0.6 ? 0x00ff00 : 
+                   healthPercent > 0.3 ? 0xffff00 : 0xff0000;
+      
+      this.healthBarFill.material.color.setHex(color);
+    } catch (error) {
+      console.warn(`[ENEMY] Health bar update error for ${this.constructor.name}:`, error.message);
+      // Disable health bar if it's consistently failing
+      this.healthBarFill = null;
+    }
   }
 
   takeDamage(damage) {
-    if (!this.isAlive) return false;
-    this.currentHealth = Math.max(0, this.currentHealth - damage);
-    this.updateHealthBar();
-    
-    this.playSound('hit');
-    
-    if (this.currentHealth <= 0) {
-      this.isAlive = false;
-      this.onDeath();
-      return true;
+    try {
+      if (!this.isAlive) return false;
+      
+      // Validate damage value
+      const validDamage = Math.max(0, Number(damage) || 0);
+      if (validDamage === 0) {
+        console.warn(`[ENEMY] Invalid damage value: ${damage}`);
+        return false;
+      }
+      
+      this.currentHealth = Math.max(0, this.currentHealth - validDamage);
+      this.updateHealthBar();
+      
+      this.playSound('hit');
+      
+      if (this.currentHealth <= 0) {
+        this.isAlive = false;
+        this.onDeath();
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error(`[ENEMY] Error in takeDamage for ${this.constructor.name}:`, error);
+      // Fail gracefully - still apply damage but don't crash
+      this.currentHealth = Math.max(0, this.currentHealth - (damage || 0));
+      if (this.currentHealth <= 0) {
+        this.isAlive = false;
+        return true;
+      }
+      return false;
     }
-    return false;
   }
 
   onDeath() {
@@ -225,37 +262,55 @@ export class Enemy {
   }
 
   updateDeathFade(currentTime) {
-    if (!this.isDying || !this.originalOpacity) return;
-    const elapsedTime = (currentTime - this.deathStartTime) / 1000;
-    const fadeDelay = CONFIG.ENEMY_DEATH_FADE_DELAY || 0.5;
-    const fadeDuration = CONFIG.ENEMY_DEATH_FADE_DURATION || 2.0;
-    if (elapsedTime < fadeDelay) return;
-    const fadeElapsed = elapsedTime - fadeDelay;
-    const fadeProgress = Math.min(fadeElapsed / fadeDuration, 1.0);
-    const fadeFactor = 1.0 - fadeProgress;
-    this.mesh.traverse((child) => {
-      if (child.isMesh && child.material) {
-        const materials = Array.isArray(child.material) ? child.material : [child.material];
-        materials.forEach((material, index) => {
-          const key = `${child.uuid}_${index}`;
-          const originalOpacity = this.originalOpacity.get(key) || 1.0;
-          material.opacity = originalOpacity * fadeFactor;
-        });
+    try {
+      if (!this.isDying || !this.originalOpacity) return;
+      
+      const elapsedTime = (currentTime - this.deathStartTime) / 1000;
+      const fadeDelay = CONFIG.ENEMY_DEATH_FADE_DELAY || 0.5;
+      const fadeDuration = CONFIG.ENEMY_DEATH_FADE_DURATION || 2.0;
+      
+      if (elapsedTime < fadeDelay) return;
+      
+      const fadeElapsed = elapsedTime - fadeDelay;
+      const fadeProgress = Math.min(fadeElapsed / fadeDuration, 1.0);
+      const fadeFactor = Math.max(0, 1.0 - fadeProgress);
+      
+      this.mesh.traverse((child) => {
+        if (child.isMesh && child.material) {
+          try {
+            const materials = Array.isArray(child.material) ? child.material : [child.material];
+            materials.forEach((material, index) => {
+              const key = `${child.uuid}_${index}`;
+              const originalOpacity = this.originalOpacity.get(key) || 1.0;
+              material.opacity = originalOpacity * fadeFactor;
+            });
+          } catch (materialError) {
+            console.warn(`[ENEMY] Material fade error:`, materialError.message);
+          }
+        }
+      });
+      
+      if (CONFIG.ENEMY_DEATH_SCALE_EFFECT) {
+        const scaleMultiplier = 1.0 + (1.0 - fadeFactor) * 0.2;
+        this.mesh.scale.copy(this.originalScale).multiplyScalar(scaleMultiplier);
       }
-    });
-    if (CONFIG.ENEMY_DEATH_SCALE_EFFECT) {
-      const scaleMultiplier = 1.0 + (1.0 - fadeFactor) * 0.2;
-      this.mesh.scale.copy(this.originalScale).multiplyScalar(scaleMultiplier);
-    }
-    if (CONFIG.ENEMY_DEATH_ROTATION_EFFECT) {
-      const rotationAmount = (1.0 - fadeFactor) * Math.PI * 2;
-      this.mesh.rotation.y = rotationAmount;
-    }
-    if (fadeProgress >= 1.0) {
+      
+      if (CONFIG.ENEMY_DEATH_ROTATION_EFFECT) {
+        const rotationAmount = (1.0 - fadeFactor) * Math.PI * 2;
+        this.mesh.rotation.y = rotationAmount;
+      }
+      
+      if (fadeProgress >= 1.0) {
+        this.fadeCompleted = true;
+        setTimeout(() => {
+          this.removeFromScene();
+        }, (CONFIG.ENEMY_DEATH_REMOVE_DELAY || 0.2) * 1000);
+      }
+    } catch (error) {
+      console.error(`[ENEMY] Death fade error for ${this.constructor.name}:`, error);
+      // Fallback: just remove immediately
       this.fadeCompleted = true;
-      setTimeout(() => {
-        this.removeFromScene();
-      }, (CONFIG.ENEMY_DEATH_REMOVE_DELAY || 0.2) * 1000);
+      this.removeFromScene();
     }
   }
 
