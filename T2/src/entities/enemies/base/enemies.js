@@ -23,6 +23,16 @@ export class Enemy {
     this.fadeCompleted = false;
     this.velocity = new THREE.Vector3();
     this.boundingBox = new THREE.Box3();
+    
+    // Performance optimization: reusable objects
+    this._tempVector3 = new THREE.Vector3();
+    this._tempQuaternion = new THREE.Quaternion();
+    this._tempMatrix4 = new THREE.Matrix4();
+    
+    // Throttling for expensive operations
+    this.lastBoundingBoxUpdate = 0;
+    this.boundingBoxUpdateInterval = 100; // ms
+    
     this.initializeEnemy();
   }
 
@@ -266,8 +276,14 @@ export class Enemy {
     this.dispose();
   }
 
-  updateBoundingBox() {
+  updateBoundingBox(force = false) {
+    const now = performance.now();
+    if (!force && now - this.lastBoundingBoxUpdate < this.boundingBoxUpdateInterval) {
+      return;
+    }
+    
     this.boundingBox.setFromObject(this.mesh);
+    this.lastBoundingBoxUpdate = now;
   }
 
   checkCollision(otherBoundingBox) {
@@ -307,7 +323,8 @@ export class Enemy {
       speedMultiplier = 1.0
     } = options;
     
-    const direction = new THREE.Vector3()
+    // Reuse temp vector instead of creating new ones
+    const direction = this._tempVector3
       .subVectors(targetPosition, this.mesh.position);
     
     if (!use6DOF) {
@@ -416,13 +433,15 @@ export class Enemy {
     if (useVelocity && this.velocity && this.velocity.length() > 0.1) {
       direction = this.velocity.clone().normalize();
     } else {
-      direction = new THREE.Vector3()
+      // Reuse temp vector for direction calculation
+      direction = this._tempVector3
         .subVectors(targetPosition, this.mesh.position)
         .normalize();
     }
     
-    const targetQuaternion = new THREE.Quaternion();
-    const lookAtMatrix = new THREE.Matrix4();
+    // Reuse temp objects for rotation calculation
+    const targetQuaternion = this._tempQuaternion;
+    const lookAtMatrix = this._tempMatrix4;
     const up = new THREE.Vector3(0, 1, 0);
     const currentPos = model.position.clone();
     const targetPos = currentPos.clone().add(direction);
@@ -541,13 +560,17 @@ export class Enemy {
     this.boundingBox = null;
     this.originalOpacity = null;
     this.config = null;
+    this._tempVector3 = null;
+    this._tempQuaternion = null;
+    this._tempMatrix4 = null;
   }
 }
 
 export class EnemyManager {
   constructor() {
-    this.enemies = [];
+    this.enemies = new Map(); // Use Map for better performance
     this.enemiesGroup = null;
+    this.nextEnemyId = 1;
   }
 
   initialize(scene) {
@@ -556,38 +579,124 @@ export class EnemyManager {
     scene.add(this.enemiesGroup);
   }
 
+  generateEnemyId() {
+    return `enemy_${this.nextEnemyId++}`;
+  }
+
   addEnemy(enemy) {
-    this.enemies.push(enemy);
+    // Assign unique ID to enemy if it doesn't have one
+    if (!enemy.id) {
+      enemy.id = this.generateEnemyId();
+    }
+    
+    this.enemies.set(enemy.id, enemy);
     this.enemiesGroup.add(enemy.mesh);
+    
+    console.log(`[ENEMY_MANAGER] Added enemy ${enemy.id} (${enemy.constructor.name})`);
     return enemy;
   }
 
+  removeEnemy(enemyId) {
+    const enemy = this.enemies.get(enemyId);
+    if (!enemy) return false;
+    
+    this.enemiesGroup.remove(enemy.mesh);
+    enemy.dispose();
+    this.enemies.delete(enemyId);
+    
+    console.log(`[ENEMY_MANAGER] Removed enemy ${enemyId}`);
+    return true;
+  }
+
+  getEnemy(enemyId) {
+    return this.enemies.get(enemyId);
+  }
+
+  hasEnemy(enemyId) {
+    return this.enemies.has(enemyId);
+  }
+
   update(delta, camera, targetPosition) {
-    this.enemies.forEach(enemy => {
-      enemy.update(delta, camera, targetPosition);
+    const deadEnemies = [];
+    
+    // Update all enemies and collect dead ones
+    this.enemies.forEach((enemy, enemyId) => {
+      if (enemy.isAlive) {
+        try {
+          enemy.update(delta, camera, targetPosition);
+        } catch (error) {
+          console.error(`[ENEMY_MANAGER] Update error for enemy ${enemyId}:`, error);
+          // Mark as dead if update fails
+          enemy.isAlive = false;
+          deadEnemies.push(enemyId);
+        }
+      } else {
+        deadEnemies.push(enemyId);
+      }
     });
     
-    this.enemies = this.enemies.filter(enemy => {
-      if (!enemy.isAlive) {
-        this.enemiesGroup.remove(enemy.mesh);
-        enemy.dispose();
-        return false;
-      }
-      return true;
+    // Remove dead enemies
+    deadEnemies.forEach(enemyId => {
+      this.removeEnemy(enemyId);
     });
   }
 
   getAliveEnemies() {
-    return this.enemies.filter(enemy => enemy.isAlive);
+    const aliveEnemies = [];
+    this.enemies.forEach(enemy => {
+      if (enemy.isAlive) {
+        aliveEnemies.push(enemy);
+      }
+    });
+    return aliveEnemies;
+  }
+
+  getEnemiesByType(enemyType) {
+    const typeEnemies = [];
+    this.enemies.forEach(enemy => {
+      if (enemy.constructor.name === enemyType) {
+        typeEnemies.push(enemy);
+      }
+    });
+    return typeEnemies;
+  }
+
+  getEnemiesInRadius(position, radius) {
+    const nearbyEnemies = [];
+    this.enemies.forEach(enemy => {
+      if (enemy.isAlive && enemy.mesh.position.distanceTo(position) <= radius) {
+        nearbyEnemies.push(enemy);
+      }
+    });
+    return nearbyEnemies;
   }
 
   getEnemyCount() {
-    const alive = this.getAliveEnemies().length;
-    return { total: this.enemies.length, alive, dead: this.enemies.length - alive };
+    let alive = 0;
+    let total = this.enemies.size;
+    
+    this.enemies.forEach(enemy => {
+      if (enemy.isAlive) alive++;
+    });
+    
+    return { total, alive, dead: total - alive };
+  }
+
+  clear() {
+    this.enemies.forEach(enemy => {
+      this.enemiesGroup.remove(enemy.mesh);
+      enemy.dispose();
+    });
+    this.enemies.clear();
   }
 
   dispose() {
-    this.enemies.forEach(enemy => enemy.dispose());
-    this.enemies = [];
+    this.clear();
+    
+    if (this.enemiesGroup && this.enemiesGroup.parent) {
+      this.enemiesGroup.parent.remove(this.enemiesGroup);
+    }
+    
+    this.enemiesGroup = null;
   }
 }
