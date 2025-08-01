@@ -35,7 +35,7 @@ export const CONFIG = {
     PLAYER_IMMORTAL: true,
 
     // Configurações de movimento e física
-    MOVE_SPEED: 20,
+    MOVE_SPEED: 90,
     GRAVITY: -20,
       // Configurações do jogador
     CAMERA_HEIGHT: 1.8,

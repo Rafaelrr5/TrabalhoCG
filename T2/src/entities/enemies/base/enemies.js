@@ -481,6 +481,7 @@ export class Enemy {
   }
 
   dispose() {
+    // Audio cleanup
     Object.values(this.sounds || {}).forEach(sound => {
       if (sound) {
         try {
@@ -494,6 +495,7 @@ export class Enemy {
       }
     });
     
+    // Health bar cleanup
     if (this.healthBarBg) {
       this.healthBarBg.geometry.dispose();
       this.healthBarBg.material.dispose();
@@ -502,6 +504,43 @@ export class Enemy {
       this.healthBarFill.geometry.dispose();
       this.healthBarFill.material.dispose();
     }
+    
+    // Complete mesh cleanup
+    if (this.mesh) {
+      this.mesh.traverse((child) => {
+        if (child.isMesh) {
+          if (child.geometry) {
+            child.geometry.dispose();
+          }
+          if (child.material) {
+            const materials = Array.isArray(child.material) ? child.material : [child.material];
+            materials.forEach(material => {
+              if (material.map) material.map.dispose();
+              if (material.normalMap) material.normalMap.dispose();
+              if (material.roughnessMap) material.roughnessMap.dispose();
+              if (material.metalnessMap) material.metalnessMap.dispose();
+              material.dispose();
+            });
+          }
+        }
+      });
+      
+      // Remove from parent if still attached
+      if (this.mesh.parent) {
+        this.mesh.parent.remove(this.mesh);
+      }
+    }
+    
+    // Clear references to prevent memory leaks
+    this.sounds = null;
+    this.healthBarGroup = null;
+    this.healthBarBg = null;
+    this.healthBarFill = null;
+    this.mesh = null;
+    this.velocity = null;
+    this.boundingBox = null;
+    this.originalOpacity = null;
+    this.config = null;
   }
 }
 
