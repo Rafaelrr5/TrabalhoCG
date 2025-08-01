@@ -16,6 +16,10 @@ var list = {
 				"Linear Interpolation": "html/animationLerpInfo",
 				"Spherical Interpolation": "html/animationQuaternionLerpInfo",          
 			},
+			"Sprites":  {
+				"Sprites 1": "html/spritesExample1Info",
+				"Sprites 2": "html/spritesExample2Info",            
+			},         
 			"Camera":  {
 				"Projection": "html/projectionInfo",
 				"Virtual Camera": "html/virtualCameraInfo",				
