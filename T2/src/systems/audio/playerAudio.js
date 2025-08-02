@@ -3,6 +3,7 @@ import * as THREE from '../../../../build/three.module.js';
 export class PlayerAudioManager {
   constructor() {
     this.isInitialized = false;
+    this.isEnabled = true; // Controle de habilitação
     this.audioLoader = new THREE.AudioLoader();
     this.listener = null;
     
@@ -62,7 +63,7 @@ export class PlayerAudioManager {
   }
 
   playHittingGroundSound() {
-    if (!this.isInitialized) return;
+    if (!this.isInitialized || !this.isEnabled) return;
     
     if (this.hittingGroundSound && this.hittingGroundSound.buffer && !this.hittingGroundSound.isPlaying) {
       try {
@@ -74,7 +75,7 @@ export class PlayerAudioManager {
   }
 
   playDeathSound() {
-    if (!this.isInitialized) return;
+    if (!this.isInitialized || !this.isEnabled) return;
     
     if (this.deathSound && this.deathSound.buffer && !this.deathSound.isPlaying) {
       try {
@@ -86,7 +87,7 @@ export class PlayerAudioManager {
   }
 
   playInjuredSound() {
-    if (!this.isInitialized) return;
+    if (!this.isInitialized || !this.isEnabled) return;
     
     if (this.injuredSound && this.injuredSound.buffer && !this.injuredSound.isPlaying) {
       try {
@@ -110,9 +111,19 @@ export class PlayerAudioManager {
     });
   }
 
+  enable() {
+    this.isEnabled = true;
+  }
+
+  disable() {
+    this.isEnabled = false;
+    this.stopAllSounds();
+  }
+
   dispose() {
     this.stopAllSounds();
     this.isInitialized = false;
+    this.isEnabled = false;
     this.listener = null;
   }
 }

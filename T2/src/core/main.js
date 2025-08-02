@@ -11,7 +11,7 @@ import { applyGravity} from '../systems/collision.js';
 import { createHitbox, hitbox, player } from '../entities/player/player.js';
 import { updateElevator } from '../systems/elevator.js';
 import { keyManager } from '../entities/items/key.js';
-import { ambientAudioManager, playerAudioManager, gameAudioManager } from '../systems/index.js';
+import { ambientAudioManager, playerAudioManager, gameAudioManager, audioManager } from '../systems/index.js';
 import { updateTotem, updateDoorAnimation, updateKeyAnimation, totem } from '../systems/door.js';
 
 // Global function to handle player damage (called by Lost Soul kamikaze attacks)

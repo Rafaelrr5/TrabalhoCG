@@ -3,6 +3,7 @@ import * as THREE from '../../../../build/three.module.js';
 export class GameAudioManager {
   constructor() {
     this.isInitialized = false;
+    this.isEnabled = true; // Controle de habilitação
     this.audioLoader = new THREE.AudioLoader();
     this.listener = null;
     
@@ -73,7 +74,7 @@ export class GameAudioManager {
   }
 
   playDoorOpeningSound() {
-    if (!this.isInitialized) return;
+    if (!this.isInitialized || !this.isEnabled) return;
     
     if (this.doorOpeningSound && this.doorOpeningSound.buffer && !this.doorOpeningSound.isPlaying) {
       try {
@@ -85,7 +86,7 @@ export class GameAudioManager {
   }
 
   playItemPickupSound() {
-    if (!this.isInitialized) return;
+    if (!this.isInitialized || !this.isEnabled) return;
     
     if (this.itemPickupSound && this.itemPickupSound.buffer && !this.itemPickupSound.isPlaying) {
       try {
@@ -97,7 +98,7 @@ export class GameAudioManager {
   }
 
   playLiftStartingSound() {
-    if (!this.isInitialized) return;
+    if (!this.isInitialized || !this.isEnabled) return;
     
     if (this.liftStartingSound && this.liftStartingSound.buffer && !this.liftStartingSound.isPlaying) {
       try {
@@ -109,7 +110,7 @@ export class GameAudioManager {
   }
 
   playLiftStoppingSound() {
-    if (!this.isInitialized) return;
+    if (!this.isInitialized || !this.isEnabled) return;
     
     if (this.liftStoppingSound && this.liftStoppingSound.buffer && !this.liftStoppingSound.isPlaying) {
       try {
@@ -133,9 +134,19 @@ export class GameAudioManager {
     });
   }
 
+  enable() {
+    this.isEnabled = true;
+  }
+
+  disable() {
+    this.isEnabled = false;
+    this.stopAllSounds();
+  }
+
   dispose() {
     this.stopAllSounds();
     this.isInitialized = false;
+    this.isEnabled = false;
     this.listener = null;
   }
 }
