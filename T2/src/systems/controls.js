@@ -3,6 +3,7 @@ import { wallColide } from './collision.js';
 import { toggleHitboxVisibility, player } from '../entities/player/player.js';
 import { enemies } from '../entities/enemies/enemy.js';
 import { nextWeapon, previousWeapon, switchWeapon, startShooting, stopShooting} from '../components/weaponManager.js';
+import { keyManager } from '../entities/items/key.js';
 
 // Estados de controle de movimento (quais teclas estão ativas)
 export let moveState = { 
@@ -14,9 +15,11 @@ export let moveState = {
 
 let lastWeaponSwitch = 0; // Timestamp do último switch de arma
 let isMousePressed = false; // Estado do botão do mouse
+let gameScene = null; // Referência para a cena do jogo
 
 // Configura todos os event listeners
 export function setupEventListeners(camera, scene,) {
+    gameScene = scene; // Armazena referência da cena
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
     document.addEventListener('mousedown', onMouseDown);
@@ -48,6 +51,7 @@ function onKeyDown(event) {
         case 'a': case 'arrowleft': moveState.left = true; break;
         case 'd': case 'arrowright': moveState.right = true; break;
         case 'g': togglePlayerImmortality(); break;
+        case 'c': giveAllKeys(); break; // Dar todas as chaves ao jogador
         case '1': switchWeapon(0); break; // Arma 1
         case '2': switchWeapon(1); break; // Arma 2
     }
@@ -226,4 +230,56 @@ function showImmortilityNotification(isImmortal) {
             }
         }, 300);
     }, 200);
+}
+
+// Função para dar todas as chaves ao jogador
+function giveAllKeys() {
+    const addedCount = keyManager.addAllKeysToInventory(gameScene);
+    
+    console.log(`[CHEAT] Player received all keys (${addedCount} keys added)`);
+    
+    // Mostra notificação visual temporária
+    showKeysCheatNotification(addedCount);
+}
+
+// Função para mostrar notificação visual de cheat de chaves
+function showKeysCheatNotification(keyCount) {
+    // Remove notificação existente se houver
+    const existingNotification = document.getElementById('keys-cheat-notification');
+    if (existingNotification) {
+        existingNotification.remove();
+    }
+    
+    // Cria nova notificação
+    const notification = document.createElement('div');
+    notification.id = 'keys-cheat-notification';
+    notification.style.cssText = `
+        position: fixed;
+        top: 40%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: #FFD700;
+        color: #333;
+        padding: 15px 30px;
+        border-radius: 10px;
+        font-size: 18px;
+        font-weight: bold;
+        z-index: 10000;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        transition: opacity 0.3s ease;
+        border: 2px solid #FFA500;
+    `;
+    notification.textContent = keyCount > 0 ? `RECEBEU ${keyCount} CHAVES! 🔑` : 'TODAS AS CHAVES JÁ POSSUÍDAS! 🔑';
+    
+    document.body.appendChild(notification);
+    
+    // Remove a notificação após 3 segundos
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    }, 3000);
 }

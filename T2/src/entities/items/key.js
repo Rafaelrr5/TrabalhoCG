@@ -420,6 +420,70 @@ export class KeyManager {
             }
         });
     }
+
+    // Adiciona uma chave diretamente ao inventário (para cheats/debug)
+    addKeyToInventory(keyType, scene = null) {
+        if (!keyType || typeof keyType !== 'string') {
+            console.warn('[KEY MANAGER] Invalid key type for adding to inventory');
+            return false;
+        }
+
+        if (this.collectedKeys.has(keyType)) {
+            console.log(`[KEY MANAGER] Key ${keyType} already in inventory`);
+            return false;
+        }
+
+        // Cria uma chave física completa para animações
+        const cheatKey = Key.create(keyType, new THREE.Vector3(0, -1000, 0));
+        const keyId = `cheat_${keyType}_${Date.now()}`;
+        cheatKey.id = keyId;
+        
+        // Se há uma cena disponível, inicializa a chave (necessário para getMesh())
+        if (scene) {
+            cheatKey.init(scene);
+            // Esconde a chave imediatamente
+            if (cheatKey.getMesh()) {
+                cheatKey.getMesh().visible = false;
+            }
+        } else {
+            // Cria mesh minimamente funcional sem adicionar à cena
+            cheatKey.createKeyMesh();
+            if (cheatKey.mesh) {
+                cheatKey.mesh.visible = false;
+            }
+        }
+        
+        // Adiciona ao keys Map
+        this.keys.set(keyId, cheatKey);
+        
+        // Marca como coletada
+        cheatKey.isCollected = true;
+        
+        // Adiciona ao inventário
+        this.collectedKeys.add(keyType);
+        this.notifyInventoryChange('cheat_added', keyType);
+        
+        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+            console.log(`[KEY MANAGER] Added ${keyType} key directly to inventory (cheat)`);
+        }
+
+        return true;
+    }
+
+    // Adiciona todas as chaves disponíveis ao inventário
+    addAllKeysToInventory(scene = null) {
+        const allKeyTypes = ['red', 'blue', 'yellow', 'green', 'gold'];
+        let addedCount = 0;
+
+        allKeyTypes.forEach(keyType => {
+            if (this.addKeyToInventory(keyType, scene)) {
+                addedCount++;
+            }
+        });
+
+        console.log(`[KEY MANAGER] Added ${addedCount} keys to inventory (cheat)`);
+        return addedCount;
+    }
 }
 
 export const keyManager = new KeyManager();
