@@ -159,7 +159,6 @@ function createArea2(scene, materials, collidableObjects) {
     const blockgroup = createGradientBlocksWithGap(point1, point2, scene, 4.0, collidableObjects);
     area2.add(blockgroup);
   
-    // Criar bloco central que irá se elevar para revelar a chave azul
     const centralBlock = createCentralBlockWithKey(scene);
     area2.add(centralBlock);
     
@@ -182,14 +181,12 @@ async function createArea3(scene, materials, collidableObjects) {
     try {
         updateProgress(57, 'Carregando modelo do hangar...');
         
-        // Define paths for OBJ and MTL files
         const objPath = 'assets/models/Arched_hangar.obj';
         const mtlPath = 'assets/textures/Arched_hangar.mtl';
         
         
         let hangarModel = null;
         
-        // Try loading with MTL first, then fallback to OBJ only
         try {
             updateProgress(58, 'Carregando texturas do hangar...');
             hangarModel = await loadOBJModel(objPath, mtlPath, {
@@ -208,7 +205,6 @@ async function createArea3(scene, materials, collidableObjects) {
             updateProgress(60, 'Hangar carregado com materiais!');
         } catch (mtlError) {
             updateProgress(59, 'Carregando hangar sem texturas...');
-            // Fallback: load OBJ without MTL
             hangarModel = await loadOBJModel(objPath, null, {
                 scale: 8.0,
                 position: { x: 0, y: 0, z: 0 },
@@ -225,17 +221,12 @@ async function createArea3(scene, materials, collidableObjects) {
             updateProgress(60, 'Hangar carregado!');
         }
         
-        // Create a group for Area 3
         const area3 = new THREE.Group();
         area3.name = "Area3";
         
-        // Position the hangar model exactly where Area 3 was
-        // Original Area 3 center was at (156.25, CONFIG.AREA_Y_POSITION, -131.0)
-        // Place it slightly above the base plane
         hangarModel.position.set(156.25, CONFIG.AREA_Y_POSITION -2, -50.0);
         hangarModel.name = "HangarModel";
         
-        // Ensure the hangar is visible and properly configured
         hangarModel.visible = true;
         let hangarDoors = []; // Array to store door meshes for animation
         
@@ -245,20 +236,15 @@ async function createArea3(scene, materials, collidableObjects) {
                 child.castShadow = true;
                 child.receiveShadow = true;
                 
-                // Identify door meshes by name or position
-                // Common door names in 3D models: "door", "gate", "portal", etc.
                 const childName = (child.name || '').toLowerCase();
                 if (childName.includes('door') || childName.includes('gate') || childName.includes('portal') ||
                     childName.includes('entrance') || childName.includes('opening')) {
                     hangarDoors.push(child);
                 } else {
-                    // Try to identify doors by geometry characteristics
-                    // Doors are typically tall, thin rectangles near the front of the hangar
                     const bbox = new THREE.Box3().setFromObject(child);
                     const size = bbox.getSize(new THREE.Vector3());
                     const center = bbox.getCenter(new THREE.Vector3());
                     
-                    // Check if this could be a door based on dimensions and position
                     const isVertical = size.y > size.x && size.y > size.z; // Taller than wide/deep
                     const isThin = (size.x < 5 || size.z < 5); // One dimension is thin
                     const isAtFront = Math.abs(center.z + 131.0) < 80; // Near the front of hangar area
@@ -286,8 +272,6 @@ async function createArea3(scene, materials, collidableObjects) {
                 }
             }
         });
-        
-        // Store door references in the hangar model for later animation
         hangarModel.userData.doors = hangarDoors;
         hangarModel.userData.doorsOpen = false;
         hangarModel.userData.animating = false;
@@ -296,34 +280,48 @@ async function createArea3(scene, materials, collidableObjects) {
         
         area3.add(hangarModel);
         
-        // Add to scene (no stairs for hangar)
         scene.add(area3);
         
-        // Mark objects as collidable
         markCollisionObject(area3, collidableObjects);
         
-        // Enable shadows
         enableShadowsForAll(area3);
         
         console.log('[ENVIRONMENT] Hangar OBJ model loaded successfully!');
         console.log('[ENVIRONMENT] Hangar model position:', hangarModel.position);
         console.log('[ENVIRONMENT] Hangar model scale:', hangarModel.scale);
         console.log('[ENVIRONMENT] Hangar model bounding box:');
+                
+        try {
+            updateProgress(61, 'Carregando avião...');
+
+            const planeModel = await loadOBJModel('../../assets/objects/plane.obj', null, {
+                scale: 0.5,
+                position: { x: 0, y: 5, z: 0 }, // Position relative to hangar center
+                rotation: { x: 0, y: Math.PI, z: 0 }, // Rotate 180 degrees to face forward
+                castShadow: true,
+                receiveShadow: true
+            });
+            
+            planeModel.name = "PlaneModel";
+            planeModel.position.set(156.25, CONFIG.AREA_Y_POSITION + 3, -50.0);
+            
+            area3.add(planeModel);
+            
+            console.log('[ENVIRONMENT] Plane model loaded and positioned inside hangar!');
+            console.log('[ENVIRONMENT] Plane position:', planeModel.position);
+            updateProgress(62, 'Avião carregado!');
+            
+        } catch (planeError) {
+            console.error('[ENVIRONMENT] Error loading plane model:', planeError);
+            console.log('[ENVIRONMENT] Continuing without plane...');
+        }
         
-        // Calculate bounding box for debugging
-        const bbox = new THREE.Box3().setFromObject(hangarModel);
-        console.log('  Min:', bbox.min);
-        console.log('  Max:', bbox.max);
-        console.log('  Size:', bbox.getSize(new THREE.Vector3()));
-        
-        // Add a debug function to the window for testing
         window.testHangarVisibility = function() {
             console.log('[DEBUG] Hangar visibility test:');
             console.log('  Hangar model visible:', hangarModel.visible);
             console.log('  Hangar position:', hangarModel.position);
             console.log('  Hangar in scene:', scene.getObjectByName('Area3') !== undefined);
             
-            // Force make hangar visible
             hangarModel.visible = true;
             hangarModel.traverse((child) => {
                 if (child.isMesh) {
@@ -333,7 +331,6 @@ async function createArea3(scene, materials, collidableObjects) {
             });
         };
         
-        // Add debug function to test door animation
         window.toggleHangarDoors = function() {
             console.log('[DEBUG] Toggling hangar doors...');
             animateHangarDoors(hangarModel, !hangarModel.userData.doorsOpen);
@@ -344,17 +341,13 @@ async function createArea3(scene, materials, collidableObjects) {
         console.error('[ENVIRONMENT] Error details:', error.message);
         console.error('[ENVIRONMENT] Stack trace:', error.stack);
         
-        // Fallback: create a simple placeholder hangar if the OBJ fails to load
         console.log('[ENVIRONMENT] Creating fallback hangar...');
         
-        // Create a simple hangar-like structure
         const area3 = new THREE.Group();
         area3.name = "Area3";
         
-        // Create a simple hangar shape with boxes
         const hangarMaterial = new THREE.MeshLambertMaterial({ color: 0x666666 }); // Dark gray
         
-        // Main hangar body
         const hangarBody = new THREE.BoxGeometry(100, 20, 80);
         const hangarMesh = new THREE.Mesh(hangarBody, hangarMaterial);
         hangarMesh.position.set(156.25, CONFIG.AREA_Y_POSITION + 12, -131.0); // Slightly above base plane
@@ -362,7 +355,6 @@ async function createArea3(scene, materials, collidableObjects) {
         hangarMesh.receiveShadow = true;
         area3.add(hangarMesh);
         
-        // Hangar roof (arched effect with multiple boxes)
         for (let i = 0; i < 5; i++) {
             const roofGeometry = new THREE.BoxGeometry(100, 5, 10);
             const roofMesh = new THREE.Mesh(roofGeometry, hangarMaterial);
@@ -375,15 +367,12 @@ async function createArea3(scene, materials, collidableObjects) {
         }
         
         scene.add(area3);
-        
-        // No stairs for hangar
-        
+                
         markCollisionObject(area3, collidableObjects);
         enableShadowsForAll(area3);
     }
 }
 
-// Cria a Área 4 (verde)
 function createArea4(scene, materials, collidableObjects) {
     let areaGeometry = new THREE.BoxGeometry(1, 1, 1);
     
