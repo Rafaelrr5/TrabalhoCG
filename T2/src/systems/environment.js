@@ -430,17 +430,14 @@ function createRomanColumns(scene) {
     // Tentar carregar a textura com tratamento de erro
     console.log('Tentando carregar textura de pedra...');
     textureLoader.load(
-        'assets/textures/pedradifusa.png', // Caminho correto baseado na estrutura do projeto
-        // onLoad - quando a textura carrega com sucesso
+        'assets/textures/pedradifusa.png',
         function(stoneTexture) {
             console.log('✅ Textura de pedra carregada com sucesso');
             
-            // Configurar a textura principal
             stoneTexture.wrapS = THREE.RepeatWrapping;
             stoneTexture.wrapT = THREE.RepeatWrapping;
             stoneTexture.repeat.set(2, 4);
             
-            // Carregar displacement map
             textureLoader.load(
                 'assets/textures/pedradifusa.png',
                 function(displacementTexture) {
@@ -449,14 +446,13 @@ function createRomanColumns(scene) {
                     displacementTexture.wrapT = THREE.RepeatWrapping;
                     displacementTexture.repeat.set(2, 4);
                     
-                    // Criar novo material com texturas usando MeshStandardMaterial - SEM displacement
                     const texturedMaterial = new THREE.MeshStandardMaterial({
                         map: stoneTexture,
-                        normalMap: stoneTexture, // Usar a textura como normal map para efeito 3D sutil
-                        normalScale: new THREE.Vector2(0.8, 0.8), // Efeito 3D mais pronunciado
-                        roughness: 0.8, // Superfície rugosa típica de pedra
-                        metalness: 0.0, // Pedra não é metálica
-                        color: 0xffffff, // Branco para não alterar a cor da textura
+                        normalMap: stoneTexture,
+                        normalScale: new THREE.Vector2(0.8, 0.8), 
+                        roughness: 0.8,
+                        metalness: 0.0,
+                        color: 0xffffff,
                         transparent: false
                     });
                     
