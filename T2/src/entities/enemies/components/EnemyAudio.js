@@ -53,6 +53,8 @@ export class EnemyAudio {
   }
 
   playSound(soundType) {
+    if (!this.enabled) return false; // Verificar se está habilitado
+    
     try {
       const sound = this.sounds[soundType];
       if (!sound || !sound.buffer || sound.isPlaying) return false;
@@ -120,6 +122,21 @@ export class EnemyAudio {
     } else {
       this.stopNearbySound();
     }
+  }
+
+  enable() {
+    this.enabled = true;
+  }
+
+  disable() {
+    this.enabled = false;
+    this.stopAllSounds();
+  }
+
+  stopAllSounds() {
+    Object.keys(this.sounds).forEach(soundType => {
+      this.stopSound(soundType);
+    });
   }
 
   dispose() {
