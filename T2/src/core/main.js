@@ -1,7 +1,7 @@
 import * as THREE from '../../../build/three.module.js';
 import { PointerLockControls } from '../../../build/jsm/controls/PointerLockControls.js';
 import { CONFIG } from './config.js';
-import { createWalls, createAreas, updateArea1, updateArea2, area1KeyPlatform, area2KeyPlatform, isPlayerInArea1, isPlayerInArea2 } from '../systems/environment.js';
+import { createWalls, createAreas, updateArea1, updateArea2, area1KeyPlatform, area2KeyPlatform, isPlayerInArea1, isPlayerInArea2, updateHangarDoors } from '../systems/environment.js';
 import { createGun } from '../components/weapon.js';
 import { createWeaponManager, updateProjectiles } from '../components/weaponManager.js';
 import { createEnemies, updateEnemies, cleanupDeadEnemies, enemies, cleanupAllEnemyProjectiles, resetArea2Activation, resetArea1Activation } from '../entities/enemies/enemy.js';
@@ -621,6 +621,7 @@ function animate() {
     updateTotem(delta, scene, hitbox, 'red', collidableObjects);
     updateKeyAnimation(delta, scene); // Atualiza animação da chave
     updateDoorAnimation(delta, scene); // Atualiza animação da porta
+    updateHangarDoors(delta, camera, scene); // Atualiza animação das portas do hangar
     
     // Update ambient music based on player position
     updateAmbientMusic();
@@ -810,4 +811,25 @@ window.testGameAudio = function() {
   setTimeout(() => {
     gameAudioManager.playLiftStoppingSound();
   }, 3000);
+};
+
+// Debug function to test hangar door animation
+window.testHangarDoors = function() {
+  const area3 = scene.getObjectByName('Area3');
+  if (area3) {
+    const hangar = area3.getObjectByName('HangarModel');
+    if (hangar && hangar.userData.doors) {
+      console.log('[DEBUG] Testing hangar door animation...');
+      const shouldOpen = !hangar.userData.doorsOpen;
+      
+      // Import the animation function dynamically
+      import('../systems/environment.js').then(module => {
+        module.animateHangarDoors(hangar, shouldOpen);
+      });
+    } else {
+      console.log('[DEBUG] Hangar model or doors not found');
+    }
+  } else {
+    console.log('[DEBUG] Area3 not found');
+  }
 };

@@ -370,17 +370,8 @@ async function createArea3(scene, materials, collidableObjects) {
         
         // Add debug function to test door animation
         window.toggleHangarDoors = function() {
-            const area3 = scene.getObjectByName('Area3');
-            if (area3) {
-                const hangar = area3.getObjectByName('HangarModel');
-                if (hangar) {
-                    animateHangarDoors(hangar, !hangar.userData.doorsOpen);
-                } else {
-                    console.log('[DEBUG] Hangar model not found in Area3');
-                }
-            } else {
-                console.log('[DEBUG] Area3 not found in scene');
-            }
+            console.log('[DEBUG] Toggling hangar doors...');
+            animateHangarDoors(hangarModel, !hangarModel.userData.doorsOpen);
         };
         
     } catch (error) {
@@ -974,95 +965,6 @@ function raiseCentralBlock(blockGroup, delta) {
     }
 }
 
-// Function to animate hangar doors
-export function animateHangarDoors(hangarModel, open = true) {
-    if (!hangarModel || !hangarModel.userData.doors || hangarModel.userData.animating) {
-        return;
-    }
-    
-    const doors = hangarModel.userData.doors;
-    if (doors.length === 0) {
-        console.log('[HANGAR] No doors found to animate');
-        return;
-    }
-    
-    console.log(`[HANGAR] ${open ? 'Opening' : 'Closing'} ${doors.length} door(s)`);
-    
-    hangarModel.userData.animating = true;
-    hangarModel.userData.doorsOpen = open;
-    
-    const animationDuration = 2000; // 2 seconds
-    const startTime = Date.now();
-    
-    // Store original positions/rotations if not already stored
-    doors.forEach((door, index) => {
-        if (!door.userData.originalPosition) {
-            door.userData.originalPosition = door.position.clone();
-            door.userData.originalRotation = door.rotation.clone();
-        }
-    });
-    
-    function animateDoors() {
-        const elapsed = Date.now() - startTime;
-        const progress = Math.min(elapsed / animationDuration, 1.0);
-        
-        // Use easing function for smoother animation
-        const easedProgress = open ? easeOutCubic(progress) : easeInCubic(1 - progress);
-        
-        doors.forEach((door, index) => {
-            const originalPos = door.userData.originalPosition;
-            const originalRot = door.userData.originalRotation;
-            
-            // Different animation strategies based on door position or name
-            const doorName = (door.name || '').toLowerCase();
-            
-            if (doorName.includes('left') || door.position.x < 0) {
-                // Left door - slide left or rotate
-                door.position.x = originalPos.x - (easedProgress * 20); // Slide 20 units left
-                // Or rotate: door.rotation.y = originalRot.y + (easedProgress * Math.PI/2);
-            } else if (doorName.includes('right') || door.position.x > 0) {
-                // Right door - slide right or rotate
-                door.position.x = originalPos.x + (easedProgress * 20); // Slide 20 units right
-                // Or rotate: door.rotation.y = originalRot.y - (easedProgress * Math.PI/2);
-            } else {
-                // Center door or unknown - slide up
-                door.position.y = originalPos.y + (easedProgress * 15); // Slide 15 units up
-            }
-        });
-        
-        if (progress < 1.0) {
-            requestAnimationFrame(animateDoors);
-        } else {
-            hangarModel.userData.animating = false;
-            console.log(`[HANGAR] Door animation completed - doors are now ${open ? 'open' : 'closed'}`);
-        }
-    }
-    
-    animateDoors();
-}
-
-// Function to update hangar doors animation (call this in main animation loop)
-export function updateHangarDoors(delta, scene) {
-    // You can add automatic door opening logic here
-    // For example, open doors when player approaches
-    
-    const area3 = scene.getObjectByName('Area3');
-    if (!area3) return;
-    
-    const hangar = area3.getObjectByName('HangarModel');
-    if (!hangar || !hangar.userData.doors) return;
-    
-    // Example: Auto-open doors when player is near (you'll need to pass camera position)
-    // const playerPosition = camera.position;
-    // const hangarPosition = hangar.position;
-    // const distance = playerPosition.distanceTo(hangarPosition);
-    // 
-    // if (distance < 50 && !hangar.userData.doorsOpen && !hangar.userData.animating) {
-    //     animateHangarDoors(hangar, true);
-    // } else if (distance > 80 && hangar.userData.doorsOpen && !hangar.userData.animating) {
-    //     animateHangarDoors(hangar, false);
-    // }
-}
 
 // Easing functions for smooth animation
 function easeOutCubic(t) {
@@ -1071,4 +973,155 @@ function easeOutCubic(t) {
 
 function easeInCubic(t) {
     return t * t * t;
+}
+
+// Animate hangar doors opening/closing
+export function animateHangarDoors(hangarModel, shouldOpen) {
+    if (!hangarModel || !hangarModel.userData.doors || hangarModel.userData.animating) {
+        console.log('[HANGAR] Cannot animate doors - missing model, doors, or already animating');
+        return;
+    }
+    
+    const doors = hangarModel.userData.doors;
+    if (doors.length === 0) {
+        console.log('[HANGAR] No doors found for animation');
+        return;
+    }
+    
+    console.log(`[HANGAR] Starting door animation - ${shouldOpen ? 'Opening' : 'Closing'} ${doors.length} door(s)`);
+    
+    hangarModel.userData.animating = true;
+    const animationDuration = 3000; // 3 seconds
+    const startTime = Date.now();
+    
+    // Store initial positions/rotations for all doors
+    const doorInitialStates = doors.map(door => ({
+        door: door,
+        initialPosition: door.position.clone(),
+        initialRotation: door.rotation.clone(),
+        // Calculate movement based on door position and orientation
+        moveDirection: calculateDoorMovement(door, hangarModel)
+    }));
+    
+    function animateFrame() {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / animationDuration, 1.0);
+        
+        // Use easing for smooth animation
+        const easedProgress = shouldOpen ? easeOutCubic(progress) : easeInCubic(progress);
+        
+        doorInitialStates.forEach(({ door, initialPosition, initialRotation, moveDirection }) => {
+            // Calculate animation progress for this door
+            const animProgress = shouldOpen ? easedProgress : (1.0 - easedProgress);
+            
+            // Apply movement based on door type
+            if (moveDirection.type === 'slide') {
+                // Sliding doors (horizontal movement)
+                door.position.copy(initialPosition);
+                door.position.add(moveDirection.direction.clone().multiplyScalar(animProgress * moveDirection.distance));
+            } else if (moveDirection.type === 'swing') {
+                // Swinging doors (rotation)
+                door.rotation.copy(initialRotation);
+                door.rotation.y += animProgress * moveDirection.angle;
+            } else if (moveDirection.type === 'fold') {
+                // Folding doors (up/down movement)
+                door.position.copy(initialPosition);
+                door.position.y += animProgress * moveDirection.distance;
+            }
+        });
+        
+        if (progress < 1.0) {
+            requestAnimationFrame(animateFrame);
+        } else {
+            // Animation complete
+            hangarModel.userData.animating = false;
+            hangarModel.userData.doorsOpen = shouldOpen;
+            console.log(`[HANGAR] Door animation complete - ${shouldOpen ? 'Opened' : 'Closed'}`);
+        }
+    }
+    
+    requestAnimationFrame(animateFrame);
+}
+
+// Calculate how each door should move based on its position and orientation
+function calculateDoorMovement(door, hangarModel) {
+    const doorBbox = new THREE.Box3().setFromObject(door);
+    const hangarBbox = new THREE.Box3().setFromObject(hangarModel);
+    
+    const doorCenter = doorBbox.getCenter(new THREE.Vector3());
+    const hangarCenter = hangarBbox.getCenter(new THREE.Vector3());
+    const doorSize = doorBbox.getSize(new THREE.Vector3());
+    
+    // Determine door type based on size and position
+    const isWide = doorSize.x > doorSize.z;
+    const isTall = doorSize.y > Math.max(doorSize.x, doorSize.z);
+    
+    // Check if door is at the front/back of hangar
+    const isAtFront = doorCenter.z > hangarCenter.z;
+    const isAtSide = Math.abs(doorCenter.x - hangarCenter.x) > Math.abs(doorCenter.z - hangarCenter.z);
+    
+    console.log(`[HANGAR] Door analysis:`, {
+        name: door.name || 'unnamed',
+        center: doorCenter,
+        size: doorSize,
+        isWide, isTall, isAtFront, isAtSide
+    });
+    
+    if (isTall && isWide && isAtFront) {
+        // Large front doors - slide horizontally
+        return {
+            type: 'slide',
+            direction: new THREE.Vector3(doorCenter.x > hangarCenter.x ? 1 : -1, 0, 0),
+            distance: doorSize.x * 0.8 // Move by 80% of door width
+        };
+    } else if (isTall && !isWide) {
+        // Tall narrow doors - swing open
+        return {
+            type: 'swing',
+            angle: doorCenter.x > hangarCenter.x ? Math.PI / 2 : -Math.PI / 2 // 90 degrees
+        };
+    } else if (!isTall && isWide) {
+        // Wide low doors - fold up/down
+        return {
+            type: 'fold',
+            distance: doorSize.y * 2 // Move up by twice the door height
+        };
+    } else {
+        // Default: slide away from center
+        const direction = new THREE.Vector3()
+            .subVectors(doorCenter, hangarCenter)
+            .normalize();
+        direction.y = 0; // Keep movement horizontal
+        
+        return {
+            type: 'slide',
+            direction: direction,
+            distance: Math.max(doorSize.x, doorSize.z) * 1.2
+        };
+    }
+}
+
+// Update function to handle automatic door opening based on player proximity
+export function updateHangarDoors(delta, camera, scene) {
+    const area3 = scene.getObjectByName('Area3');
+    if (!area3) return;
+    
+    const hangar = area3.getObjectByName('HangarModel');
+    if (!hangar || !hangar.userData.doors) return;
+    
+    // Auto-open doors when player is near
+    const playerPosition = camera.position;
+    const hangarPosition = hangar.position;
+    const distance = playerPosition.distanceTo(hangarPosition);
+    
+    const openDistance = 60; // Distance to open doors
+    const closeDistance = 100; // Distance to close doors
+    
+    if (distance < openDistance && !hangar.userData.doorsOpen && !hangar.userData.animating) {
+        console.log('[HANGAR] Player near hangar, opening doors');
+        animateHangarDoors(hangar, true);
+    } else if (distance > closeDistance && hangar.userData.doorsOpen && !hangar.userData.animating) {
+        console.log('[HANGAR] Player far from hangar, closing doors');
+        animateHangarDoors(hangar, false);
+    }
 }
