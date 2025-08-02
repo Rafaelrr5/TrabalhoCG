@@ -185,7 +185,7 @@ async function createArea3(scene, materials, collidableObjects) {
         
         // Define paths for OBJ and MTL files
         const objPath = 'assets/models/Arched_hangar.obj';
-        const mtlPath = 'assets/textures/Arched hangar.mtl';
+        const mtlPath = 'assets/textures/Arched_hangar.mtl';
         
         console.log('[ENVIRONMENT] Loading hangar OBJ from:', objPath);
         console.log('[ENVIRONMENT] Loading hangar MTL from:', mtlPath);
@@ -247,11 +247,32 @@ async function createArea3(scene, materials, collidableObjects) {
         hangarModel.visible = true;
         let hangarDoors = []; // Array to store door meshes for animation
         
+        console.log('[ENVIRONMENT] Debugging hangar materials...');
+        
         hangarModel.traverse((child) => {
             if (child.isMesh) {
                 child.visible = true;
                 child.castShadow = true;
                 child.receiveShadow = true;
+                
+                // Debug material information
+                if (child.material) {
+                    console.log('[ENVIRONMENT] Mesh:', child.name || 'unnamed');
+                    console.log('  Material name:', child.material.name || 'unnamed material');
+                    console.log('  Material type:', child.material.type);
+                    if (child.material.map) {
+                        console.log('  Has diffuse map:', child.material.map.image?.src || 'no src');
+                    } else {
+                        console.log('  No diffuse map');
+                    }
+                    if (child.material.normalMap) {
+                        console.log('  Has normal map:', child.material.normalMap.image?.src || 'no src');
+                    }
+                    if (child.material.roughnessMap) {
+                        console.log('  Has roughness map:', child.material.roughnessMap.image?.src || 'no src');
+                    }
+                    console.log('  Material color:', child.material.color?.getHexString() || 'no color');
+                }
                 
                 // Identify door meshes by name or position
                 // Common door names in 3D models: "door", "gate", "portal", etc.
@@ -278,12 +299,16 @@ async function createArea3(scene, materials, collidableObjects) {
                     }
                 }
                 
-                // If no material or default material, apply a nice hangar material
-                if (!child.material || child.material.type === 'MeshBasicMaterial') {
+                // Only apply fallback material if no material exists or it's a default basic material without name
+                if (!child.material || 
+                    (child.material.type === 'MeshBasicMaterial' && !child.material.name && !child.material.map)) {
+                    console.log('[ENVIRONMENT] Applying fallback material to:', child.name || 'unnamed');
                     child.material = new THREE.MeshLambertMaterial({
                         color: 0x888888, // Gray color for hangar
                         side: THREE.DoubleSide
                     });
+                } else {
+                    console.log('[ENVIRONMENT] Keeping existing material for:', child.name || 'unnamed');
                 }
                 
                 if (child.material) {

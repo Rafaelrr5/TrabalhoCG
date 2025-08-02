@@ -376,7 +376,7 @@ function createLoadingScreen() {
     controlsInfo.innerHTML = `
         <p><strong>CONTROLES:</strong></p>
         <p>WASD - Movimento | Mouse - Olhar | Click - Atirar</p>
-        <p>R - Recarregar | 1/2 - Trocar Arma | ESC - Menu</p>
+        <p>1/2 - Trocar Arma</p>
     `;
     
     // Add CSS animations

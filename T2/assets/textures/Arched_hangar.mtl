@@ -49,8 +49,8 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.450000
 d 1.000000
 illum 2
-map_Kd C:/metal floor_diffuseOriginal.bmp
-map_refl C:/metal floor_ao.bmp
+map_Kd metal floor_diffuseOriginal.bmp
+map_refl metal floor_ao.bmp
 
 newmtl Steel
 Ns 612.710999
@@ -80,6 +80,6 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.450000
 d 1.000000
 illum 2
-map_Kd -s 0.1 0.1 1 C:/GWC Zinc Hammered Finish_BaseColor.jpg
-map_refl -s 0.1 0.1 1 C:/GWC Zinc Hammered Finish_Metallic.jpg
-map_Bump -s 0.1 0.1 1 -bm 1.000000 C:/GWC Zinc Hammered Finish_Normal.jpg
+map_Kd -s 0.1 0.1 1 GWC Zinc Hammered Finish_BaseColor.jpg
+map_refl -s 0.1 0.1 1 GWC Zinc Hammered Finish_Metallic.jpg
+map_Bump -s 0.1 0.1 1 -bm 1.000000 GWC Zinc Hammered Finish_Normal.jpg
