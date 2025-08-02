@@ -413,16 +413,168 @@ function createRomanColumns(scene) {
     const columnsGroup = new THREE.Group();
     columnsGroup.name = "RomanColumns";
     
-    // Material das colunas (mármore branco/cinza)
-    const columnMaterial = new THREE.MeshLambertMaterial({ 
-        color: 0xf5f5dc, // Bege claro (mármore)
+    // Carregar textura de pedra difusa
+    const textureLoader = new THREE.TextureLoader();
+    
+    // Material base (fallback) - cor de pedra bege com propriedades PBR
+    const baseMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0xf5f5dc, // Bege claro (mármore/pedra)
+        roughness: 0.8, // Superfície rugosa
+        metalness: 0.0, // Não metálica
         transparent: false
     });
+    
+    // Criar material com textura (será aplicado quando a textura carregar)
+    let columnMaterial = baseMaterial;
+    
+    // Tentar carregar a textura com tratamento de erro
+    console.log('Tentando carregar textura de pedra...');
+    textureLoader.load(
+        'assets/textures/pedradifusa.png', // Caminho correto baseado na estrutura do projeto
+        // onLoad - quando a textura carrega com sucesso
+        function(stoneTexture) {
+            console.log('✅ Textura de pedra carregada com sucesso');
+            
+            // Configurar a textura principal
+            stoneTexture.wrapS = THREE.RepeatWrapping;
+            stoneTexture.wrapT = THREE.RepeatWrapping;
+            stoneTexture.repeat.set(2, 4);
+            
+            // Carregar displacement map
+            textureLoader.load(
+                'assets/textures/pedradifusa.png',
+                function(displacementTexture) {
+                    console.log('✅ Textura para normal map carregada com sucesso');
+                    displacementTexture.wrapS = THREE.RepeatWrapping;
+                    displacementTexture.wrapT = THREE.RepeatWrapping;
+                    displacementTexture.repeat.set(2, 4);
+                    
+                    // Criar novo material com texturas usando MeshStandardMaterial - SEM displacement
+                    const texturedMaterial = new THREE.MeshStandardMaterial({
+                        map: stoneTexture,
+                        normalMap: stoneTexture, // Usar a textura como normal map para efeito 3D sutil
+                        normalScale: new THREE.Vector2(0.8, 0.8), // Efeito 3D mais pronunciado
+                        roughness: 0.8, // Superfície rugosa típica de pedra
+                        metalness: 0.0, // Pedra não é metálica
+                        color: 0xffffff, // Branco para não alterar a cor da textura
+                        transparent: false
+                    });
+                    
+                    // Aplicar o material texturizado em todas as colunas existentes
+                    let texturedCount = 0;
+                    columnsGroup.traverse((child) => {
+                        if (child.isMesh) {
+                            child.material = texturedMaterial;
+                            child.material.needsUpdate = true;
+                            texturedCount++;
+                        }
+                    });
+                    
+                    console.log(`✅ Normal mapping aplicado a ${texturedCount} meshes das colunas`);
+                },
+                // onProgress para normal map
+                function(progress) {
+                    console.log('Carregando normal map:', (progress.loaded / progress.total * 100).toFixed(1) + '%');
+                },
+                function(error) {
+                    console.warn('⚠️ Erro ao carregar normal map:', error);
+                    console.log('Usando apenas textura difusa sem normal mapping...');
+                    // Usar apenas a textura difusa sem normal mapping
+                    const simpleTexturedMaterial = new THREE.MeshStandardMaterial({
+                        map: stoneTexture,
+                        roughness: 0.8,
+                        metalness: 0.0,
+                        color: 0xffffff,
+                        transparent: false
+                    });
+                    
+                    let texturedCount = 0;
+                    columnsGroup.traverse((child) => {
+                        if (child.isMesh) {
+                            child.material = simpleTexturedMaterial;
+                            child.material.needsUpdate = true;
+                            texturedCount++;
+                        }
+                    });
+                    console.log(`✅ Textura difusa aplicada a ${texturedCount} meshes das colunas`);
+                }
+            );
+        },
+        // onProgress - para textura principal
+        function(progress) {
+            if (progress.total > 0) {
+                const percent = (progress.loaded / progress.total * 100).toFixed(1);
+                console.log('Carregando textura principal:', percent + '%');
+            }
+        },
+        // onError - se a textura falhar ao carregar
+        function(error) {
+            console.error('❌ Erro ao carregar textura de pedra:', error);
+            console.log('📁 Tentando caminhos alternativos...');
+            
+            // Tentar caminhos alternativos
+            const alternatePaths = [
+                '../assets/textures/pedradifusa.png',
+                '../../assets/textures/pedradifusa.png',
+                './assets/textures/pedradifusa.png',
+                'T2/assets/textures/pedradifusa.png',
+                'src/assets/textures/pedradifusa.png'
+            ];
+            
+            let pathIndex = 0;
+            function tryNextPath() {
+                if (pathIndex >= alternatePaths.length) {
+                    console.log('❌ Todos os caminhos de textura falharam. Usando material de pedra padrão (bege)');
+                    return;
+                }
+                
+                const currentPath = alternatePaths[pathIndex];
+                console.log(`🔍 Tentando caminho: ${currentPath}`);
+                
+                textureLoader.load(
+                    currentPath,
+                    function(stoneTexture) {
+                        console.log(`✅ Textura encontrada em: ${currentPath}`);
+                        stoneTexture.wrapS = THREE.RepeatWrapping;
+                        stoneTexture.wrapT = THREE.RepeatWrapping;
+                        stoneTexture.repeat.set(2, 4);
+                        
+                        const simpleTexturedMaterial = new THREE.MeshStandardMaterial({
+                            map: stoneTexture,
+                            roughness: 0.8,
+                            metalness: 0.0,
+                            color: 0xffffff,
+                            transparent: false
+                        });
+                        
+                        let texturedCount = 0;
+                        columnsGroup.traverse((child) => {
+                            if (child.isMesh) {
+                                child.material = simpleTexturedMaterial;
+                                child.material.needsUpdate = true;
+                                texturedCount++;
+                            }
+                        });
+                        console.log(`✅ Textura alternativa aplicada a ${texturedCount} meshes das colunas`);
+                    },
+                    undefined,
+                    function(altError) {
+                        console.log(`❌ Falhou: ${currentPath}`);
+                        pathIndex++;
+                        tryNextPath();
+                    }
+                );
+            }
+            
+            tryNextPath();
+        }
+    );
     
     // Configurações das colunas
     const columnHeight = 12;
     const columnRadius = 2;
-    const columnSegments = 12;
+    const columnSegments = 24; // Reduzido para performance, ainda mantendo qualidade
+    const columnHeightSegments = 8; // Reduzido para performance
     const capitalHeight = 1.5;
     const baseHeight = 1;
     
@@ -453,9 +605,18 @@ function createRomanColumns(scene) {
     ];
     
     columnPositions.forEach((pos, index) => {
-        const column = createSingleColumn(columnRadius, columnHeight, columnSegments, capitalHeight, baseHeight, columnMaterial);
+        const column = createSingleColumn(columnRadius, columnHeight, columnSegments, columnHeightSegments, capitalHeight, baseHeight, columnMaterial);
         // Posiciona a coluna apoiada sobre a superfície da área
         column.position.set(pos.x, CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + columnHeight/2, pos.z);
+        
+        // Garantir que todas as meshes da coluna tenham sombras ativadas
+        column.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+        
         columnsGroup.add(column);
     });
     
@@ -463,23 +624,23 @@ function createRomanColumns(scene) {
 }
 
 // Cria uma única coluna romana com base, fuste e capitel
-function createSingleColumn(radius, height, segments, capitalHeight, baseHeight, material) {
+function createSingleColumn(radius, height, segments, heightSegments, capitalHeight, baseHeight, material) {
     const columnGroup = new THREE.Group();
     
-    // Base da coluna (mais larga)
-    const baseGeometry = new THREE.CylinderGeometry(radius * 1.3, radius * 1.4, baseHeight, segments);
+    // Base da coluna (mais larga) - aumentar segmentos para displacement
+    const baseGeometry = new THREE.CylinderGeometry(radius * 1.3, radius * 1.4, baseHeight, segments, 4);
     const base = new THREE.Mesh(baseGeometry, material);
     base.position.y = -height/2 + baseHeight/2;
     columnGroup.add(base);
     
-    // Fuste da coluna (corpo principal)
-    const shaftGeometry = new THREE.CylinderGeometry(radius, radius, height - capitalHeight - baseHeight, segments);
+    // Fuste da coluna (corpo principal) - aumentar segmentos para displacement
+    const shaftGeometry = new THREE.CylinderGeometry(radius, radius, height - capitalHeight - baseHeight, segments, heightSegments);
     const shaft = new THREE.Mesh(shaftGeometry, material);
     shaft.position.y = -capitalHeight/2;
     columnGroup.add(shaft);
     
-    // Capitel da coluna (topo decorativo)
-    const capitalGeometry = new THREE.CylinderGeometry(radius * 1.2, radius, capitalHeight, segments);
+    // Capitel da coluna (topo decorativo) - aumentar segmentos para displacement
+    const capitalGeometry = new THREE.CylinderGeometry(radius * 1.2, radius, capitalHeight, segments, 4);
     const capital = new THREE.Mesh(capitalGeometry, material);
     capital.position.y = height/2 - capitalHeight/2;
     columnGroup.add(capital);
