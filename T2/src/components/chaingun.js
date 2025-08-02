@@ -60,7 +60,7 @@ export class Chaingun extends BaseWeapon {
         this.fireSound = new THREE.Audio(window.listener);
         
         // Load chaingun fire sound
-        this.audioLoader.load('/T2/assets/sounds/weapon/chaingun_fire.wav', (buffer) => {
+        this.audioLoader.load('../../assets/sounds/weapon/chaingun_fire.wav', (buffer) => {
             this.fireSound.setBuffer(buffer);
             this.fireSound.setVolume(0.3);
             this.isAudioInitialized = true;
@@ -69,16 +69,9 @@ export class Chaingun extends BaseWeapon {
         });
     }
 
-    // Sobrescreve os hooks da BaseWeapon para lógica específica da Chaingun
     onStartShooting() {
     this.isActivating = true;
     this.activationTimer = 0;
-    
-    // Inicia animação de preparação apenas se não estiver ativa
-    //if (this.onLoop != 'preparing') {
-    //    this.actions.preparing.playLoop();
-    //    this.onLoop = 'preparing';
-    //}
 }
 
     onStopShooting() {
@@ -86,11 +79,6 @@ export class Chaingun extends BaseWeapon {
     this.activationTimer = 0;
     this.isShootingAnimationActive = false; // Reseta o estado
 
-    // Para todas as animações
-    //if (this.onLoop === 'preparing') {
-    //    this.actions.preparing.stop();
-    //    this.onLoop = 'none';
-    //}
     if (this.onLoop) {
         this.actions.shooting.stop();
         this.onLoop = false;
@@ -100,9 +88,6 @@ export class Chaingun extends BaseWeapon {
     }
 }
 
-
-    // Sobrescreve o método startShooting para implementar delay de ativação
-    // Sobrescreve o método startShooting para implementar delay de ativação
 startShooting() {
     if (this.isMousePressed) return; // Já está disparando, não faz nada
 
@@ -124,14 +109,8 @@ startShooting() {
                 return;
             }
                         
-            // Para qualquer animação anterior e inicia 'shooting' em loop
             if (!this.onLoop) {
-                // Para a animação atual se houver uma
-                ///if (this.actions[this.onLoop]) {
-                //    this.actions[this.onLoop].stop();
-                //}
-                
-                this.actions.shooting.playLoop(); // Mantém em loop
+                this.actions.shooting.playLoop();
                 this.onLoop = true;
             }
 
@@ -139,25 +118,20 @@ startShooting() {
         }
     }, this.shootRate);
 }
-
-// Modifique também o onStopShooting para manter consistência
+    
 onStopShooting() {
     this.isActivating = false;
     this.activationTimer = 0;
     this.isShootingAnimationActive = false;
 
-    // Para a animação de shooting se estiver ativa
     if (this.onLoop) {
         this.actions.shooting.stop();
         this.onLoop = false;
     }
-    
-    // Reseta para o frame inicial
-    if (this.chaingunSprite) {
+        if (this.chaingunSprite) {
         this.chaingunSprite.setFrame(0);
     }
 }
-    // Sobrescreve onShoot para adicionar som
     onShoot() {
         this.playFireSound();
     }
@@ -176,12 +150,10 @@ onStopShooting() {
        return this.isActivating && this.activationTimer < this.activationDelay;
     }
 
-    // Sobrescreve getMesh para retornar o sprite
     getMesh() {
         return this.chaingunSprite;
     }
 
-    // Sobrescreve setVisibility para lidar com carregamento assíncrono
     setVisibility(visible) {
         this.isVisible = visible;
         
@@ -199,7 +171,6 @@ onStopShooting() {
         }
     }
 
-    // Sobrescreve o init para inicializar o áudio também
     init(scene) {
         const result = super.init(scene);
         if (result) {
@@ -213,12 +184,8 @@ onStopShooting() {
             this.spriteMixer = SpriteMixer();
             this.loader = new THREE.TextureLoader();
             
-            // Lista de possíveis caminhos para a textura
             const possiblePaths = [
-                'assets/textures/chaingun.png',
-                './assets/textures/chaingun.png',
-                '/T2/assets/textures/chaingun.png',
-                '../assets/textures/chaingun.png'
+                '../../assets/sprites/ChaingunSpriteAtirando.png'
             ];
             
             const tryLoadTexture = (pathIndex = 0) => {
@@ -235,51 +202,36 @@ onStopShooting() {
                 
                 this.loader.load(currentPath, 
                     (texture) => {
-                        // Callback de sucesso
                         if (CONFIG.DEBUG_CONSOLE_LOGS) {
                             console.log(`[Chaingun] Sucesso ao carregar: ${currentPath}`);
                         }
                         
-                        this.chaingunSprite = this.spriteMixer.ActionSprite(texture, 3, 1);
+                        this.chaingunSprite = this.spriteMixer.ActionSprite(texture, 4, 1);
                         this.chaingunSprite.setFrame(0);
                         
-                        // Ajustar o recorte vertical da textura
                         if (this.chaingunSprite.material && this.chaingunSprite.material.map) {
                             const tex = this.chaingunSprite.material.map;
                             tex.repeat.y = 0.99;
                             tex.needsUpdate = true;
                         }
                         
-                        // Configurar propriedades do material do sprite
                         if (this.chaingunSprite.material) {
                             this.chaingunSprite.material.transparent = true;
                             this.chaingunSprite.material.alphaTest = 0.1;
                             this.chaingunSprite.material.side = THREE.DoubleSide;
                         }
                         
-                        // Cria as ações de animação
-                        //this.actions.preparing = this.spriteMixer.Action(this.chaingunSprite, 0, 1, 20);
                         this.actions.shooting = this.spriteMixer.Action(this.chaingunSprite, 1, 2, 40);
-
-                        //this.chaingunSprite.matrixAutoUpdate = true;
-                        //this.chaingunSprite.frustumCulled = false;
-
-                        // Posiciona o sprite relativo à câmera
                         this.chaingunSprite.position.set(CONFIG.GUN_POSITION.x, CONFIG.GUN_POSITION.y , CONFIG.GUN_POSITION.z -1.0);
                         
-                        // Ajustar a geometria do sprite
                         if (this.chaingunSprite.geometry) {
                             this.chaingunSprite.scale.set(1, 0.8, 0.9);
                         }
-
-                        // Anexa o sprite na câmera
                         this.camera.add(this.chaingunSprite);
                         this.mesh = this.chaingunSprite;
                         
-                        // Marca como carregado
                         this.isLoaded = true;
                         
-                        // Aplica visibilidade pendente ou padrão
                         const finalVisibility = this.pendingVisibility !== null ? this.pendingVisibility : this.isVisible;
                         this.chaingunSprite.visible = finalVisibility;
                         this.isVisible = finalVisibility;
@@ -334,7 +286,6 @@ onStopShooting() {
     }
 }
 
-// Backward compatibility exports (mantendo a mesma interface)
 export let gun = null;
 
 export function createGun(camera) {
