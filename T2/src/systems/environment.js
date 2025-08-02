@@ -1482,6 +1482,10 @@ function createGradientBlocksWithGap(point1, point2, scene, baseHeight, collidab
     const gapSize = 12.0;
     const totalSpacing = blockSize + gapSize;
     
+    // Parâmetros da onda senoidal
+    const waveAmplitude = 10.0; // Amplitude da oscilação vertical
+    const waveFrequency = 0.1; // Frequência da onda
+    
     // Criar um grupo para os blocos
     const blocksGroup = new THREE.Group();
     
@@ -1499,18 +1503,25 @@ function createGradientBlocksWithGap(point1, point2, scene, baseHeight, collidab
             // Usar a maior distância (X ou Z) para determinar a altura
             const dist = Math.max(distX, distZ);
             
-            // Calcular altura baseada na distância (2.5 nas bordas, 20 no centro)
-            const heightVariation = 2.5 + (20 - 2.5) * (1 - dist);
+            // Calcular altura baseada na distância (6.0 nas bordas, 20 no centro)
+            const heightVariation = 6.0 + (20 - 6.0) * (1 - dist);
             
-            // Altura final é a baseHeight + a variação
-            const finalHeight = baseHeight + (heightVariation/2);
+            // Calcular a oscilação senoidal (varia entre -1 e 1)
+            const waveFactor = Math.sin(x * waveFrequency) * Math.sin(z * waveFrequency);
+            
+            // Calcular a posição vertical final
+            // Garantimos que a altura nunca seja menor que baseHeight + (heightVariation/2)
+            // E adicionamos a oscilação proporcional à heightVariation
+            const waveEffect = waveAmplitude * waveFactor;
+            const minHeight = baseHeight + (heightVariation / 2);
+            const finalHeight = Math.max(minHeight, minHeight + waveEffect);
             
             // Criar geometria do bloco
             const geometry = new THREE.BoxGeometry(blockSize, heightVariation, blockSize);
             const material = new THREE.MeshLambertMaterial({ color: 'red' });
             const block = new THREE.Mesh(geometry, material);
             
-            // Posicionar o bloco considerando a baseHeight
+            // Posicionar o bloco com a altura modificada pela onda
             block.position.set(x, finalHeight, z);
             
             // Armazenar informações do bloco
@@ -1537,12 +1548,6 @@ function createGradientBlocksWithGap(point1, point2, scene, baseHeight, collidab
     // Remover os blocos centrais
     for (const block of blocksToRemove) {
         blocksGroup.remove(block.mesh);
-        // Opcional: adicionar um marcador visual no espaço vazio
-        //const markerGeometry = new THREE.SphereGeometry(0.5);
-        //const markerMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-        //const marker = new THREE.Mesh(markerGeometry, markerMaterial);
-        //marker.position.set(block.x, baseHeight + 0.5, block.z);
-        //blocksGroup.add(marker);
     }
     
     // Adicionar o grupo à cena
