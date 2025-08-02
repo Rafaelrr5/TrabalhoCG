@@ -125,7 +125,6 @@ export function updateCameraMovement(delta, controls) {
 function onWindowResize() {
     // Esta função será chamada pelo main.js que tem acesso ao renderer
     // O main.js deve implementar sua própria versão
-    console.log('Window resized - implement handler in main.js');
 }
 
 // ============================================================================

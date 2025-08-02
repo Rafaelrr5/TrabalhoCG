@@ -74,7 +74,7 @@ export async function loadSkullModel() {
     skullModel = loadedModel;
     return loadedModel.clone();
   } catch (error) {
-    console.warn('SkullLoader: Failed to load skull model, using enhanced fallback:', error);
+    // Failed to load skull model, using enhanced fallback
     const fallback = createFallbackSkull();
     skullModel = fallback;
     return fallback.clone();

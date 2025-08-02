@@ -210,7 +210,6 @@ export class Cacodemon extends Enemy {
     
     // Ensure health bar exists (for consistency with Lost Souls)
     if (!this.healthBar?.healthBarGroup) {
-      console.log(`[CACODEMON] Health bar missing, reinitializing...`);
       this.healthBar?.initialize();
     }
     

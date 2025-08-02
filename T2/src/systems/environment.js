@@ -180,15 +180,12 @@ async function createArea3(scene, materials, collidableObjects) {
     const updateProgress = window.updateLoadingProgress || function() {};
     
     try {
-        console.log('[ENVIRONMENT] Starting hangar OBJ loading process...');
         updateProgress(57, 'Carregando modelo do hangar...');
         
         // Define paths for OBJ and MTL files
         const objPath = 'assets/models/Arched_hangar.obj';
         const mtlPath = 'assets/textures/Arched_hangar.mtl';
         
-        console.log('[ENVIRONMENT] Loading hangar OBJ from:', objPath);
-        console.log('[ENVIRONMENT] Loading hangar MTL from:', mtlPath);
         
         let hangarModel = null;
         
@@ -196,7 +193,7 @@ async function createArea3(scene, materials, collidableObjects) {
         try {
             updateProgress(58, 'Carregando texturas do hangar...');
             hangarModel = await loadOBJModel(objPath, mtlPath, {
-                scale: 8.0, // Reduced scale to fit the original area 3 size
+                scale: 5,
                 position: { x: 0, y: 0, z: 0 },
                 rotation: { x: 0, y: 0, z: 0 },
                 castShadow: true,
@@ -205,18 +202,15 @@ async function createArea3(scene, materials, collidableObjects) {
                     if (progress.total > 0) {
                         const loadPercent = (progress.loaded / progress.total * 100);
                         updateProgress(58 + (loadPercent * 0.02), `Carregando hangar: ${loadPercent.toFixed(1)}%`);
-                        console.log('[ENVIRONMENT] Loading progress:', loadPercent.toFixed(2) + '%');
                     }
                 }
             });
-            console.log('[ENVIRONMENT] Hangar loaded successfully with MTL materials!');
             updateProgress(60, 'Hangar carregado com materiais!');
         } catch (mtlError) {
-            console.warn('[ENVIRONMENT] Failed to load with MTL, trying OBJ only:', mtlError.message);
             updateProgress(59, 'Carregando hangar sem texturas...');
             // Fallback: load OBJ without MTL
             hangarModel = await loadOBJModel(objPath, null, {
-                scale: 8.0, // Reduced scale to fit the original area 3 size
+                scale: 8.0,
                 position: { x: 0, y: 0, z: 0 },
                 rotation: { x: 0, y: 0, z: 0 },
                 castShadow: true,
@@ -225,11 +219,9 @@ async function createArea3(scene, materials, collidableObjects) {
                     if (progress.total > 0) {
                         const loadPercent = (progress.loaded / progress.total * 100);
                         updateProgress(59 + (loadPercent * 0.01), `Carregando hangar: ${loadPercent.toFixed(1)}%`);
-                        console.log('[ENVIRONMENT] Loading progress:', loadPercent.toFixed(2) + '%');
                     }
                 }
             });
-            console.log('[ENVIRONMENT] Hangar loaded successfully without MTL materials!');
             updateProgress(60, 'Hangar carregado!');
         }
         
@@ -240,14 +232,12 @@ async function createArea3(scene, materials, collidableObjects) {
         // Position the hangar model exactly where Area 3 was
         // Original Area 3 center was at (156.25, CONFIG.AREA_Y_POSITION, -131.0)
         // Place it slightly above the base plane
-        hangarModel.position.set(156.25, CONFIG.AREA_Y_POSITION + 2, -131.0);
+        hangarModel.position.set(156.25, CONFIG.AREA_Y_POSITION -2, -50.0);
         hangarModel.name = "HangarModel";
         
         // Ensure the hangar is visible and properly configured
         hangarModel.visible = true;
         let hangarDoors = []; // Array to store door meshes for animation
-        
-        console.log('[ENVIRONMENT] Debugging hangar materials...');
         
         hangarModel.traverse((child) => {
             if (child.isMesh) {
@@ -255,32 +245,12 @@ async function createArea3(scene, materials, collidableObjects) {
                 child.castShadow = true;
                 child.receiveShadow = true;
                 
-                // Debug material information
-                if (child.material) {
-                    console.log('[ENVIRONMENT] Mesh:', child.name || 'unnamed');
-                    console.log('  Material name:', child.material.name || 'unnamed material');
-                    console.log('  Material type:', child.material.type);
-                    if (child.material.map) {
-                        console.log('  Has diffuse map:', child.material.map.image?.src || 'no src');
-                    } else {
-                        console.log('  No diffuse map');
-                    }
-                    if (child.material.normalMap) {
-                        console.log('  Has normal map:', child.material.normalMap.image?.src || 'no src');
-                    }
-                    if (child.material.roughnessMap) {
-                        console.log('  Has roughness map:', child.material.roughnessMap.image?.src || 'no src');
-                    }
-                    console.log('  Material color:', child.material.color?.getHexString() || 'no color');
-                }
-                
                 // Identify door meshes by name or position
                 // Common door names in 3D models: "door", "gate", "portal", etc.
                 const childName = (child.name || '').toLowerCase();
                 if (childName.includes('door') || childName.includes('gate') || childName.includes('portal') ||
                     childName.includes('entrance') || childName.includes('opening')) {
                     hangarDoors.push(child);
-                    console.log('[ENVIRONMENT] Found door mesh by name:', child.name);
                 } else {
                     // Try to identify doors by geometry characteristics
                     // Doors are typically tall, thin rectangles near the front of the hangar
@@ -295,20 +265,16 @@ async function createArea3(scene, materials, collidableObjects) {
                     
                     if (isVertical && isThin && isAtFront && size.y > 10) {
                         hangarDoors.push(child);
-                        console.log('[ENVIRONMENT] Found potential door mesh by geometry:', child.name || 'unnamed', 'size:', size);
                     }
                 }
                 
                 // Only apply fallback material if no material exists or it's a default basic material without name
                 if (!child.material || 
                     (child.material.type === 'MeshBasicMaterial' && !child.material.name && !child.material.map)) {
-                    console.log('[ENVIRONMENT] Applying fallback material to:', child.name || 'unnamed');
                     child.material = new THREE.MeshLambertMaterial({
                         color: 0x888888, // Gray color for hangar
                         side: THREE.DoubleSide
                     });
-                } else {
-                    console.log('[ENVIRONMENT] Keeping existing material for:', child.name || 'unnamed');
                 }
                 
                 if (child.material) {
@@ -318,7 +284,6 @@ async function createArea3(scene, materials, collidableObjects) {
                         child.material.transparent = false;
                     }
                 }
-                console.log('[ENVIRONMENT] Configured mesh:', child.name || 'unnamed', 'visible:', child.visible);
             }
         });
         
@@ -1036,7 +1001,6 @@ export function animateHangarDoors(hangarModel, shouldOpen) {
             // Animation complete
             hangarModel.userData.animating = false;
             hangarModel.userData.doorsOpen = shouldOpen;
-            console.log(`[HANGAR] Door animation complete - ${shouldOpen ? 'Opened' : 'Closed'}`);
         }
     }
     
@@ -1059,13 +1023,6 @@ function calculateDoorMovement(door, hangarModel) {
     // Check if door is at the front/back of hangar
     const isAtFront = doorCenter.z > hangarCenter.z;
     const isAtSide = Math.abs(doorCenter.x - hangarCenter.x) > Math.abs(doorCenter.z - hangarCenter.z);
-    
-    console.log(`[HANGAR] Door analysis:`, {
-        name: door.name || 'unnamed',
-        center: doorCenter,
-        size: doorSize,
-        isWide, isTall, isAtFront, isAtSide
-    });
     
     if (isTall && isWide && isAtFront) {
         // Large front doors - slide horizontally
@@ -1118,10 +1075,8 @@ export function updateHangarDoors(delta, camera, scene) {
     const closeDistance = 100; // Distance to close doors
     
     if (distance < openDistance && !hangar.userData.doorsOpen && !hangar.userData.animating) {
-        console.log('[HANGAR] Player near hangar, opening doors');
         animateHangarDoors(hangar, true);
     } else if (distance > closeDistance && hangar.userData.doorsOpen && !hangar.userData.animating) {
-        console.log('[HANGAR] Player far from hangar, closing doors');
         animateHangarDoors(hangar, false);
     }
 }
