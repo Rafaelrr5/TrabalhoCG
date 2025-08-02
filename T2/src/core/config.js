@@ -36,6 +36,7 @@ export const CONFIG = {
 
     // Configurações de movimento e física
     MOVE_SPEED: 90,
+    SPRINT_MULTIPLIER: 3, // Multiplicador de velocidade ao pressionar Shift
     GRAVITY: -20,
       // Configurações do jogador
     CAMERA_HEIGHT: 1.8,

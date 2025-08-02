@@ -4,20 +4,20 @@
 
 export const ENEMY_CONFIG = {
   // Configurações gerais de colisão para inimigos
-  COLLISION_ENABLED: true,          // Habilita colisão global para inimigos
-  COLLISION_DEBUG: false,           // Debug visual das colisões
+  COLLISION_ENABLED: true,
+  COLLISION_DEBUG: false,
   
   // Configurações de morte e efeitos visuais
-  DEATH_FADE_ENABLED: true,         // Habilita fade de opacidade na morte
-  DEATH_FADE_DURATION: 2.0,         // Duração do fade em segundos
-  DEATH_FADE_DELAY: 0.5,            // Delay antes de começar o fade
-  DEATH_REMOVE_DELAY: 0.2,          // Delay adicional antes de remover da cena
-  DEATH_SCALE_EFFECT: true,         // Aplica efeito de escala durante a morte
-  DEATH_ROTATION_EFFECT: false,     // Aplica rotação durante a morte
+  DEATH_FADE_ENABLED: true,
+  DEATH_FADE_DURATION: 1.0,
+  DEATH_FADE_DELAY: 0.5,
+  DEATH_REMOVE_DELAY: 0.2,
+  DEATH_SCALE_EFFECT: true,
+  DEATH_ROTATION_EFFECT: false,
   
   // Configurações de transição e animação
-  SMOOTH_TRANSITION: true,          // Transição suave entre idle e ativo
-  TRANSITION_DEBUG: true,           // Logs de debug para transições
+  SMOOTH_TRANSITION: true,
+  TRANSITION_DEBUG: true,
 };
 
 // ============================================================================
@@ -33,7 +33,7 @@ export const LOST_SOUL_CONFIG = {
   DASH_SPEED: 25.0,
   DASH_INTERVAL: 1.5,
   DASH_DURATION: 2.0,
-  KAMIKAZE_DAMAGE: 30,
+  KAMIKAZE_DAMAGE: 5,
   COLLISION_RADIUS: 1.5,
   
   // Configurações do modelo 3D
@@ -41,34 +41,33 @@ export const LOST_SOUL_CONFIG = {
   SKULL_Y_ROTATION_OFFSET: Math.PI,
   SKULL_X_ROTATION_OFFSET: -90,
   SKULL_Z_ROTATION_OFFSET: 0,
-  SKULL_ORIENT_TO_MOVEMENT: true,         // Se true, skull olha na direção do movimento; se false, sempre olha para o target
-  SKULL_SMOOTH_ROTATION: true,            // Aplica rotação suave (lerp) entre orientações
-  SKULL_ROTATION_SPEED: 5.0,              // Velocidade da rotação suave (só se SKULL_SMOOTH_ROTATION = true)
+  SKULL_ORIENT_TO_MOVEMENT: true,
+  SKULL_SMOOTH_ROTATION: true,
+  SKULL_ROTATION_SPEED: 5.0,
   
   // Configurações de colisão ambiental
-  ENABLE_COLLISION: true,       // Habilita/desabilita colisão das Lost Souls
-  COLLISION_RADIUS_ENV: 1.2,        // Raio de colisão das Lost Souls
-  COLLISION_RAYS: 8,            // Número de raycasts para detecção
-  COLLISION_CORRECTION: 0.8,    // Fator de correção de colisão (reduzido para menos flickering)
-  WALL_AVOIDANCE: 0.6,          // Força do desvio de paredes (reduzido)
-  COLLISION_DISTANCE: 1.8,      // Distância mínima das paredes
-  OBSTACLE_AVOIDANCE: true,     // Sistema inteligente de desvio de obstáculos
-  VERTICAL_COLLISION: true,     // Colisão vertical (teto e chão)
-  SMOOTH_COLLISION: true,       // Colisão suave (sem teleporte brusco)
-  RAYCAST_DISTANCE: 2.5,        // Distância máxima do raycast
-  COLLISION_SMOOTHING: 0.15,    // Suavização da correção de posição
+  ENABLE_COLLISION: true,
+  COLLISION_RADIUS_ENV: 1.2,
+  COLLISION_RAYS: 8,
+  COLLISION_CORRECTION: 0.8,
+  WALL_AVOIDANCE: 0.6,
+  COLLISION_DISTANCE: 1.8,  
+  OBSTACLE_AVOIDANCE: true,
+  VERTICAL_COLLISION: true,
+  SMOOTH_COLLISION: true,
+  RAYCAST_DISTANCE: 2.5,    
+  COLLISION_SMOOTHING: 0.15,
   
-  // Configurações de colisão entre Lost Souls
-  INTER_COLLISION: true,        // Habilita colisão entre Lost Souls
-  INTER_COLLISION_RADIUS: 2.0,  // Raio de detecção entre Lost Souls
-  SEPARATION_FORCE: 1.5,        // Força de separação entre Lost Souls
-  SEPARATION_DISTANCE: 3.0,     // Distância mínima entre Lost Souls
+  INTER_COLLISION: true,
+  INTER_COLLISION_RADIUS: 2.0,
+  SEPARATION_FORCE: 1.5,
+  SEPARATION_DISTANCE: 3.0,
   
   // Configurações de spawn
   SPAWN_AREAS: {
     area1: {
       positions: [
-        [-170, 0, -140],  // Y será ajustado automaticamente
+        [-170, 0, -140],
         [-160, 0, -130],
         [-150, 0, -135],
         [-155, 0, -120],
@@ -87,12 +86,12 @@ export const CACODEMON_CONFIG = {
   RADIUS: 1.2,
   COLOR: 0x8B0000,
   MAX_HEALTH: 50,
-  SPEED: 4.5, // Increased from 3.5
+  SPEED: 4.5,
   
-  ATTACK_RANGE: 60.0, // Increased from 45.0 for longer range attacks
-  ATTACK_COOLDOWN: 1.5, // Decreased from 1.8 for even more frequent attacks
-  PROJECTILE_SPEED: 40.0, // Increased from 35.0 for faster projectiles
-  PROJECTILE_DAMAGE: 15, // Increased from 12 for more damage
+  ATTACK_RANGE: 60.0,
+  ATTACK_COOLDOWN: 1.5,
+  PROJECTILE_SPEED: 40.0,
+  PROJECTILE_DAMAGE: 8,
   PROJECTILE_RADIUS: 0.4,
   PROJECTILE_COLOR: 0xFFFF00,
   

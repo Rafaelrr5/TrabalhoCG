@@ -10,7 +10,8 @@ export let moveState = {
     forward: false, 
     backward: false, 
     left: false, 
-    right: false 
+    right: false,
+    sprint: false  // Estado da tecla Shift para corrida
 };
 
 let lastWeaponSwitch = 0; // Timestamp do último switch de arma
@@ -50,6 +51,7 @@ function onKeyDown(event) {
         case 's': case 'arrowdown': moveState.backward = true; break;
         case 'a': case 'arrowleft': moveState.left = true; break;
         case 'd': case 'arrowright': moveState.right = true; break;
+        case 'shift': moveState.sprint = true; break; // Tecla Shift para corrida
         case 'g': togglePlayerImmortality(); break;
         case 'c': giveAllKeys(); break; // Dar todas as chaves ao jogador
         case '1': switchWeapon(0); break; // Arma 1
@@ -63,6 +65,7 @@ function onKeyUp(event) {
         case 's': case 'arrowdown': moveState.backward = false; break;
         case 'a': case 'arrowleft': moveState.left = false; break;
         case 'd': case 'arrowright': moveState.right = false; break;
+        case 'shift': moveState.sprint = false; break; // Tecla Shift para corrida
     }
 }
 
@@ -86,7 +89,9 @@ export function updateCameraMovement(delta, controls) {
         return;
     }
     
-    const distance = CONFIG.MOVE_SPEED * delta;
+    // Aplica multiplicador de velocidade se Shift estiver pressionado
+    const sprintMultiplier = moveState.sprint ? CONFIG.SPRINT_MULTIPLIER : 1;
+    const distance = CONFIG.MOVE_SPEED * delta * sprintMultiplier;
     
     // Calcula os vetores de movimento
     let moveX = 0;

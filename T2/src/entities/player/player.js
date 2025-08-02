@@ -5,8 +5,8 @@ import { playerAudioManager } from '../../systems/index.js';
 export class Player {
     constructor() {
         this.hitbox = null;
-        this.health = 100;
-        this.maxHealth = 100;
+        this.health = 200;
+        this.maxHealth = 200;
         this.isAlive = true;
         this.position = new THREE.Vector3(0, CONFIG.CAMERA_HEIGHT, 0);
     }
