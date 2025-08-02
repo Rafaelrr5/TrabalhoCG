@@ -251,16 +251,18 @@ let camera, scene, renderer, controls, gun;
 let clock = new THREE.Clock();
 let collidableObjects = [];
 let currentPlayerArea = 'none'; // Track current area for ambient music
+let environmentLoaded = false; // Track if environment is fully loaded
 
 init();
 animate();
 
-function init() {
+async function init() {
     setupScene();
     setupCamera();
     lightingSystem.init(scene, renderer);
-    createEnvironment();
+    await createEnvironment();
     createHitbox(scene);
+    // Reset player position AFTER environment is fully loaded
     resetPlayerPosition();
     setupControls();
     setupEventListeners(camera, scene);
@@ -327,9 +329,13 @@ function setupCamera() {
 }
 
 function resetPlayerPosition() {
-    const startHeight = CONFIG.CAMERA_HEIGHT + (CONFIG.START_HEIGHT_OFFSET || 0);
-    camera.position.set(0, startHeight, 0);
+    // Use a fixed safe height for initial positioning
+    const safeHeight = CONFIG.INITIAL_PLAYER_HEIGHT;
+    
+    camera.position.set(0, safeHeight, 0);
     player.resetPosition();
+    
+    console.log('[MAIN] Player position reset to:', camera.position);
 }
 
 function setupControls() {
@@ -349,7 +355,7 @@ function setupControls() {
     window.addEventListener('resize', onWindowResize);
 }
 
-function createEnvironment() {
+async function createEnvironment() {
     // Limpar estado anterior das chaves
     keyManager.clearAll();
     
@@ -357,11 +363,15 @@ function createEnvironment() {
     // resetAllEnemies();
     
     createWalls(scene, collidableObjects);
-    createAreas(scene, collidableObjects);
+    await createAreas(scene, collidableObjects);
     //gun = createGun(camera); // Captura a referência da arma
     //gun.init(scene); // Inicializa a arma com a cena
     // Spawn Lost Soul enemies (they will idle until Area 1 entry)
     createEnemies(scene);
+    
+    // Mark environment as fully loaded
+    environmentLoaded = true;
+    console.log('[MAIN] Environment fully loaded, enabling gravity');
 }
 
 function animate() {
@@ -370,7 +380,12 @@ function animate() {
     const delta = clock.getDelta();
     
     player.update(delta, camera);
-    applyGravity(delta, collidableObjects, camera);
+    
+    // Only apply gravity after environment is fully loaded
+    if (environmentLoaded) {
+        applyGravity(delta, collidableObjects, camera);
+    }
+    
     updateCameraMovement(delta, controls);
     updateProjectiles(delta);
     updateArea1(delta);
@@ -434,10 +449,12 @@ async function restartGame() {
     player.respawn();
     updatePlayerHealthDisplay();
     
-    camera.position.set(0, CONFIG.CAMERA_HEIGHT, 0);
+    // Reset player to safe position using fixed height
+    const safeHeight = CONFIG.INITIAL_PLAYER_HEIGHT;
+    camera.position.set(0, safeHeight, 0);
     camera.rotation.set(0, 0, 0);
     
-    camera.lookAt(0, CONFIG.CAMERA_HEIGHT, -10);
+    camera.lookAt(0, safeHeight, -10);
     
     cleanupAllEnemyProjectiles(scene);
     

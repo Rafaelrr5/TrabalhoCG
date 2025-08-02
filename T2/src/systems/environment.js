@@ -7,6 +7,7 @@ import {createElevator} from '../systems/elevator.js';
 import { enableShadowsForAll } from './lights.js';
 import { keyManager, Key } from '../entities/items/key.js';
 import { createDoor, createtotem } from './door.js';
+import { loadOBJModel } from '../utils/modelLoader.js';
 
 export let area1KeyPlatform = null;
 export let area2KeyPlatform = null;
@@ -52,7 +53,7 @@ export function createWalls(scene, collidableObjects) {
 }
 
 // Cria as áreas coloridas do jogo
-export function createAreas(scene, collidableObjects) {
+export async function createAreas(scene, collidableObjects) {
     // Materiais das áreas
     const materials = {
         stair: new THREE.MeshLambertMaterial({ color: 'blue' }),
@@ -64,7 +65,8 @@ export function createAreas(scene, collidableObjects) {
 
     createArea1(scene, materials, collidableObjects);
     createArea2(scene, materials, collidableObjects);
-    createArea3(scene, materials, collidableObjects);    createArea4(scene, materials, collidableObjects);
+    await createArea3(scene, materials, collidableObjects); // Await the hangar GLB loading
+    createArea4(scene, materials, collidableObjects);
     
     // Armazena referência das plataformas
     const area1Group = scene.getObjectByName("Area1");
@@ -163,34 +165,220 @@ function createArea2(scene, materials, collidableObjects) {
     createtotem(scene, collidableObjects, 60.0, -59.05, 'red');
 }
 
-// Cria a Área 3 (azul escuro)
-function createArea3(scene, materials, collidableObjects) {
-    let areaGeometry = new THREE.BoxGeometry(1, 1, 1);
-    
-    let area3_center = new THREE.Mesh(areaGeometry, materials.area3);
-    let area3_left = new THREE.Mesh(areaGeometry, materials.area3);
-    let area3_right = new THREE.Mesh(areaGeometry, materials.area3);
-    const area3 = new THREE.Group();
-    area3.name = "Area3";
-    const stair3 = new THREE.Group();
-
-    area3_center.position.set(156.25, CONFIG.AREA_Y_POSITION, -131.0);
-    area3_center.scale.set(125.0, CONFIG.AREA_HEIGHT, 125.0);
-    area3_left.position.set(121.2, CONFIG.AREA_Y_POSITION, -66.0);
-    area3_left.scale.set(55.0, CONFIG.AREA_HEIGHT, 6.0);
-    area3_right.position.set(191.2, CONFIG.AREA_Y_POSITION, -66.0);
-    area3_right.scale.set(55.0, CONFIG.AREA_HEIGHT, 6.0);
-    
-    area3.add(area3_center);
-    area3.add(area3_left);
-    area3.add(area3_right);
-    scene.add(area3);
-    stair3.add(createStair(156.25, CONFIG.STAIR_HEIGHT_OFFSET, -62.8, CONFIG.AREA_HEIGHT, true, materials.stair));
-    scene.add(stair3);
-    markCollisionObject(area3, collidableObjects);
-    markCollisionObject(stair3, collidableObjects);
-    enableShadowsForAll(area3); // Ativa sombras na área 3  
-    enableShadowsForAll(stair3); // Ativa sombras na escada
+// Cria a Área 3 (Hangar OBJ)
+async function createArea3(scene, materials, collidableObjects) {
+    try {
+        console.log('[ENVIRONMENT] Starting hangar OBJ loading process...');
+        
+        // Define paths for OBJ and MTL files
+        const objPath = 'assets/models/Arched_hangar.obj';
+        const mtlPath = 'assets/textures/Arched hangar.mtl';
+        
+        console.log('[ENVIRONMENT] Loading hangar OBJ from:', objPath);
+        console.log('[ENVIRONMENT] Loading hangar MTL from:', mtlPath);
+        
+        let hangarModel = null;
+        
+        // Try loading with MTL first, then fallback to OBJ only
+        try {
+            hangarModel = await loadOBJModel(objPath, mtlPath, {
+                scale: 8.0, // Reduced scale to fit the original area 3 size
+                position: { x: 0, y: 0, z: 0 },
+                rotation: { x: 0, y: 0, z: 0 },
+                castShadow: true,
+                receiveShadow: true,
+                onProgress: (progress) => {
+                    if (progress.total > 0) {
+                        console.log('[ENVIRONMENT] Loading progress:', (progress.loaded / progress.total * 100).toFixed(2) + '%');
+                    }
+                }
+            });
+            console.log('[ENVIRONMENT] Hangar loaded successfully with MTL materials!');
+        } catch (mtlError) {
+            console.warn('[ENVIRONMENT] Failed to load with MTL, trying OBJ only:', mtlError.message);
+            // Fallback: load OBJ without MTL
+            hangarModel = await loadOBJModel(objPath, null, {
+                scale: 8.0, // Reduced scale to fit the original area 3 size
+                position: { x: 0, y: 0, z: 0 },
+                rotation: { x: 0, y: 0, z: 0 },
+                castShadow: true,
+                receiveShadow: true,
+                onProgress: (progress) => {
+                    if (progress.total > 0) {
+                        console.log('[ENVIRONMENT] Loading progress:', (progress.loaded / progress.total * 100).toFixed(2) + '%');
+                    }
+                }
+            });
+            console.log('[ENVIRONMENT] Hangar loaded successfully without MTL materials!');
+        }
+        
+        // Create a group for Area 3
+        const area3 = new THREE.Group();
+        area3.name = "Area3";
+        
+        // Position the hangar model exactly where Area 3 was
+        // Original Area 3 center was at (156.25, CONFIG.AREA_Y_POSITION, -131.0)
+        // Place it slightly above the base plane
+        hangarModel.position.set(156.25, CONFIG.AREA_Y_POSITION + 2, -131.0);
+        hangarModel.name = "HangarModel";
+        
+        // Ensure the hangar is visible and properly configured
+        hangarModel.visible = true;
+        let hangarDoors = []; // Array to store door meshes for animation
+        
+        hangarModel.traverse((child) => {
+            if (child.isMesh) {
+                child.visible = true;
+                child.castShadow = true;
+                child.receiveShadow = true;
+                
+                // Identify door meshes by name or position
+                // Common door names in 3D models: "door", "gate", "portal", etc.
+                const childName = (child.name || '').toLowerCase();
+                if (childName.includes('door') || childName.includes('gate') || childName.includes('portal') ||
+                    childName.includes('entrance') || childName.includes('opening')) {
+                    hangarDoors.push(child);
+                    console.log('[ENVIRONMENT] Found door mesh by name:', child.name);
+                } else {
+                    // Try to identify doors by geometry characteristics
+                    // Doors are typically tall, thin rectangles near the front of the hangar
+                    const bbox = new THREE.Box3().setFromObject(child);
+                    const size = bbox.getSize(new THREE.Vector3());
+                    const center = bbox.getCenter(new THREE.Vector3());
+                    
+                    // Check if this could be a door based on dimensions and position
+                    const isVertical = size.y > size.x && size.y > size.z; // Taller than wide/deep
+                    const isThin = (size.x < 5 || size.z < 5); // One dimension is thin
+                    const isAtFront = Math.abs(center.z + 131.0) < 80; // Near the front of hangar area
+                    
+                    if (isVertical && isThin && isAtFront && size.y > 10) {
+                        hangarDoors.push(child);
+                        console.log('[ENVIRONMENT] Found potential door mesh by geometry:', child.name || 'unnamed', 'size:', size);
+                    }
+                }
+                
+                // If no material or default material, apply a nice hangar material
+                if (!child.material || child.material.type === 'MeshBasicMaterial') {
+                    child.material = new THREE.MeshLambertMaterial({
+                        color: 0x888888, // Gray color for hangar
+                        side: THREE.DoubleSide
+                    });
+                }
+                
+                if (child.material) {
+                    child.material.needsUpdate = true;
+                    // Ensure material is not transparent unless needed
+                    if (child.material.transparent && child.material.opacity === 1.0) {
+                        child.material.transparent = false;
+                    }
+                }
+                console.log('[ENVIRONMENT] Configured mesh:', child.name || 'unnamed', 'visible:', child.visible);
+            }
+        });
+        
+        // Store door references in the hangar model for later animation
+        hangarModel.userData.doors = hangarDoors;
+        hangarModel.userData.doorsOpen = false;
+        hangarModel.userData.animating = false;
+        
+        console.log(`[ENVIRONMENT] Found ${hangarDoors.length} door mesh(es) for animation`);
+        
+        area3.add(hangarModel);
+        
+        // Add to scene (no stairs for hangar)
+        scene.add(area3);
+        
+        // Mark objects as collidable
+        markCollisionObject(area3, collidableObjects);
+        
+        // Enable shadows
+        enableShadowsForAll(area3);
+        
+        console.log('[ENVIRONMENT] Hangar OBJ model loaded successfully!');
+        console.log('[ENVIRONMENT] Hangar model position:', hangarModel.position);
+        console.log('[ENVIRONMENT] Hangar model scale:', hangarModel.scale);
+        console.log('[ENVIRONMENT] Hangar model bounding box:');
+        
+        // Calculate bounding box for debugging
+        const bbox = new THREE.Box3().setFromObject(hangarModel);
+        console.log('  Min:', bbox.min);
+        console.log('  Max:', bbox.max);
+        console.log('  Size:', bbox.getSize(new THREE.Vector3()));
+        
+        // Add a debug function to the window for testing
+        window.testHangarVisibility = function() {
+            console.log('[DEBUG] Hangar visibility test:');
+            console.log('  Hangar model visible:', hangarModel.visible);
+            console.log('  Hangar position:', hangarModel.position);
+            console.log('  Hangar in scene:', scene.getObjectByName('Area3') !== undefined);
+            
+            // Force make hangar visible
+            hangarModel.visible = true;
+            hangarModel.traverse((child) => {
+                if (child.isMesh) {
+                    child.visible = true;
+                    console.log('  Child mesh:', child.name, 'visible:', child.visible);
+                }
+            });
+        };
+        
+        // Add debug function to test door animation
+        window.toggleHangarDoors = function() {
+            const area3 = scene.getObjectByName('Area3');
+            if (area3) {
+                const hangar = area3.getObjectByName('HangarModel');
+                if (hangar) {
+                    animateHangarDoors(hangar, !hangar.userData.doorsOpen);
+                } else {
+                    console.log('[DEBUG] Hangar model not found in Area3');
+                }
+            } else {
+                console.log('[DEBUG] Area3 not found in scene');
+            }
+        };
+        
+    } catch (error) {
+        console.error('[ENVIRONMENT] Error loading hangar OBJ model:', error);
+        console.error('[ENVIRONMENT] Error details:', error.message);
+        console.error('[ENVIRONMENT] Stack trace:', error.stack);
+        
+        // Fallback: create a simple placeholder hangar if the OBJ fails to load
+        console.log('[ENVIRONMENT] Creating fallback hangar...');
+        
+        // Create a simple hangar-like structure
+        const area3 = new THREE.Group();
+        area3.name = "Area3";
+        
+        // Create a simple hangar shape with boxes
+        const hangarMaterial = new THREE.MeshLambertMaterial({ color: 0x666666 }); // Dark gray
+        
+        // Main hangar body
+        const hangarBody = new THREE.BoxGeometry(100, 20, 80);
+        const hangarMesh = new THREE.Mesh(hangarBody, hangarMaterial);
+        hangarMesh.position.set(156.25, CONFIG.AREA_Y_POSITION + 12, -131.0); // Slightly above base plane
+        hangarMesh.castShadow = true;
+        hangarMesh.receiveShadow = true;
+        area3.add(hangarMesh);
+        
+        // Hangar roof (arched effect with multiple boxes)
+        for (let i = 0; i < 5; i++) {
+            const roofGeometry = new THREE.BoxGeometry(100, 5, 10);
+            const roofMesh = new THREE.Mesh(roofGeometry, hangarMaterial);
+            const angle = (i - 2) * 0.3; // Create slight arch
+            roofMesh.position.set(156.25, CONFIG.AREA_Y_POSITION + 22 + Math.cos(angle) * 5, -131.0 + (i - 2) * 15);
+            roofMesh.rotation.x = angle;
+            roofMesh.castShadow = true;
+            roofMesh.receiveShadow = true;
+            area3.add(roofMesh);
+        }
+        
+        scene.add(area3);
+        
+        // No stairs for hangar
+        
+        markCollisionObject(area3, collidableObjects);
+        enableShadowsForAll(area3);
+    }
 }
 
 // Cria a Área 4 (verde)
@@ -738,4 +926,103 @@ function raiseCentralBlock(blockGroup, delta) {
             blockGroup.userData.isRaised = true;
         }
     }
+}
+
+// Function to animate hangar doors
+export function animateHangarDoors(hangarModel, open = true) {
+    if (!hangarModel || !hangarModel.userData.doors || hangarModel.userData.animating) {
+        return;
+    }
+    
+    const doors = hangarModel.userData.doors;
+    if (doors.length === 0) {
+        console.log('[HANGAR] No doors found to animate');
+        return;
+    }
+    
+    console.log(`[HANGAR] ${open ? 'Opening' : 'Closing'} ${doors.length} door(s)`);
+    
+    hangarModel.userData.animating = true;
+    hangarModel.userData.doorsOpen = open;
+    
+    const animationDuration = 2000; // 2 seconds
+    const startTime = Date.now();
+    
+    // Store original positions/rotations if not already stored
+    doors.forEach((door, index) => {
+        if (!door.userData.originalPosition) {
+            door.userData.originalPosition = door.position.clone();
+            door.userData.originalRotation = door.rotation.clone();
+        }
+    });
+    
+    function animateDoors() {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / animationDuration, 1.0);
+        
+        // Use easing function for smoother animation
+        const easedProgress = open ? easeOutCubic(progress) : easeInCubic(1 - progress);
+        
+        doors.forEach((door, index) => {
+            const originalPos = door.userData.originalPosition;
+            const originalRot = door.userData.originalRotation;
+            
+            // Different animation strategies based on door position or name
+            const doorName = (door.name || '').toLowerCase();
+            
+            if (doorName.includes('left') || door.position.x < 0) {
+                // Left door - slide left or rotate
+                door.position.x = originalPos.x - (easedProgress * 20); // Slide 20 units left
+                // Or rotate: door.rotation.y = originalRot.y + (easedProgress * Math.PI/2);
+            } else if (doorName.includes('right') || door.position.x > 0) {
+                // Right door - slide right or rotate
+                door.position.x = originalPos.x + (easedProgress * 20); // Slide 20 units right
+                // Or rotate: door.rotation.y = originalRot.y - (easedProgress * Math.PI/2);
+            } else {
+                // Center door or unknown - slide up
+                door.position.y = originalPos.y + (easedProgress * 15); // Slide 15 units up
+            }
+        });
+        
+        if (progress < 1.0) {
+            requestAnimationFrame(animateDoors);
+        } else {
+            hangarModel.userData.animating = false;
+            console.log(`[HANGAR] Door animation completed - doors are now ${open ? 'open' : 'closed'}`);
+        }
+    }
+    
+    animateDoors();
+}
+
+// Function to update hangar doors animation (call this in main animation loop)
+export function updateHangarDoors(delta, scene) {
+    // You can add automatic door opening logic here
+    // For example, open doors when player approaches
+    
+    const area3 = scene.getObjectByName('Area3');
+    if (!area3) return;
+    
+    const hangar = area3.getObjectByName('HangarModel');
+    if (!hangar || !hangar.userData.doors) return;
+    
+    // Example: Auto-open doors when player is near (you'll need to pass camera position)
+    // const playerPosition = camera.position;
+    // const hangarPosition = hangar.position;
+    // const distance = playerPosition.distanceTo(hangarPosition);
+    // 
+    // if (distance < 50 && !hangar.userData.doorsOpen && !hangar.userData.animating) {
+    //     animateHangarDoors(hangar, true);
+    // } else if (distance > 80 && hangar.userData.doorsOpen && !hangar.userData.animating) {
+    //     animateHangarDoors(hangar, false);
+    // }
+}
+
+// Easing functions for smooth animation
+function easeOutCubic(t) {
+    return 1 - Math.pow(1 - t, 3);
+}
+
+function easeInCubic(t) {
+    return t * t * t;
 }

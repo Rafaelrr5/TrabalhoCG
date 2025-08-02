@@ -73,12 +73,15 @@ export class Player {
     }
 
     resetPosition() {
-        const startHeight = CONFIG.CAMERA_HEIGHT + (CONFIG.START_HEIGHT_OFFSET || 0);
-        this.position.set(0, startHeight, 0);
+        // Use a fixed safe height for initial positioning
+        const safeHeight = CONFIG.INITIAL_PLAYER_HEIGHT;
+        this.position.set(0, safeHeight, 0);
 
         if (this.hitbox) {
-            this.hitbox.position.set(0, startHeight - 1.0, 0);
+            this.hitbox.position.set(0, safeHeight - 1.0, 0);
         }
+        
+        console.log('[PLAYER] Position reset to:', this.position);
     }
 
     takeDamage(damage) {
