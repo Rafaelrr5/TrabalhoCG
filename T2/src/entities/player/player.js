@@ -45,7 +45,10 @@ export class Player {
 
     updateHitbox(camera) {
         if (!this.hitbox || !camera) {
-            console.error("Hitbox or camera is missing");
+            // Only log error if we expect these to be initialized (after game setup)
+            if (typeof window !== 'undefined' && window.gameInitialized) {
+                console.error("Hitbox or camera is missing");
+            }
             return;
         }
         

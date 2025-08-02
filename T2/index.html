@@ -18,6 +18,17 @@
                 font-size: 24px;
                 pointer-events: none;
             }
+            #immortality-indicator {
+                position: fixed;
+                top: 80px;
+                left: 20px;
+                color: gold;
+                font-size: 14px;
+                font-weight: bold;
+                z-index: 1000;
+                text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+                display: none;
+            }
         </style>
    </head>
    <body>
@@ -26,6 +37,7 @@
          {"imports": {"three": "../build/three.module.js"}} 
       </script>  
       <div id="crosshair">+</div>
+      <div id="immortality-indicator">IMMORTAL MODE</div>
       
       <div id="webgl-output">     
          <script type="module" src="src/core/main.js"></script>

@@ -47,6 +47,7 @@ function onKeyDown(event) {
         case 's': case 'arrowdown': moveState.backward = true; break;
         case 'a': case 'arrowleft': moveState.left = true; break;
         case 'd': case 'arrowright': moveState.right = true; break;
+        case 'g': togglePlayerImmortality(); break;
         case '1': switchWeapon(0); break; // Arma 1
         case '2': switchWeapon(1); break; // Arma 2
     }
@@ -76,6 +77,11 @@ function weaponSwitch(timestamp, deltaY) {
 
 // Atualiza posição do jogador baseado na entrada do usuário
 export function updateCameraMovement(delta, controls) {
+    // Guard against undefined controls
+    if (!controls || !controls.moveRight || !controls.moveForward) {
+        return;
+    }
+    
     const distance = CONFIG.MOVE_SPEED * delta;
     
     // Calcula os vetores de movimento
@@ -148,4 +154,76 @@ export function continuousCameraDebug(camera, controls, delta, interval = 3.0) {
         debugCameraInfo(camera, controls);
         lastCameraDebugTime = 0;
     }
+}
+
+// Função para alternar imortalidade do jogador
+function togglePlayerImmortality() {
+    CONFIG.PLAYER_IMMORTAL = !CONFIG.PLAYER_IMMORTAL;
+    
+    // Atualiza a exibição de vida na interface
+    const healthDisplay = document.getElementById('player-health');
+    const immortalityIndicator = document.getElementById('immortality-indicator');
+    
+    if (CONFIG.PLAYER_IMMORTAL) {
+        // Esconde display de vida e mostra indicador de imortalidade
+        if (healthDisplay) healthDisplay.style.display = 'none';
+        if (immortalityIndicator) immortalityIndicator.style.display = 'block';
+        console.log('[IMMORTALITY] Player immortality ENABLED');
+    } else {
+        // Mostra display de vida e esconde indicador de imortalidade
+        if (healthDisplay) {
+            healthDisplay.style.display = 'block';
+            // Atualiza o display com a vida atual do jogador
+            if (typeof player !== 'undefined' && player.getHealthStatus) {
+                const healthStatus = player.getHealthStatus();
+                healthDisplay.textContent = `Health: ${healthStatus.current}/${healthStatus.max}`;
+            }
+        }
+        if (immortalityIndicator) immortalityIndicator.style.display = 'none';
+        console.log('[IMMORTALITY] Player immortality DISABLED');
+    }
+    
+    // Mostra notificação visual temporária
+    showImmortilityNotification(CONFIG.PLAYER_IMMORTAL);
+}
+
+// Função para mostrar notificação visual de mudança de imortalidade
+function showImmortilityNotification(isImmortal) {
+    // Remove notificação existente se houver
+    const existingNotification = document.getElementById('immortality-notification');
+    if (existingNotification) {
+        existingNotification.remove();
+    }
+    
+    // Cria nova notificação
+    const notification = document.createElement('div');
+    notification.id = 'immortality-notification';
+    notification.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: ${isImmortal ? '#4CAF50' : '#f44336'};
+        color: white;
+        padding: 15px 30px;
+        border-radius: 10px;
+        font-size: 18px;
+        font-weight: bold;
+        z-index: 10000;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        transition: opacity 0.3s ease;
+    `;
+    notification.textContent = isImmortal ? 'IMORTALIDADE ON' : 'IMORTALIDADE OFF';
+    
+    document.body.appendChild(notification);
+    
+    // Remove a notificação após 2 segundos
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    }, 200);
 }

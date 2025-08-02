@@ -205,6 +205,14 @@ function createPlayerHealthHUD() {
     document.body.appendChild(healthDisplay);
 }
 
+// Initialize immortality indicator
+function initializeImmortalityIndicator() {
+    const immortalityIndicator = document.getElementById('immortality-indicator');
+    if (immortalityIndicator) {
+        immortalityIndicator.style.display = CONFIG.PLAYER_IMMORTAL ? 'block' : 'none';
+    }
+}
+
 // Create keys HUD
 function createKeysHUD() {
     const keysDisplay = document.createElement('div');
@@ -479,6 +487,7 @@ async function init() {
     updateLoadingProgress(90, 'Criando interface...');
     createPlayerHealthHUD();
     createKeysHUD();
+    initializeImmortalityIndicator();
     
     updateLoadingProgress(95, 'Inicializando sistema de armas...');
     createWeaponManager(camera, scene);
@@ -517,6 +526,9 @@ async function init() {
         console.log('[MAIN] Force starting ambient music...');
         ambientAudioManager.forcePlayAreaMusic('none');
     }, 500); // Reduced delay
+    
+    // Mark game as fully initialized
+    window.gameInitialized = true;
 }
 
 function setupScene() {
@@ -603,28 +615,44 @@ function animate() {
     
     const delta = clock.getDelta();
     
-    player.update(delta, camera);
-    
-    // Only apply gravity after environment is fully loaded
-    if (environmentLoaded) {
-        applyGravity(delta, collidableObjects, camera);
+    // Only proceed with camera/controls dependent updates if they are initialized
+    if (camera && controls) {
+        player.update(delta, camera);
+        
+        // Only apply gravity after environment is fully loaded
+        if (environmentLoaded) {
+            applyGravity(delta, collidableObjects, camera);
+        }
+        
+        updateCameraMovement(delta, controls);
+        updateEnemies(delta, scene, camera, gun, collidableObjects);
+        
+        // Update ambient music based on player position
+        updateAmbientMusic();
+        
+        // Verificar coletas de chaves
+        const totemPosition = totem ? totem.position : null;
+        const collectedKeys = keyManager.checkCollisions(camera.position, 1.5, totemPosition);
+        if (collectedKeys.length > 0) {
+            updateKeysDisplay(); // Atualizar display das chaves
+            console.log(`[KEYS] Collected ${collectedKeys.length} key(s):`, collectedKeys.map(k => k.getType()));
+            
+            // Log adicional para debug
+            console.log(`[KEYS] Total keys collected: ${keyManager.getCollectedKeyCount()}`);
+            console.log(`[KEYS] Available key types:`, keyManager.getCollectedKeys());
+        }
+        
+        updateHangarDoors(delta, camera, scene); // Atualiza animação das portas do hangar
     }
     
-    updateCameraMovement(delta, controls);
+    // These updates don't require camera/controls, so they can run always
     updateProjectiles(delta);
     updateArea1(delta);
     updateArea2(delta);
-    
-    updateEnemies(delta, scene, camera, gun, collidableObjects);
     updateElevator(delta);
-
     updateTotem(delta, scene, hitbox, 'red', collidableObjects);
     updateKeyAnimation(delta, scene); // Atualiza animação da chave
     updateDoorAnimation(delta, scene); // Atualiza animação da porta
-    updateHangarDoors(delta, camera, scene); // Atualiza animação das portas do hangar
-    
-    // Update ambient music based on player position
-    updateAmbientMusic();
     
     // Ensure ambient music keeps playing
     ambientAudioManager.ensureAmbientMusicPlaying();
@@ -632,20 +660,11 @@ function animate() {
     // Atualizar sistema de chaves
     keyManager.updateKeys(delta);
     
-    // Verificar coletas de chaves
-    const totemPosition = totem ? totem.position : null;
-    const collectedKeys = keyManager.checkCollisions(camera.position, 1.5, totemPosition);
-    if (collectedKeys.length > 0) {
-        updateKeysDisplay(); // Atualizar display das chaves
-        console.log(`[KEYS] Collected ${collectedKeys.length} key(s):`, collectedKeys.map(k => k.getType()));
-        
-        // Log adicional para debug
-        console.log(`[KEYS] Total keys collected: ${keyManager.getCollectedKeyCount()}`);
-        console.log(`[KEYS] Available key types:`, keyManager.getCollectedKeys());
+    // Only do rendering if scene exists
+    if (scene && camera && renderer) {
+        continuousCameraDebug(camera, controls, delta);
+        renderer.render(scene, camera);
     }
-  
-    continuousCameraDebug(camera, controls, delta);
-    renderer.render(scene, camera);
 }
 
 function onWindowResize() {
