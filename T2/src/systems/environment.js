@@ -63,9 +63,19 @@ export async function createAreas(scene, collidableObjects) {
         area4: new THREE.MeshLambertMaterial({color: 'green'})
     };
 
+    // Update loading progress function (if available globally)
+    const updateProgress = window.updateLoadingProgress || function() {};
+    
+    updateProgress(52, 'Criando Área 1 (Templo Romano)...');
     createArea1(scene, materials, collidableObjects);
+    
+    updateProgress(54, 'Criando Área 2 (Labirinto Vermelho)...');
     createArea2(scene, materials, collidableObjects);
+    
+    updateProgress(56, 'Carregando Área 3 (Hangar)...');
     await createArea3(scene, materials, collidableObjects); // Await the hangar GLB loading
+    
+    updateProgress(62, 'Criando Área 4 (Zona Verde)...');
     createArea4(scene, materials, collidableObjects);
     
     // Armazena referência das plataformas
@@ -167,8 +177,11 @@ function createArea2(scene, materials, collidableObjects) {
 
 // Cria a Área 3 (Hangar OBJ)
 async function createArea3(scene, materials, collidableObjects) {
+    const updateProgress = window.updateLoadingProgress || function() {};
+    
     try {
         console.log('[ENVIRONMENT] Starting hangar OBJ loading process...');
+        updateProgress(57, 'Carregando modelo do hangar...');
         
         // Define paths for OBJ and MTL files
         const objPath = 'assets/models/Arched_hangar.obj';
@@ -181,6 +194,7 @@ async function createArea3(scene, materials, collidableObjects) {
         
         // Try loading with MTL first, then fallback to OBJ only
         try {
+            updateProgress(58, 'Carregando texturas do hangar...');
             hangarModel = await loadOBJModel(objPath, mtlPath, {
                 scale: 8.0, // Reduced scale to fit the original area 3 size
                 position: { x: 0, y: 0, z: 0 },
@@ -189,13 +203,17 @@ async function createArea3(scene, materials, collidableObjects) {
                 receiveShadow: true,
                 onProgress: (progress) => {
                     if (progress.total > 0) {
-                        console.log('[ENVIRONMENT] Loading progress:', (progress.loaded / progress.total * 100).toFixed(2) + '%');
+                        const loadPercent = (progress.loaded / progress.total * 100);
+                        updateProgress(58 + (loadPercent * 0.02), `Carregando hangar: ${loadPercent.toFixed(1)}%`);
+                        console.log('[ENVIRONMENT] Loading progress:', loadPercent.toFixed(2) + '%');
                     }
                 }
             });
             console.log('[ENVIRONMENT] Hangar loaded successfully with MTL materials!');
+            updateProgress(60, 'Hangar carregado com materiais!');
         } catch (mtlError) {
             console.warn('[ENVIRONMENT] Failed to load with MTL, trying OBJ only:', mtlError.message);
+            updateProgress(59, 'Carregando hangar sem texturas...');
             // Fallback: load OBJ without MTL
             hangarModel = await loadOBJModel(objPath, null, {
                 scale: 8.0, // Reduced scale to fit the original area 3 size
@@ -205,11 +223,14 @@ async function createArea3(scene, materials, collidableObjects) {
                 receiveShadow: true,
                 onProgress: (progress) => {
                     if (progress.total > 0) {
-                        console.log('[ENVIRONMENT] Loading progress:', (progress.loaded / progress.total * 100).toFixed(2) + '%');
+                        const loadPercent = (progress.loaded / progress.total * 100);
+                        updateProgress(59 + (loadPercent * 0.01), `Carregando hangar: ${loadPercent.toFixed(1)}%`);
+                        console.log('[ENVIRONMENT] Loading progress:', loadPercent.toFixed(2) + '%');
                     }
                 }
             });
             console.log('[ENVIRONMENT] Hangar loaded successfully without MTL materials!');
+            updateProgress(60, 'Hangar carregado!');
         }
         
         // Create a group for Area 3

@@ -252,23 +252,242 @@ let clock = new THREE.Clock();
 let collidableObjects = [];
 let currentPlayerArea = 'none'; // Track current area for ambient music
 let environmentLoaded = false; // Track if environment is fully loaded
+let loadingScreen = null; // Reference to loading screen
 
 init();
 animate();
 
+// Create loading screen
+function createLoadingScreen() {
+    const overlay = document.createElement('div');
+    overlay.id = 'loading-overlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 99999;
+        font-family: 'Courier New', monospace;
+        color: #ff3c00ff;
+    `;
+    
+    // Game title
+    const title = document.createElement('h1');
+    title.style.cssText = `
+        font-size: 48px;
+        margin-bottom: 20px;
+        text-shadow: 0 0 20px #ff3300ff;
+        letter-spacing: 3px;
+        text-align: center;
+        animation: pulse 2s infinite;
+    `;
+    title.textContent = 'Trabalho CG - Rafael e Vinicius';
+    
+    // Loading text
+    const loadingText = document.createElement('p');
+    loadingText.id = 'loading-text';
+    loadingText.style.cssText = `
+        font-size: 18px;
+        margin-bottom: 30px;
+        text-align: center;
+        color: #cccccc;
+        min-height: 25px;
+    `;
+    loadingText.textContent = 'Inicializando...';
+    
+    // Progress bar container
+    const progressContainer = document.createElement('div');
+    progressContainer.style.cssText = `
+        width: 400px;
+        height: 20px;
+        background-color: #333;
+        border: 2px solid #ff0000ff;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 20px;
+        box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        position: relative;
+    `;
+    
+    // Progress bar
+    const progressBar = document.createElement('div');
+    progressBar.id = 'loading-progress';
+    progressBar.style.cssText = `
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, #ff0000ff, #ff0a0aff);
+        transition: width 0.3s ease;
+        box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+        position: relative;
+    `;
+    
+    // Animated shine effect
+    const shine = document.createElement('div');
+    shine.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+        animation: shine 2s infinite;
+    `;
+    progressBar.appendChild(shine);
+    
+    // Progress percentage
+    const progressPercent = document.createElement('div');
+    progressPercent.id = 'loading-percent';
+    progressPercent.style.cssText = `
+        font-size: 16px;
+        color: #ff0000ff;
+        text-shadow: 0 0 5px #ff0000ff;
+        margin-top: 10px;
+    `;
+    progressPercent.textContent = '0%';
+    
+    // Loading dots animation
+    const loadingDots = document.createElement('div');
+    loadingDots.style.cssText = `
+        font-size: 20px;
+        color: #ff0000ff;
+        margin-top: 20px;
+        animation: dots 1.5s infinite;
+    `;
+    loadingDots.textContent = '...';
+    
+    // Controls instruction
+    const controlsInfo = document.createElement('div');
+    controlsInfo.style.cssText = `
+        position: absolute;
+        bottom: 50px;
+        left: 50%;
+        transform: translateX(-50%);
+        text-align: center;
+        color: #666;
+        font-size: 14px;
+        line-height: 1.5;
+    `;
+    controlsInfo.innerHTML = `
+        <p><strong>CONTROLES:</strong></p>
+        <p>WASD - Movimento | Mouse - Olhar | Click - Atirar</p>
+        <p>R - Recarregar | 1/2 - Trocar Arma | ESC - Menu</p>
+    `;
+    
+    // Add CSS animations
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        @keyframes shine {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        
+        @keyframes dots {
+            0%, 20% { content: '...'; }
+            40% { content: ''; }
+            60% { content: '.'; }
+            80% { content: '..'; }
+            100% { content: '...'; }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // Assembly
+    progressContainer.appendChild(progressBar);
+    overlay.appendChild(title);
+    overlay.appendChild(loadingText);
+    overlay.appendChild(progressContainer);
+    overlay.appendChild(progressPercent);
+    overlay.appendChild(loadingDots);
+    overlay.appendChild(controlsInfo);
+    
+    document.body.appendChild(overlay);
+    return overlay;
+}
+
+// Update loading progress
+function updateLoadingProgress(percent, text) {
+    const progressBar = document.getElementById('loading-progress');
+    const progressPercent = document.getElementById('loading-percent');
+    const loadingText = document.getElementById('loading-text');
+    
+    if (progressBar) progressBar.style.width = percent + '%';
+    if (progressPercent) progressPercent.textContent = Math.round(percent) + '%';
+    if (loadingText && text) loadingText.textContent = text;
+}
+
+// Make loading progress available globally
+window.updateLoadingProgress = updateLoadingProgress;
+
+// Remove loading screen
+function removeLoadingScreen() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) {
+        // Fade out animation
+        overlay.style.transition = 'opacity 0.5s ease';
+        overlay.style.opacity = '0';
+        
+        setTimeout(() => {
+            if (overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+            }
+        }, 500);
+    }
+}
+
 async function init() {
+    // Create and show loading screen
+    loadingScreen = createLoadingScreen();
+    updateLoadingProgress(0, 'Inicializando sistema...');
+    
+    // Small delay to ensure loading screen is visible
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    updateLoadingProgress(10, 'Configurando cena 3D...');
     setupScene();
+    
+    updateLoadingProgress(20, 'Configurando câmera...');
     setupCamera();
+    
+    updateLoadingProgress(30, 'Configurando iluminação...');
     lightingSystem.init(scene, renderer);
+    
+    updateLoadingProgress(40, 'Carregando ambiente e modelos...');
     await createEnvironment();
+    
+    updateLoadingProgress(70, 'Criando hitbox do jogador...');
     createHitbox(scene);
+    
+    updateLoadingProgress(80, 'Posicionando jogador...');
     // Reset player position AFTER environment is fully loaded
     resetPlayerPosition();
+    
+    updateLoadingProgress(85, 'Configurando controles...');
     setupControls();
     setupEventListeners(camera, scene);
+    
+    updateLoadingProgress(90, 'Criando interface...');
     createPlayerHealthHUD();
     createKeysHUD();
+    
+    updateLoadingProgress(95, 'Inicializando sistema de armas...');
     createWeaponManager(camera, scene);
+    
+    updateLoadingProgress(100, 'Carregamento concluído!');
+    
+    // Wait a moment before removing loading screen
+    await new Promise(resolve => setTimeout(resolve, 500));
+    removeLoadingScreen();
     
     // Atualizar HUD das chaves após criar o ambiente
     setTimeout(() => {
@@ -362,8 +581,13 @@ async function createEnvironment() {
     // Temporariamente comentando o reset para debug
     // resetAllEnemies();
     
+    updateLoadingProgress(45, 'Criando paredes e chão...');
     createWalls(scene, collidableObjects);
+    
+    updateLoadingProgress(50, 'Carregando áreas do jogo...');
     await createAreas(scene, collidableObjects);
+    
+    updateLoadingProgress(65, 'Criando inimigos...');
     //gun = createGun(camera); // Captura a referência da arma
     //gun.init(scene); // Inicializa a arma com a cena
     // Spawn Lost Soul enemies (they will idle until Area 1 entry)

@@ -85,7 +85,7 @@ export const CONFIG = {
     GUN_TIP_OFFSET: -0.75,
     
     // Configurações de posicionamento inicial
-    INITIAL_PLAYER_HEIGHT: 10.0, // Altura inicial segura do jogador
+    INITIAL_PLAYER_HEIGHT: 22.0, // Altura inicial segura do jogador
 
     //Cnfigurações do elevador
     ELEVATOR_ACTIVATION_DISTANCE: 2.0,
