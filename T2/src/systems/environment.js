@@ -116,6 +116,10 @@ function createArea1(scene, materials, collidableObjects) {
     const romanColumns = createRomanColumns(scene);
     area1.add(romanColumns);
     
+    // Adiciona estruturas de ruínas conectando as colunas
+    const ruinStructures = createRuinStructures(scene);
+    area1.add(ruinStructures);
+    
     // Adiciona plataforma para a chave no centro da área
     const keyPlatform = createKeyPlatform(scene);
     area1.add(keyPlatform);
@@ -125,10 +129,11 @@ function createArea1(scene, materials, collidableObjects) {
     scene.add(stair1);
     markCollisionObject(area1, collidableObjects);
     markCollisionObject(stair1, collidableObjects);
-    enableShadowsForAll(area1); // Ativa sombras na área 1
-    enableShadowsForAll(stair1); // Ativa sombras na escada
-    enableShadowsForAll(romanColumns); // Ativa sombras nas colunas romanas
-    enableShadowsForAll(keyPlatform); // Ativa sombras na plataforma da chave
+    enableShadowsForAll(area1);
+    enableShadowsForAll(stair1); 
+    enableShadowsForAll(romanColumns);
+    enableShadowsForAll(ruinStructures);
+    enableShadowsForAll(keyPlatform);
 }
 
 // Cria a Área 2 (vermelha)
@@ -481,6 +486,154 @@ function createSingleColumn(radius, height, segments, capitalHeight, baseHeight,
     columnGroup.add(capital);
     
     return columnGroup;
+}
+
+// Cria estruturas de pedra em ruínas que conectam 3 colunas
+function createRuinStructures(scene) {
+    const ruinsGroup = new THREE.Group();
+    ruinsGroup.name = "RuinStructures";
+    
+    // Material das ruínas (pedra mais escura e desgastada)
+    const ruinMaterial = new THREE.MeshLambertMaterial({ 
+        color: 0xd2b48c, // Tom de pedra mais escuro
+        transparent: false
+    });
+    
+    // Altura das colunas para calcular a posição das estruturas superiores
+    const columnHeight = 12;
+    const structureHeight = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + columnHeight + 1.5; // Acima dos capitéis
+    
+    // Definir grupos de 3 colunas que serão conectadas por estruturas
+    const ruinConnections = [
+        // Estrutura 1: Conecta as 3 primeiras colunas da frente (sul)
+        {
+            columns: [
+                { x: -152.25 - 40, z: -131.0 + 50 },
+                { x: -152.25 - 15, z: -131.0 + 50 },
+                { x: -152.25 + 15, z: -131.0 + 50 }
+            ],
+            name: "FrontRuin"
+        },
+        // Estrutura 2: Conecta as 3 primeiras colunas de trás (norte)
+        {
+            columns: [
+                { x: -152.25 - 40, z: -131.0 - 50 },
+                { x: -152.25 - 15, z: -131.0 - 50 },
+                { x: -152.25 + 15, z: -131.0 - 50 }
+            ],
+            name: "BackRuin"
+        },
+        // Estrutura 3: Conecta 3 colunas do lado direito
+        {
+            columns: [
+                { x: -152.25 + 50, z: -131.0 - 25 },
+                { x: -152.25 + 50, z: -131.0 },
+                { x: -152.25 + 50, z: -131.0 + 25 }
+            ],
+            name: "RightRuin"
+        }
+    ];
+    
+    ruinConnections.forEach((connection, index) => {
+        const ruinStructure = createSingleRuinStructure(connection.columns, structureHeight, ruinMaterial);
+        ruinStructure.name = connection.name;
+        ruinsGroup.add(ruinStructure);
+    });
+    
+    return ruinsGroup;
+}
+
+// Cria uma estrutura de ruína conectando 3 colunas específicas
+function createSingleRuinStructure(columnPositions, height, material) {
+    const structureGroup = new THREE.Group();
+    
+    if (columnPositions.length !== 3) {
+        console.warn('Estrutura de ruína precisa de exatamente 3 colunas');
+        return structureGroup;
+    }
+    
+    // Calcular o centro das 3 colunas
+    const centerX = (columnPositions[0].x + columnPositions[1].x + columnPositions[2].x) / 3;
+    const centerZ = (columnPositions[0].z + columnPositions[1].z + columnPositions[2].z) / 3;
+    
+    // Determinar se é uma estrutura horizontal ou vertical baseada na disposição das colunas
+    const isHorizontal = Math.abs(columnPositions[0].z - columnPositions[2].z) < 5; // Colunas alinhadas horizontalmente
+    
+    // Criar viga principal conectando as 3 colunas
+    let beamLength, beamWidth, beamHeight;
+    
+    if (isHorizontal) {
+        // Viga horizontal (conecta colunas alinhadas no eixo X)
+        beamLength = Math.abs(columnPositions[2].x - columnPositions[0].x) + 4; // +4 para sobreposição
+        beamWidth = 3;
+        beamHeight = 2;
+    } else {
+        // Viga vertical (conecta colunas alinhadas no eixo Z)
+        beamLength = 3;
+        beamWidth = Math.abs(columnPositions[2].z - columnPositions[0].z) + 4; // +4 para sobreposição
+        beamHeight = 2;
+    }
+    
+    const mainBeamGeometry = new THREE.BoxGeometry(beamLength, beamHeight, beamWidth);
+    const mainBeam = new THREE.Mesh(mainBeamGeometry, material);
+    mainBeam.position.set(centerX, height, centerZ);
+    mainBeam.castShadow = true;
+    mainBeam.receiveShadow = true;
+    structureGroup.add(mainBeam);
+    
+    // Adicionar blocos decorativos quebrados nas extremidades (simulando ruínas)
+    columnPositions.forEach((pos, i) => {
+        // Bloco decorativo sobre cada coluna
+        const decorativeBlockGeometry = new THREE.BoxGeometry(2.5, 1, 2.5);
+        const decorativeBlock = new THREE.Mesh(decorativeBlockGeometry, material);
+        decorativeBlock.position.set(pos.x, height + 1.5, pos.z);
+        decorativeBlock.castShadow = true;
+        decorativeBlock.receiveShadow = true;
+        structureGroup.add(decorativeBlock);
+        
+        // Adicionar pequenos fragmentos de pedra para efeito de ruína
+        if (Math.random() > 0.5) { // Randomizar a presença de fragmentos
+            const fragmentGeometry = new THREE.BoxGeometry(
+                0.5 + Math.random() * 1, 
+                0.3 + Math.random() * 0.5, 
+                0.5 + Math.random() * 1
+            );
+            const fragment = new THREE.Mesh(fragmentGeometry, material);
+            fragment.position.set(
+                pos.x + (Math.random() - 0.5) * 4,
+                height - 1 + Math.random() * 2,
+                pos.z + (Math.random() - 0.5) * 4
+            );
+            fragment.rotation.set(
+                Math.random() * Math.PI,
+                Math.random() * Math.PI,
+                Math.random() * Math.PI
+            );
+            fragment.castShadow = true;
+            fragment.receiveShadow = true;
+            structureGroup.add(fragment);
+        }
+    });
+    
+    // Adicionar danos/buracos na viga principal para efeito de ruína
+    const damageCount = 1 + Math.floor(Math.random() * 2); // 1-2 buracos
+    for (let i = 0; i < damageCount; i++) {
+        const holeGeometry = new THREE.SphereGeometry(0.8 + Math.random() * 0.4);
+        const holeMaterial = new THREE.MeshLambertMaterial({ 
+            color: 0x8B4513, // Tom mais escuro para simular buraco
+            transparent: true,
+            opacity: 0.7
+        });
+        const hole = new THREE.Mesh(holeGeometry, holeMaterial);
+        hole.position.set(
+            centerX + (Math.random() - 0.5) * beamLength * 0.6,
+            height,
+            centerZ + (Math.random() - 0.5) * beamWidth * 0.6
+        );
+        structureGroup.add(hole);
+    }
+    
+    return structureGroup;
 }
 
 // Cria a plataforma para a chave vermelha
