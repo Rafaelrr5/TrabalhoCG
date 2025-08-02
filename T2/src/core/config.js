@@ -36,6 +36,7 @@ export const CONFIG = {
 
     // Configurações de movimento e física
     MOVE_SPEED: 90,
+    SPRINT_MULTIPLIER: 3, // Multiplicador de velocidade ao pressionar Shift
     GRAVITY: -20,
       // Configurações do jogador
     CAMERA_HEIGHT: 1.8,
@@ -85,7 +86,7 @@ export const CONFIG = {
     GUN_TIP_OFFSET: -0.75,
     
     // Configurações de posicionamento inicial
-    START_HEIGHT_OFFSET: 5,
+    INITIAL_PLAYER_HEIGHT: 22.0, // Altura inicial segura do jogador
 
     //Cnfigurações do elevador
     ELEVATOR_ACTIVATION_DISTANCE: 2.0,

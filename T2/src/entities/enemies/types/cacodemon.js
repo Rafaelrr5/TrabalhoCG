@@ -3,7 +3,7 @@ import { loadGLTFModel } from '../../../utils/modelLoader.js';
 import { Enemy } from '../base/enemies.js';
 import { getCacodeemonConfig } from '../config/enemyConfig.js';
 import { createCacodeemonProjectile } from '../systems/cacodeemonProjectile.js';
-import { PersistentPursuitManager } from '../behaviors/persistentPursuit.js';
+import { EnemyPersistentPursuitManager } from '../components/EnemyPersistentPursuitBehavior.js';
 
 export class Cacodemon extends Enemy {
   constructor(position = [0, 0, 0], config = {}) {
@@ -32,18 +32,18 @@ export class Cacodemon extends Enemy {
     this.floatTime = Math.random() * Math.PI * 2;
     this.aiState = 'IDLE'; // IDLE, ACTIVATED, PURSUING, ATTACKING, CIRCLING
     this.stateChangeTime = 0;
-    this.activationDistance = this.config.activationDistance || 100.0;
-    this.optimalAttackDistance = this.config.optimalAttackDistance || 8.0;
-    this.maxAttackDistance = this.config.maxAttackDistance || 12.0;
-    this.velocity = new THREE.Vector3();
+    this.activationDistance = 30.0;
+    this.optimalAttackDistance = 10.0;
+    this.maxAttackDistance = 14.0;
+    // Remove duplicate velocity - use inherited one
     this.targetVelocity = new THREE.Vector3();
-    this.acceleration = this.config.acceleration || 15.0;
-    this.maxSpeed = this.config.moveSpeed || 12.0;
+    this.acceleration = 8.0;
+    this.maxSpeed = 4.0;
     this.smoothing = 0.92;
     this.rotationSpeed = this.config.rotationSpeed || 4.0;
     this.spawnPosition = new THREE.Vector3().copy(this.mesh.position);
     this.targetPosition = new THREE.Vector3().copy(this.mesh.position);
-    this.moveSpeed = this.config.moveSpeed || 8.0;
+    this.moveSpeed = 4.0;
     this.circleRadius = 6.0;
     this.circleAngle = Math.random() * Math.PI * 2;
     this.circleSpeed = 1.0;
@@ -53,7 +53,7 @@ export class Cacodemon extends Enemy {
     this.idleRotationSpeed = 0.5;
     this.activeProjectiles = [];
     
-    this.pursuitBehavior = PersistentPursuitManager.attachPursuitBehavior(this, {
+    this.pursuitBehavior = EnemyPersistentPursuitManager.attachPursuitBehavior(this, {
       baseAggressionLevel: 1.5,
       speedMultiplier: 2.0,
       attackRangeMultiplier: 1.3,
@@ -94,18 +94,42 @@ export class Cacodemon extends Enemy {
       
       this.mesh.add(this.model);
       
-      // Ensure health bar is positioned correctly above the model
-      this.repositionHealthBar();
-      
       this.modelLoaded = true;
       
     } catch (error) {
       console.error('Failed to load Cacodemon GLB model:', error);
       this.createPlaceholderGeometry();
-      this.repositionHealthBar();
       this.modelLoaded = false;
     }
   }
+
+  adjustHeightToPlayer(playerPosition, delta) {
+  const targetHeight = playerPosition.y;
+  const currentHeight = this.mesh.position.y;
+  const heightDifference = targetHeight - currentHeight;
+  
+  // Configurações de suavização
+  const maxSpeed = 5.0;          // Velocidade máxima de ajuste
+  const acceleration = 8.0;      // Aceleração do movimento
+  const damping = 0.4;           // Suavização na aproximação do alvo
+  
+  // Calcula a direção e aplica aceleração
+  let speed = Math.min(Math.abs(heightDifference) * acceleration, maxSpeed);
+  speed *= Math.sign(heightDifference);
+  
+  // Aplica damping quando próximo do alvo
+  if (Math.abs(heightDifference) < 1.0) {
+    speed *= Math.abs(heightDifference) * damping;
+  }
+  
+  // Movimento suave baseado em delta time
+  this.mesh.position.y += speed * delta;
+  
+  // Trava a altura se estiver muito próximo (evita oscilação)
+  if (Math.abs(heightDifference) < 0.1) {
+    this.mesh.position.y = targetHeight;
+  }
+}
 
   removePlaceholder() {
     if (this.placeholderMesh) {
@@ -180,16 +204,24 @@ export class Cacodemon extends Enemy {
     }
   }
 
-  update(delta, camera, playerHitbox, collidableObjects = []) {
-    super.update(delta, camera, playerHitbox, collidableObjects);
+  update(delta, camera, playerHitbox, collidableObjects = [], otherEnemies = []) {
+    // Call base update first (essential!)
+    super.update(delta, camera, playerHitbox, otherEnemies);
     
+    // Ensure health bar exists (for consistency with Lost Souls)
+    if (!this.healthBar?.healthBarGroup) {
+      this.healthBar?.initialize();
+    }
+    
+    // Update projectiles
     this.updateProjectiles(delta, collidableObjects, camera);
     
-    if (!this.isAlive || this.isDying) return;
+    if (!this.isAlive || this.deathEffects.isDying) return;
 
+    // Cacodemon-specific behaviors
     this.updateFloatingBehavior(delta);
     this.updateAttackSystem(delta, camera, playerHitbox);
-    this.updateMovement(delta, collidableObjects, camera);
+    this.updateMovement(delta, collidableObjects, camera, otherEnemies);
     
     // Always face the player when close enough or in combat states
     const distanceToPlayer = camera ? this.mesh.position.distanceTo(camera.position) : Infinity;
@@ -197,39 +229,56 @@ export class Cacodemon extends Enemy {
         this.aiState === 'ATTACKING' || this.aiState === 'PURSUING' || this.aiState === 'CIRCLING')) {
       this.smoothLookAt(camera.position, 10.0, delta);
     }
-    
-    this.updateHealthBar();
-    if (this.healthBarGroup && camera) {
-      this.healthBarGroup.lookAt(camera.position);
-    }
-    
-    this.updateBoundingBox();
   }
 
   updateFloatingBehavior(delta) {
-    this.floatTime += delta * this.floatFrequency;
-    const floatOffset = Math.sin(this.floatTime) * this.floatAmplitude;
-
-    if (!this.hasStoredBaseY) {
-      this.originalBaseY = this.mesh.position.y;
-      this.hasStoredBaseY = true;
-    }
-
-    this.mesh.position.y = this.originalBaseY + floatOffset;
+  // Se estiver ajustando a altura, não aplica flutuação
+  if (this.aiState !== 'IDLE') return;
+  
+  this.floatTime += delta * this.floatFrequency;
+  const floatOffset = Math.sin(this.floatTime) * this.floatAmplitude;
+  
+  if (!this.hasStoredBaseY) {
+    this.originalBaseY = this.mesh.position.y;
+    this.hasStoredBaseY = true;
   }
+  
+  this.mesh.position.y = this.originalBaseY + floatOffset;
+}
 
-  // Smooth movement method similar to lost souls
-  smoothMoveTowards(targetPosition, speed, delta) {
+  smoothMoveTowards(targetPosition, speed, delta, otherEnemies = []) {
     const direction = new THREE.Vector3()
       .subVectors(targetPosition, this.mesh.position)
       .normalize();
     
     this.targetVelocity.copy(direction).multiplyScalar(speed);
+    
+    // Add collision avoidance
+    if (otherEnemies && otherEnemies.length > 0) {
+      const separationRadius = 8.0;
+      const separationForce = new THREE.Vector3();
+      
+      for (const other of otherEnemies) {
+        if (other === this || !other.isAlive) continue;
+        
+        const distance = this.mesh.position.distanceTo(other.mesh.position);
+        if (distance < separationRadius && distance > 0) {
+          const pushDirection = new THREE.Vector3()
+            .subVectors(this.mesh.position, other.mesh.position)
+            .normalize();
+          const pushStrength = (separationRadius - distance) / separationRadius;
+          separationForce.addScaledVector(pushDirection, pushStrength * speed * 2.0);
+        }
+      }
+      
+      this.targetVelocity.add(separationForce);
+    }
+    
     this.velocity.lerp(this.targetVelocity, this.acceleration * delta);
     this.velocity.multiplyScalar(this.smoothing);
     
     const movement = this.velocity.clone();
-    movement.y = 0; // Keep floating behavior separate
+    movement.y = 0;
     this.mesh.position.addScaledVector(movement, delta);
   }
 
@@ -255,27 +304,20 @@ export class Cacodemon extends Enemy {
   }
 
   updateAttackSystem(delta, camera, playerHitbox) {
-    this.timeSinceLastAttack += delta;
-    
-    const distanceToPlayer = this.mesh.position.distanceTo(camera.position);
-    
-    let effectiveAttackRange = this.attackRange * 1.2;
-    let effectiveAttackCooldown = this.attackCooldown * 0.7;
-    
-    if (this.pursuitBehavior.hasBeenActivated) {
-      effectiveAttackRange *= 1.5;
-      effectiveAttackCooldown *= 0.8;
-    }
-    
-    if (distanceToPlayer <= effectiveAttackRange && 
-        this.timeSinceLastAttack >= effectiveAttackCooldown &&
-        !this.isAttacking) {
-      
-      this.attemptAttack(camera.position);
-    }
-    
-    this.updateProximityAudio(camera.position);
+  this.timeSinceLastAttack += delta;
+  const distanceToPlayer = this.mesh.position.distanceTo(camera.position);
+
+  // Alinha a altura sempre que o jogador estiver dentro do alcance de ataque
+  if (distanceToPlayer <= this.attackRange * 2.0) {
+    this.adjustHeightToPlayer(camera.position, delta);
   }
+
+  if (distanceToPlayer <= this.attackRange && 
+      this.timeSinceLastAttack >= this.attackCooldown &&
+      !this.isAttacking) {
+    this.attemptAttack(camera.position);
+  }
+}
 
   attemptAttack(playerPosition) {
     this.isAttacking = true;
@@ -287,6 +329,7 @@ export class Cacodemon extends Enemy {
       .normalize();
     this.mesh.rotation.y = Math.atan2(direction.x, direction.z);
     
+    // Use wrapper method
     this.playAttackSound();
     
     const startPosition = this.mesh.position.clone();
@@ -319,14 +362,14 @@ export class Cacodemon extends Enemy {
     }
   }
 
-  updateMovement(delta, collidableObjects, camera) {
+  updateMovement(delta, collidableObjects, camera, otherEnemies = []) {
     const playerPosition = camera ? camera.position : null;
     
-    const isPursuing = PersistentPursuitManager.updatePursuitBehavior(
+    const isPursuing = EnemyPersistentPursuitManager.updatePursuitBehavior(
       this, playerPosition, delta, this.activationDistance
     );
     
-    const effectiveTarget = PersistentPursuitManager.getEffectiveTarget(this, playerPosition);
+    const effectiveTarget = EnemyPersistentPursuitManager.getEffectiveTarget(this, playerPosition);
     
     // Update legacy properties for compatibility
     this.hasBeenActivated = this.pursuitBehavior.hasBeenActivated;
@@ -334,7 +377,7 @@ export class Cacodemon extends Enemy {
     this.lastKnownPlayerPosition.copy(this.pursuitBehavior.lastKnownPlayerPosition);
     
     if (!effectiveTarget) {
-      this.idleBehavior(delta);
+      this.idleBehavior(delta, otherEnemies);
       return;
     }
     
@@ -342,19 +385,19 @@ export class Cacodemon extends Enemy {
     
     switch (this.aiState) {
       case 'IDLE':
-        this.executeIdleBehavior(delta);
+        this.executeIdleBehavior(delta, otherEnemies);
         break;
       case 'ACTIVATED':
-        this.executeActivatedBehavior(effectiveTarget, delta);
+        this.executeActivatedBehavior(effectiveTarget, delta, otherEnemies);
         break;
       case 'PURSUING':
-        this.executePursuingBehavior(effectiveTarget, delta, collidableObjects);
+        this.executePursuingBehavior(effectiveTarget, delta, collidableObjects, otherEnemies);
         break;
       case 'ATTACKING':
-        this.executeAttackingBehavior(effectiveTarget, delta);
+        this.executeAttackingBehavior(effectiveTarget, delta, otherEnemies);
         break;
       case 'CIRCLING':
-        this.executeCirclingBehavior(effectiveTarget, delta);
+        this.executeCirclingBehavior(effectiveTarget, delta, otherEnemies);
         break;
     }
   }
@@ -428,71 +471,93 @@ export class Cacodemon extends Enemy {
   executeActivatedBehavior(playerPosition, delta) {
     const activationSpeed = this.maxSpeed * 0.8;
     this.smoothMoveTowards(playerPosition, activationSpeed, delta);
+    // Use wrapper method
     this.updateProximityAudio(playerPosition);
   }
 
-  executePursuingBehavior(playerPosition, delta, collidableObjects) {
+  executePursuingBehavior(playerPosition, delta, collidableObjects, otherEnemies = []) {
     const distanceToPlayer = this.mesh.position.distanceTo(playerPosition);
-    
     const speedMultiplier = this.pursuitBehavior.getSpeedMultiplier(distanceToPlayer);
     let pursuitSpeed = this.maxSpeed * speedMultiplier;
-    
-    if (distanceToPlayer > 30.0) {
-      pursuitSpeed *= 1.5;
-    } else if (distanceToPlayer > 15.0) {
-      pursuitSpeed *= 1.2;
-    }
-    
-    const time = Date.now() * 0.001;
-    const variation = new THREE.Vector3(
-      Math.sin(time * 2.0) * 0.8,
-      0,
-      Math.cos(time * 1.8) * 0.8
-    );
-    
-    const targetWithVariation = playerPosition.clone().add(variation);
-    this.smoothMoveTowards(targetWithVariation, pursuitSpeed, delta);
-  }
 
-  executeAttackingBehavior(playerPosition, delta) {
-    const distanceToPlayer = this.mesh.position.distanceTo(playerPosition);
-    const distanceDiff = distanceToPlayer - this.optimalAttackDistance;
+    // Movimento base em direção ao jogador
+    const targetPosition = playerPosition.clone();
+    targetPosition.y = this.mesh.position.y; // Mantém a altura atual
     
-    let targetPos = playerPosition.clone();
+    // Verificar se há colisão com o ambiente
+    const avoidanceDirection = this.getCollisionAvoidance(collidableObjects, targetPosition, 2.0);
     
-    if (Math.abs(distanceDiff) > 0.5) {
-      const direction = new THREE.Vector3()
-        .subVectors(this.mesh.position, playerPosition)
-        .normalize();
-      
-      targetPos = playerPosition.clone().add(
-        direction.multiplyScalar(this.optimalAttackDistance)
-      );
+    let finalDirection;
+    if (avoidanceDirection) {
+      // Usar direção de evasão se há obstáculo
+      finalDirection = avoidanceDirection.normalize();
     } else {
-      const time = Date.now() * 0.001;
-      const movement = new THREE.Vector3(
-        Math.sin(time * 2.5) * 1.0,
-        0,
-        Math.cos(time * 2.2) * 1.0
-      );
-      targetPos = this.mesh.position.clone().add(movement);
+      // Movimento normal em direção ao jogador
+      finalDirection = new THREE.Vector3()
+        .subVectors(targetPosition, this.mesh.position)
+        .normalize();
     }
     
-    const adjustSpeed = this.maxSpeed * 0.8;
-    this.smoothMoveTowards(targetPos, adjustSpeed, delta);
+    // Adicionar separação de outros inimigos (mais suave)
+    const separationResult = this.checkEnemyCollisions(otherEnemies);
+    if (separationResult.hasCollision) {
+      this.applySeparationForce(separationResult.separationForce, delta, 0.3);
+    }
+    
+    // Aplicar movimento
+    const velocity = finalDirection.clone().multiplyScalar(pursuitSpeed);
+    this.mesh.position.addScaledVector(velocity, delta);
+    
+    // Prevenir overlap de forma suave
+    this.preventOverlap(collidableObjects, delta);
+    
+    // Orientar para a direção do movimento
+    if (finalDirection.length() > 0) {
+      this.mesh.lookAt(
+        this.mesh.position.x + finalDirection.x,
+        this.mesh.position.y,
+        this.mesh.position.z + finalDirection.z
+      );
+    }
   }
 
-  executeCirclingBehavior(playerPosition, delta) {
+  executeAttackingBehavior(playerPosition, delta, otherEnemies = []) {
+    const targetPos = playerPosition.clone();
+    targetPos.y = this.mesh.position.y; // Mantém a altura atual (já alinhada)
+
+    const adjustSpeed = this.maxSpeed * 0.8;
+    
+    // Verificar separação de outros inimigos (mais suave)
+    const separationResult = this.checkEnemyCollisions(otherEnemies);
+    if (separationResult.hasCollision) {
+      this.applySeparationForce(separationResult.separationForce, delta, 0.2);
+    }
+    
+    this.smoothMoveTowards(targetPos, adjustSpeed, delta, otherEnemies);
+    
+    // Prevenir overlap suavemente
+    this.preventOverlap([], delta);
+  }
+
+  executeCirclingBehavior(playerPosition, delta, otherEnemies = []) {
     this.circleAngle += this.circleSpeed * delta;
     
     const targetX = playerPosition.x + Math.cos(this.circleAngle) * this.circleRadius;
     const targetZ = playerPosition.z + Math.sin(this.circleAngle) * this.circleRadius;
-    const targetY = this.mesh.position.y;
-    
+    const targetY = playerPosition.y; // Usa a altura do jogador
+
     const circleTarget = new THREE.Vector3(targetX, targetY, targetZ);
     
-    const circleSpeed = this.maxSpeed * 0.8;
-    this.smoothMoveTowards(circleTarget, circleSpeed, delta);
+    // Verificar separação de outros inimigos (mais suave)
+    const separationResult = this.checkEnemyCollisions(otherEnemies);
+    if (separationResult.hasCollision) {
+      this.applySeparationForce(separationResult.separationForce, delta, 0.2);
+    }
+    
+    this.smoothMoveTowards(circleTarget, this.maxSpeed * 0.8, delta, otherEnemies);
+    
+    // Prevenir overlap suavemente
+    this.preventOverlap([], delta);
   }
 
   checkCollision(newPosition, collidableObjects) {
@@ -517,7 +582,7 @@ export class Cacodemon extends Enemy {
     ));
     
     this.smoothMoveTowards(idleTarget, this.maxSpeed * 0.15, delta);
-    this.updateHealthBar();
+    // Remove updateHealthBar() call - it's handled by base class
   }
 
   takeDamage(damage) {
@@ -527,18 +592,13 @@ export class Cacodemon extends Enemy {
   die() {
     if (this.isDying) return;
     
-    this.isAlive = false;
-    this.onDeath();
+    super.die();
   }
 
   handleDeathAnimation(delta) {
     if (this.fadeCompleted) {
       return;
     }
-  }
-
-  onDeath() {
-    super.onDeath();
   }
 
   dispose() {

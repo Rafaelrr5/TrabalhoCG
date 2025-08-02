@@ -1,7 +1,7 @@
 import * as THREE from '../../../build/three.module.js';
 import { PointerLockControls } from '../../../build/jsm/controls/PointerLockControls.js';
 import { CONFIG } from './config.js';
-import { createWalls, createAreas, updateArea1, updateArea2, area1KeyPlatform, area2KeyPlatform, isPlayerInArea1, isPlayerInArea2 } from '../systems/environment.js';
+import { createWalls, createAreas, updateArea1, updateArea2, area1KeyPlatform, area2KeyPlatform, isPlayerInArea1, isPlayerInArea2, updateHangarDoors } from '../systems/environment.js';
 import { createGun } from '../components/weapon.js';
 import { createWeaponManager, updateProjectiles } from '../components/weaponManager.js';
 import { createEnemies, updateEnemies, cleanupDeadEnemies, enemies, cleanupAllEnemyProjectiles, resetArea2Activation, resetArea1Activation } from '../entities/enemies/enemy.js';
@@ -205,6 +205,14 @@ function createPlayerHealthHUD() {
     document.body.appendChild(healthDisplay);
 }
 
+// Initialize immortality indicator
+function initializeImmortalityIndicator() {
+    const immortalityIndicator = document.getElementById('immortality-indicator');
+    if (immortalityIndicator) {
+        immortalityIndicator.style.display = CONFIG.PLAYER_IMMORTAL ? 'block' : 'none';
+    }
+}
+
 // Create keys HUD
 function createKeysHUD() {
     const keysDisplay = document.createElement('div');
@@ -251,22 +259,244 @@ let camera, scene, renderer, controls, gun;
 let clock = new THREE.Clock();
 let collidableObjects = [];
 let currentPlayerArea = 'none'; // Track current area for ambient music
+let environmentLoaded = false; // Track if environment is fully loaded
+let loadingScreen = null; // Reference to loading screen
 
 init();
 animate();
 
-function init() {
+// Create loading screen
+function createLoadingScreen() {
+    const overlay = document.createElement('div');
+    overlay.id = 'loading-overlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 99999;
+        font-family: 'Courier New', monospace;
+        color: #ff3c00ff;
+    `;
+    
+    // Game title
+    const title = document.createElement('h1');
+    title.style.cssText = `
+        font-size: 48px;
+        margin-bottom: 20px;
+        text-shadow: 0 0 20px #ff3300ff;
+        letter-spacing: 3px;
+        text-align: center;
+        animation: pulse 2s infinite;
+    `;
+    title.textContent = 'Trabalho CG - Rafael e Vinicius';
+    
+    // Loading text
+    const loadingText = document.createElement('p');
+    loadingText.id = 'loading-text';
+    loadingText.style.cssText = `
+        font-size: 18px;
+        margin-bottom: 30px;
+        text-align: center;
+        color: #cccccc;
+        min-height: 25px;
+    `;
+    loadingText.textContent = 'Inicializando...';
+    
+    // Progress bar container
+    const progressContainer = document.createElement('div');
+    progressContainer.style.cssText = `
+        width: 400px;
+        height: 20px;
+        background-color: #333;
+        border: 2px solid #ff0000ff;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 20px;
+        box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        position: relative;
+    `;
+    
+    // Progress bar
+    const progressBar = document.createElement('div');
+    progressBar.id = 'loading-progress';
+    progressBar.style.cssText = `
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, #ff0000ff, #ff0a0aff);
+        transition: width 0.3s ease;
+        box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+        position: relative;
+    `;
+    
+    // Animated shine effect
+    const shine = document.createElement('div');
+    shine.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+        animation: shine 2s infinite;
+    `;
+    progressBar.appendChild(shine);
+    
+    // Progress percentage
+    const progressPercent = document.createElement('div');
+    progressPercent.id = 'loading-percent';
+    progressPercent.style.cssText = `
+        font-size: 16px;
+        color: #ff0000ff;
+        text-shadow: 0 0 5px #ff0000ff;
+        margin-top: 10px;
+    `;
+    progressPercent.textContent = '0%';
+    
+    // Loading dots animation
+    const loadingDots = document.createElement('div');
+    loadingDots.style.cssText = `
+        font-size: 20px;
+        color: #ff0000ff;
+        margin-top: 20px;
+        animation: dots 1.5s infinite;
+    `;
+    loadingDots.textContent = '...';
+    
+    // Controls instruction
+    const controlsInfo = document.createElement('div');
+    controlsInfo.style.cssText = `
+        position: absolute;
+        bottom: 50px;
+        left: 50%;
+        transform: translateX(-50%);
+        text-align: center;
+        color: #666;
+        font-size: 14px;
+        line-height: 1.5;
+    `;
+    controlsInfo.innerHTML = `
+        <p><strong>CONTROLES:</strong></p>
+        <p>WASD - Movimento | Mouse - Olhar | Click - Atirar</p>
+        <p>1/2 - Trocar Arma</p>
+    `;
+    
+    // Add CSS animations
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        @keyframes shine {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        
+        @keyframes dots {
+            0%, 20% { content: '...'; }
+            40% { content: ''; }
+            60% { content: '.'; }
+            80% { content: '..'; }
+            100% { content: '...'; }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // Assembly
+    progressContainer.appendChild(progressBar);
+    overlay.appendChild(title);
+    overlay.appendChild(loadingText);
+    overlay.appendChild(progressContainer);
+    overlay.appendChild(progressPercent);
+    overlay.appendChild(loadingDots);
+    overlay.appendChild(controlsInfo);
+    
+    document.body.appendChild(overlay);
+    return overlay;
+}
+
+// Update loading progress
+function updateLoadingProgress(percent, text) {
+    const progressBar = document.getElementById('loading-progress');
+    const progressPercent = document.getElementById('loading-percent');
+    const loadingText = document.getElementById('loading-text');
+    
+    if (progressBar) progressBar.style.width = percent + '%';
+    if (progressPercent) progressPercent.textContent = Math.round(percent) + '%';
+    if (loadingText && text) loadingText.textContent = text;
+}
+
+// Make loading progress available globally
+window.updateLoadingProgress = updateLoadingProgress;
+
+// Remove loading screen
+function removeLoadingScreen() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) {
+        // Fade out animation
+        overlay.style.transition = 'opacity 0.5s ease';
+        overlay.style.opacity = '0';
+        
+        setTimeout(() => {
+            if (overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+            }
+        }, 500);
+    }
+}
+
+async function init() {
+    // Create and show loading screen
+    loadingScreen = createLoadingScreen();
+    updateLoadingProgress(0, 'Inicializando sistema...');
+    
+    // Small delay to ensure loading screen is visible
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    updateLoadingProgress(10, 'Configurando cena 3D...');
     setupScene();
+    
+    updateLoadingProgress(20, 'Configurando câmera...');
     setupCamera();
+    
+    updateLoadingProgress(30, 'Configurando iluminação...');
     lightingSystem.init(scene, renderer);
-    createEnvironment();
+    
+    updateLoadingProgress(40, 'Carregando ambiente e modelos...');
+    await createEnvironment();
+    
+    updateLoadingProgress(70, 'Criando hitbox do jogador...');
     createHitbox(scene);
+    
+    updateLoadingProgress(80, 'Posicionando jogador...');
+    // Reset player position AFTER environment is fully loaded
     resetPlayerPosition();
+    
+    updateLoadingProgress(85, 'Configurando controles...');
     setupControls();
     setupEventListeners(camera, scene);
+    
+    updateLoadingProgress(90, 'Criando interface...');
     createPlayerHealthHUD();
     createKeysHUD();
+    initializeImmortalityIndicator();
+    
+    updateLoadingProgress(95, 'Inicializando sistema de armas...');
     createWeaponManager(camera, scene);
+    
+    updateLoadingProgress(100, 'Carregamento concluído!');
+    
+    // Wait a moment before removing loading screen
+    await new Promise(resolve => setTimeout(resolve, 500));
+    removeLoadingScreen();
     
     // Atualizar HUD das chaves após criar o ambiente
     setTimeout(() => {
@@ -296,6 +526,9 @@ function init() {
         console.log('[MAIN] Force starting ambient music...');
         ambientAudioManager.forcePlayAreaMusic('none');
     }, 500); // Reduced delay
+    
+    // Mark game as fully initialized
+    window.gameInitialized = true;
 }
 
 function setupScene() {
@@ -327,9 +560,13 @@ function setupCamera() {
 }
 
 function resetPlayerPosition() {
-    const startHeight = CONFIG.CAMERA_HEIGHT + (CONFIG.START_HEIGHT_OFFSET || 0);
-    camera.position.set(0, startHeight, 0);
+    // Use a fixed safe height for initial positioning
+    const safeHeight = CONFIG.INITIAL_PLAYER_HEIGHT;
+    
+    camera.position.set(0, safeHeight, 0);
     player.resetPosition();
+    
+    console.log('[MAIN] Player position reset to:', camera.position);
 }
 
 function setupControls() {
@@ -349,19 +586,28 @@ function setupControls() {
     window.addEventListener('resize', onWindowResize);
 }
 
-function createEnvironment() {
+async function createEnvironment() {
     // Limpar estado anterior das chaves
     keyManager.clearAll();
     
     // Temporariamente comentando o reset para debug
     // resetAllEnemies();
     
+    updateLoadingProgress(45, 'Criando paredes e chão...');
     createWalls(scene, collidableObjects);
-    createAreas(scene, collidableObjects);
+    
+    updateLoadingProgress(50, 'Carregando áreas do jogo...');
+    await createAreas(scene, collidableObjects);
+    
+    updateLoadingProgress(65, 'Criando inimigos...');
     //gun = createGun(camera); // Captura a referência da arma
     //gun.init(scene); // Inicializa a arma com a cena
     // Spawn Lost Soul enemies (they will idle until Area 1 entry)
     createEnemies(scene);
+    
+    // Mark environment as fully loaded
+    environmentLoaded = true;
+    console.log('[MAIN] Environment fully loaded, enabling gravity');
 }
 
 function animate() {
@@ -369,22 +615,44 @@ function animate() {
     
     const delta = clock.getDelta();
     
-    player.update(delta, camera);
-    applyGravity(delta, collidableObjects, camera);
-    updateCameraMovement(delta, controls);
+    // Only proceed with camera/controls dependent updates if they are initialized
+    if (camera && controls) {
+        player.update(delta, camera);
+        
+        // Only apply gravity after environment is fully loaded
+        if (environmentLoaded) {
+            applyGravity(delta, collidableObjects, camera);
+        }
+        
+        updateCameraMovement(delta, controls);
+        updateEnemies(delta, scene, camera, gun, collidableObjects);
+        
+        // Update ambient music based on player position
+        updateAmbientMusic();
+        
+        // Verificar coletas de chaves
+        const totemPosition = totem ? totem.position : null;
+        const collectedKeys = keyManager.checkCollisions(camera.position, 1.5, totemPosition);
+        if (collectedKeys.length > 0) {
+            updateKeysDisplay(); // Atualizar display das chaves
+            console.log(`[KEYS] Collected ${collectedKeys.length} key(s):`, collectedKeys.map(k => k.getType()));
+            
+            // Log adicional para debug
+            console.log(`[KEYS] Total keys collected: ${keyManager.getCollectedKeyCount()}`);
+            console.log(`[KEYS] Available key types:`, keyManager.getCollectedKeys());
+        }
+        
+        updateHangarDoors(delta, camera, scene); // Atualiza animação das portas do hangar
+    }
+    
+    // These updates don't require camera/controls, so they can run always
     updateProjectiles(delta);
     updateArea1(delta);
     updateArea2(delta);
-    
-    updateEnemies(delta, scene, camera, gun, collidableObjects);
     updateElevator(delta);
-
     updateTotem(delta, scene, hitbox, 'red', collidableObjects);
     updateKeyAnimation(delta, scene); // Atualiza animação da chave
     updateDoorAnimation(delta, scene); // Atualiza animação da porta
-    
-    // Update ambient music based on player position
-    updateAmbientMusic();
     
     // Ensure ambient music keeps playing
     ambientAudioManager.ensureAmbientMusicPlaying();
@@ -392,20 +660,11 @@ function animate() {
     // Atualizar sistema de chaves
     keyManager.updateKeys(delta);
     
-    // Verificar coletas de chaves
-    const totemPosition = totem ? totem.position : null;
-    const collectedKeys = keyManager.checkCollisions(camera.position, 1.5, totemPosition);
-    if (collectedKeys.length > 0) {
-        updateKeysDisplay(); // Atualizar display das chaves
-        console.log(`[KEYS] Collected ${collectedKeys.length} key(s):`, collectedKeys.map(k => k.getType()));
-        
-        // Log adicional para debug
-        console.log(`[KEYS] Total keys collected: ${keyManager.getCollectedKeyCount()}`);
-        console.log(`[KEYS] Available key types:`, keyManager.getCollectedKeys());
+    // Only do rendering if scene exists
+    if (scene && camera && renderer) {
+        continuousCameraDebug(camera, controls, delta);
+        renderer.render(scene, camera);
     }
-  
-    continuousCameraDebug(camera, controls, delta);
-    renderer.render(scene, camera);
 }
 
 function onWindowResize() {
@@ -434,10 +693,12 @@ async function restartGame() {
     player.respawn();
     updatePlayerHealthDisplay();
     
-    camera.position.set(0, CONFIG.CAMERA_HEIGHT, 0);
+    // Reset player to safe position using fixed height
+    const safeHeight = CONFIG.INITIAL_PLAYER_HEIGHT;
+    camera.position.set(0, safeHeight, 0);
     camera.rotation.set(0, 0, 0);
     
-    camera.lookAt(0, CONFIG.CAMERA_HEIGHT, -10);
+    camera.lookAt(0, safeHeight, -10);
     
     cleanupAllEnemyProjectiles(scene);
     
@@ -569,4 +830,25 @@ window.testGameAudio = function() {
   setTimeout(() => {
     gameAudioManager.playLiftStoppingSound();
   }, 3000);
+};
+
+// Debug function to test hangar door animation
+window.testHangarDoors = function() {
+  const area3 = scene.getObjectByName('Area3');
+  if (area3) {
+    const hangar = area3.getObjectByName('HangarModel');
+    if (hangar && hangar.userData.doors) {
+      console.log('[DEBUG] Testing hangar door animation...');
+      const shouldOpen = !hangar.userData.doorsOpen;
+      
+      // Import the animation function dynamically
+      import('../systems/environment.js').then(module => {
+        module.animateHangarDoors(hangar, shouldOpen);
+      });
+    } else {
+      console.log('[DEBUG] Hangar model or doors not found');
+    }
+  } else {
+    console.log('[DEBUG] Area3 not found');
+  }
 };

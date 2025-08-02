@@ -5,8 +5,8 @@ import { playerAudioManager } from '../../systems/index.js';
 export class Player {
     constructor() {
         this.hitbox = null;
-        this.health = 100;
-        this.maxHealth = 100;
+        this.health = 200;
+        this.maxHealth = 200;
         this.isAlive = true;
         this.position = new THREE.Vector3(0, CONFIG.CAMERA_HEIGHT, 0);
     }
@@ -45,7 +45,10 @@ export class Player {
 
     updateHitbox(camera) {
         if (!this.hitbox || !camera) {
-            console.error("Hitbox or camera is missing");
+            // Only log error if we expect these to be initialized (after game setup)
+            if (typeof window !== 'undefined' && window.gameInitialized) {
+                console.error("Hitbox or camera is missing");
+            }
             return;
         }
         
@@ -73,12 +76,15 @@ export class Player {
     }
 
     resetPosition() {
-        const startHeight = CONFIG.CAMERA_HEIGHT + (CONFIG.START_HEIGHT_OFFSET || 0);
-        this.position.set(0, startHeight, 0);
+        // Use a fixed safe height for initial positioning
+        const safeHeight = CONFIG.INITIAL_PLAYER_HEIGHT;
+        this.position.set(0, safeHeight, 0);
 
         if (this.hitbox) {
-            this.hitbox.position.set(0, startHeight - 1.0, 0);
+            this.hitbox.position.set(0, safeHeight - 1.0, 0);
         }
+        
+        console.log('[PLAYER] Position reset to:', this.position);
     }
 
     takeDamage(damage) {

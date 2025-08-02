@@ -25,7 +25,6 @@ export class PlayerAudioManager {
 
   init(listener) {
     if (!listener) {
-      console.warn('[PLAYER-AUDIO] Audio listener not available');
       return;
     }
     
@@ -44,21 +43,21 @@ export class PlayerAudioManager {
       this.hittingGroundSound.setBuffer(buffer);
       this.hittingGroundSound.setVolume(this.volumes.hittingGround);
     }, undefined, (error) => {
-      console.warn('[PLAYER-AUDIO] Failed to load hitting ground sound:', error);
+      // Sound loading failed
     });
     
     this.audioLoader.load(this.soundPaths.death, (buffer) => {
       this.deathSound.setBuffer(buffer);
       this.deathSound.setVolume(this.volumes.death);
     }, undefined, (error) => {
-      console.warn('[PLAYER-AUDIO] Failed to load death sound:', error);
+      // Sound loading failed
     });
     
     this.audioLoader.load(this.soundPaths.injured, (buffer) => {
       this.injuredSound.setBuffer(buffer);
       this.injuredSound.setVolume(this.volumes.injured);
     }, undefined, (error) => {
-      console.warn('[PLAYER-AUDIO] Failed to load injured sound:', error);
+      // Sound loading failed
     });
   }
 
@@ -69,7 +68,7 @@ export class PlayerAudioManager {
       try {
         this.hittingGroundSound.play();
       } catch (error) {
-        console.debug('[PLAYER-AUDIO] Hitting ground sound play error:', error.message);
+        // Sound play error
       }
     }
   }
@@ -81,7 +80,7 @@ export class PlayerAudioManager {
       try {
         this.deathSound.play();
       } catch (error) {
-        console.debug('[PLAYER-AUDIO] Death sound play error:', error.message);
+        // Sound play error
       }
     }
   }
@@ -93,7 +92,7 @@ export class PlayerAudioManager {
       try {
         this.injuredSound.play();
       } catch (error) {
-        console.debug('[PLAYER-AUDIO] Injured sound play error:', error.message);
+        // Sound play error
       }
     }
   }
@@ -105,14 +104,13 @@ export class PlayerAudioManager {
         try {
           sound.stop();
         } catch (error) {
-          console.debug('[PLAYER-AUDIO] Sound stop error:', error.message);
+          // Sound stop error
         }
       }
     });
   }
 
   dispose() {
-    console.log('[PLAYER-AUDIO] Disposing player audio system');
     this.stopAllSounds();
     this.isInitialized = false;
     this.listener = null;

@@ -5,12 +5,17 @@ import { preloadSkullModel } from '../../utils/skullLoader.js';
 import { CONFIG } from '../../core/config.js';
 import { isPlayerInArea1, isPlayerInArea2 } from '../../systems/environment.js';
 import { cleanupAllProjectiles } from './systems/cacodeemonProjectile.js';
-import { PersistentPursuitManager } from './behaviors/persistentPursuit.js';
+import { EnemyPersistentPursuitManager } from './components/EnemyPersistentPursuitBehavior.js';
+import { forceShowAllHealthBars, debugAllHealthBars } from './base/enemies.js';
 
 export const enemies = [];
 
 let area1LostSoulsActivated = false;
 let area2CacodemonsActivated = false;
+
+// Health bar debugging - remove this in production
+let healthBarDebugCounter = 0;
+const HEALTH_BAR_DEBUG_INTERVAL = 300; // Every 5 seconds at 60fps
 
 export async function preloadEnemies() {
   await preloadSkullModel();
@@ -37,9 +42,9 @@ export async function createEnemies(scene) {
   });
 
   const cacodeemonPositions = [
-    [37.5, 34.0, -125.0],
-    [-30, 19.0, -125.0],
-    [-30, 24.0, -145.0],
+    [-22.5, 20, -155.5],
+    [25.5, 20, -123.5],
+    [-6.5, 20, -107.0],
   ];
 
   cacodeemonPositions.forEach(([x, y, z]) => {
@@ -58,9 +63,19 @@ export function updateEnemies(delta, scene, camera, gun = null, collidableObject
     camera.position.z
   );
   
+  const aliveEnemies = enemies.filter(e => e.isAlive);
+  
+  // Health bar debugging - periodically check and force visibility
+  healthBarDebugCounter++;
+  if (healthBarDebugCounter >= HEALTH_BAR_DEBUG_INTERVAL) {
+    forceShowAllHealthBars(aliveEnemies);
+    healthBarDebugCounter = 0;
+  }
+  
   enemies.forEach(enemy => {
     if (shouldUpdateEnemy(camera, enemy)) {
-      enemy.update(delta, camera, hitboxTop, collidableObjects);
+      const otherEnemies = aliveEnemies.filter(e => e !== enemy);
+      enemy.update(delta, camera, hitboxTop, collidableObjects, otherEnemies);
     } else if (typeof enemy.idleBehavior === 'function') {
       enemy.idleBehavior(delta);
     }
@@ -98,7 +113,7 @@ function shouldUpdateEnemy(camera, enemy) {
 export function cleanupDeadEnemies(scene) {
   for (let i = enemies.length - 1; i >= 0; i--) {
     const enemy = enemies[i];
-    if (!enemy.isAlive && (!enemy.mesh.parent || enemy.fadeCompleted)) {
+    if (!enemy.isAlive && enemy.mesh && (!enemy.mesh.parent || enemy.fadeCompleted)) {
       if (enemy.mesh.parent) {
         enemy.mesh.parent.remove(enemy.mesh);
       }
@@ -204,8 +219,38 @@ export function activateCacodemonsInArea2() {
 
 export function resetArea2Activation() {
   area2CacodemonsActivated = false;
-  PersistentPursuitManager.resetAllPursuitBehaviors(getCacodemons());
+  EnemyPersistentPursuitManager.resetAllPursuitBehaviors(getCacodemons());
 }
+
+// ============================================================================
+// DEBUG FUNCTIONS FOR HEALTH BARS
+// ============================================================================
+
+/**
+ * Debug function to check health bar status - can be called from browser console
+ */
+window.debugEnemyHealthBars = function() {
+  debugAllHealthBars(enemies);
+  
+  // Special focus on Lost Souls since they were having issues
+  const lostSouls = enemies.filter(e => e.constructor.name === 'LostSoul');
+  
+  return enemies.map(enemy => ({
+    type: enemy.constructor.name,
+    alive: enemy.isAlive,
+    health: `${enemy.currentHealth}/${enemy.maxHealth}`,
+    hasHealthBar: !!enemy.healthBar,
+    healthBarEnabled: enemy.healthBar?.enabled,
+    healthBarVisible: enemy.healthBar?.healthBarGroup?.visible
+  }));
+};
+
+/**
+ * Force all health bars to show - can be called from browser console
+ */
+window.forceShowHealthBars = function() {
+  forceShowAllHealthBars(enemies);
+};
 
 export function activateLostSoulsInArea1() {
   if (area1LostSoulsActivated) return;
@@ -225,7 +270,7 @@ export function activateLostSoulsInArea1() {
 
 export function resetArea1Activation() {
   area1LostSoulsActivated = false;
-  PersistentPursuitManager.resetAllPursuitBehaviors(getLostSouls());
+  EnemyPersistentPursuitManager.resetAllPursuitBehaviors(getLostSouls());
 }
 
 // Debug functions for development

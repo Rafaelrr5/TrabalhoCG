@@ -1,18 +1,106 @@
 import * as THREE from '../../../../../build/three.module.js';
 import { CONFIG } from '../../../core/config.js';
-import { checkLostSoulCollision, applyLostSoulCollisionCorrection } from '../../../systems/collision.js';
-import { getEnemySoundConfig, ENEMY_AUDIO_CONFIG } from '../config/audioConfig.js';
+import { SimpleEventEmitter } from '../components/SimpleEventEmitter.js';
+import { EnemyAudio } from '../components/EnemyAudio.js';
+import { EnemyHealthBar } from '../components/EnemyHealthBar.js';
+import { EnemyMovement } from '../components/EnemyMovement.js';
+import { EnemyCollision } from '../components/EnemyCollision.js';
+import { EnemyDeathEffects } from '../components/EnemyDeathEffects.js';
 
-export class Enemy {
+export const DEFAULT_ENEMY_CONFIG = {
+  radius: 0.5,
+  color: 0xff0000,
+  maxHealth: 100,
+  speed: 0.5,
+  damage: 10,
+  destroyOnHit: false,
+  collisionRadius: null, // will use radius if null
+  
+  // Audio settings
+  audio: {
+    enabled: true,
+    volume: 1.0,
+    distances: {
+      activation: 10,
+      nearby: 5
+    }
+  },
+  
+  // Health bar settings
+  healthBar: {
+    enabled: true,
+    offset: 0.3,
+    width: 1.0,
+    height: {
+      background: 0.1,
+      fill: 0.08
+    }
+  },
+  
+  // Performance settings
+  performance: {
+    boundingBoxUpdateInterval: 100,
+    enableThrottling: true
+  }
+};
+
+/**
+ * Merges user config with default config
+ * @param {Object} userConfig - User provided configuration
+ * @returns {Object} Merged configuration
+ */
+export function mergeEnemyConfig(userConfig = {}) {
+  return {
+    ...DEFAULT_ENEMY_CONFIG,
+    ...userConfig,
+    audio: { 
+      ...DEFAULT_ENEMY_CONFIG.audio, 
+      ...(userConfig.audio || {}),
+      distances: {
+        ...DEFAULT_ENEMY_CONFIG.audio.distances,
+        ...(userConfig.audio?.distances || {})
+      }
+    },
+    healthBar: { 
+      ...DEFAULT_ENEMY_CONFIG.healthBar, 
+      ...(userConfig.healthBar || {}),
+      height: {
+        ...DEFAULT_ENEMY_CONFIG.healthBar.height,
+        ...(userConfig.healthBar?.height || {})
+      }
+    },
+    performance: {
+      ...DEFAULT_ENEMY_CONFIG.performance,
+      ...(userConfig.performance || {})
+    }
+  };
+}
+
+export class Enemy extends SimpleEventEmitter {
   constructor(position = [0, 0, 0], config = {}) {
-    this.config = {
-      radius: config.radius || 0.5,
-      color: config.color || 0xff0000,
-      maxHealth: config.maxHealth || 100,
-      speed: config.speed || 0.5,
-      ...config
-    };
+    super(); // Initialize EventEmitter
+    
+    // Merge user config with defaults
+    this.config = mergeEnemyConfig(config);
+    
+    // Ensure health bar config exists
+    if (!this.config.healthBar) {
+      this.config.healthBar = {
+        enabled: true,
+        offset: 0.5,
+        width: 1.0,
+        height: {
+          background: 0.1,
+          fill: 0.08
+        }
+      };
+    }
+    
+    // Validate configuration
+    this.validateConfig();
 
+    // Basic properties
+    this.id = this.generateId();
     this.mesh = new THREE.Group();
     this.mesh.position.set(position[0], position[1], position[2]);
     this.mesh.userData.enemy = this;
@@ -20,495 +108,245 @@ export class Enemy {
     this.currentHealth = this.maxHealth;
     this.isAlive = true;
     this.isDying = false;
-    this.fadeCompleted = false;
+    
+    // Velocity for backward compatibility with custom enemy types
     this.velocity = new THREE.Vector3();
-    this.boundingBox = new THREE.Box3();
-    this.initializeEnemy();
+    
+    // Components (Composition over inheritance)
+    this.audio = new EnemyAudio(this);
+    this.healthBar = new EnemyHealthBar(this);
+    this.movement = new EnemyMovement(this);
+    this.collision = new EnemyCollision(this);
+    this.deathEffects = new EnemyDeathEffects(this);
+    
+    this.initialize();
   }
 
-  initializeEnemy() {
-    this.createHealthBar();
-    this.updateBoundingBox();
-    this.initSounds();
-  }
-
-  createHealthBar() {
-    this.healthBarGroup = new THREE.Group();
-    const bgGeometry = new THREE.PlaneGeometry(1, 0.1);
-    const bgMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.8 });
-    this.healthBarBg = new THREE.Mesh(bgGeometry, bgMaterial);
-    const fillGeometry = new THREE.PlaneGeometry(1, 0.08);
-    const fillMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-    this.healthBarFill = new THREE.Mesh(fillGeometry, fillMaterial);
-    this.healthBarFill.position.z = 0.001;
-    const yOffset = this.config.radius + 0.3;
-    this.healthBarGroup.position.set(0, yOffset, 0);
-    this.healthBarGroup.add(this.healthBarBg);
-    this.healthBarGroup.add(this.healthBarFill);
-    this.mesh.add(this.healthBarGroup);
-  }
-
-  initSounds() {
-    if (!window.listener) {
-      console.warn('[ENEMY] Audio listener not available, skipping sound initialization');
-      return;
+  /**
+   * Validates the enemy configuration
+   * @throws {Error} If configuration is invalid
+   */
+  validateConfig() {
+    if (this.config.maxHealth <= 0) {
+      throw new Error(`[ENEMY] Invalid maxHealth: ${this.config.maxHealth}. Must be > 0`);
     }
     
-    this.sounds = {};
-    this.audioState = {
-      lastNearbyTime: 0,
-      nearbyPlaying: false,
-      hasSightedPlayer: false
-    };
+    if (this.config.speed < 0) {
+      throw new Error(`[ENEMY] Invalid speed: ${this.config.speed}. Must be >= 0`);
+    }
     
-    this.loadEnemySounds();
-  }
-
-  loadEnemySounds() {
-    const soundConfig = this.getSoundConfig();
-    if (!soundConfig) return;
+    if (this.config.radius <= 0) {
+      throw new Error(`[ENEMY] Invalid radius: ${this.config.radius}. Must be > 0`);
+    }
     
-    const loader = new THREE.AudioLoader();
-    
-    Object.entries(soundConfig).forEach(([soundType, config]) => {
-      const audio = new THREE.Audio(window.listener);
-      
-      loader.load(
-        config.path, 
-        buffer => {
-          this.sounds[soundType] = audio;
-          audio.setBuffer(buffer);
-          audio.setVolume(config.volume);
-          if (config.loop) audio.setLoop(true);
-          this.mesh.add(audio);
-        },
-        undefined,
-        error => {
-          console.warn(`[ENEMY] Failed to load ${soundType} sound for ${this.constructor.name}:`, error);
-          console.warn(`[ENEMY] Path attempted: ${config.path}`);
-        }
-      );
-    });
-  }
-
-  getSoundConfig() {
-    const type = this.constructor.name;
-    return getEnemySoundConfig(type);
-  }
-
-  playSound(soundType) {
-    const sound = this.sounds[soundType];
-    if (!sound || !sound.buffer || sound.isPlaying) return;
-    
-    try {
-      sound.play();
-    } catch (error) {
-      console.debug(`[AUDIO] ${soundType} sound play error:`, error.message);
+    // Set collision radius to radius if not specified
+    if (this.config.collisionRadius === null) {
+      this.config.collisionRadius = this.config.radius;
     }
   }
 
-  stopSound(soundType) {
-    const sound = this.sounds[soundType];
-    if (!sound || !sound.isPlaying) return;
-    
-    try {
-      sound.stop();
-      console.log(`[ENEMY] Stopping ${soundType} sound`);
-    } catch (error) {
-      console.debug(`[AUDIO] ${soundType} sound stop error:`, error.message);
-    }
+  initialize() {
+    this.audio.initialize();
+    this.healthBar.initialize();
+    this.collision.updateBoundingBox();
   }
 
-  playAttackSound() { this.playSound('attack'); }
-  
-  playSightSound() {
-    if (!this.audioState.hasSightedPlayer) {
-      this.playSound('sight');
-      this.audioState.hasSightedPlayer = true;
-    }
-  }
-  
-  playNearbySound() {
-    if (!this.audioState.nearbyPlaying) {
-      this.playSound('nearby');
-      this.audioState.nearbyPlaying = true;
-    }
-  }
-  
-  stopNearbySound() {
-    if (this.audioState.nearbyPlaying) {
-      this.stopSound('nearby');
-      this.audioState.nearbyPlaying = false;
-    }
+  generateId() {
+    return `enemy_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  updateProximityAudio(playerPosition, activationDistance = ENEMY_AUDIO_CONFIG.DISTANCES.ACTIVATION, nearbyDistance = ENEMY_AUDIO_CONFIG.DISTANCES.NEARBY) {
-    const distanceToPlayer = this.mesh.position.distanceTo(playerPosition);
-    
-    if (distanceToPlayer <= activationDistance && !this.audioState.hasSightedPlayer) {
-      this.playSightSound();
-    }
-    
-    if (distanceToPlayer <= nearbyDistance) {
-      this.playNearbySound();
-    } else {
-      this.stopNearbySound();
-    }
-  }
-
+  // Wrapper method for backward compatibility
   updateHealthBar() {
-    if (!this.healthBarFill) return;
-    const healthPercent = Math.max(0, this.currentHealth / this.maxHealth);
-    this.healthBarFill.scale.x = healthPercent;
-    const color = healthPercent > 0.6 ? 0x00ff00 : healthPercent > 0.3 ? 0xffff00 : 0xff0000;
-    this.healthBarFill.material.color.setHex(color);
+    this.healthBar.update();
+  }
+
+  // Audio wrappers for backward compatibility
+  playAttackSound() {
+    this.audio.playAttackSound();
+  }
+
+  playSightSound() {
+    this.audio.playSightSound();
+  }
+
+  updateProximityAudio(playerPosition) {
+    this.audio.updateProximity(playerPosition);
+  }
+
+  // Collision wrapper for backward compatibility
+  updateBoundingBox() {
+    this.collision.updateBoundingBox();
+  }
+
+  checkPlayerCollision(playerPosition, options = {}) {
+    return this.collision.checkPlayerCollision(playerPosition, options);
+  }
+
+  checkEnvironmentCollision(collidableObjects, newPosition = null) {
+    return this.collision.checkEnvironmentCollision(collidableObjects, newPosition);
+  }
+
+  getCollisionAvoidance(collidableObjects, targetPosition, lookaheadDistance = 2.0) {
+    return this.collision.getAvoidanceDirection(collidableObjects, targetPosition, lookaheadDistance);
+  }
+
+  checkEnemyCollisions(otherEnemies, separationRadius = null) {
+    return this.collision.checkEnemyCollisions(otherEnemies, separationRadius);
+  }
+
+  applySeparationForce(separationForce, delta, strength = 1.0) {
+    return this.collision.applySeparationForce(separationForce, delta, strength);
+  }
+
+  canMoveTo(targetPosition, collidableObjects) {
+    return this.collision.canMoveTo(targetPosition, collidableObjects);
+  }
+
+  getValidMovementDirection(targetPosition, collidableObjects) {
+    return this.collision.getValidMovementDirection(targetPosition, collidableObjects);
+  }
+
+  correctPosition(collidableObjects, delta) {
+    return this.collision.correctPosition(collidableObjects, delta);
+  }
+
+  preventOverlap(collidableObjects, delta) {
+    return this.collision.preventOverlap(collidableObjects, delta);
   }
 
   takeDamage(damage) {
     if (!this.isAlive) return false;
-    this.currentHealth = Math.max(0, this.currentHealth - damage);
-    this.updateHealthBar();
     
-    this.playSound('hit');
+    const validDamage = Math.max(0, Number(damage) || 0);
+    if (validDamage === 0) return false;
+
+    const previousHealth = this.currentHealth;
+    this.currentHealth = Math.max(0, this.currentHealth - validDamage);
+    
+    this.healthBar.update();
+    this.audio.playHitSound();
+    
+    // Emit damage event
+    this.emit('damaged', {
+      enemy: this,
+      damage: validDamage,
+      previousHealth,
+      currentHealth: this.currentHealth,
+      healthPercent: this.currentHealth / this.maxHealth
+    });
     
     if (this.currentHealth <= 0) {
-      this.isAlive = false;
-      this.onDeath();
+      this.die();
       return true;
     }
     return false;
   }
 
+  die() {
+    this.isAlive = false;
+    this.emit('death', {
+      enemy: this,
+      position: this.mesh.position.clone(),
+      finalHealth: this.currentHealth
+    });
+
+    this.healthBar.hide();
+    this.audio.playDeathSound();
+    this.deathEffects.start();
+    
+    // Call onDeath hook for derived classes
+    this.onDeath();
+  }
+  
+  // Override this method in derived classes for custom death behavior
   onDeath() {
-    if (this.healthBarGroup) {
-      this.healthBarGroup.visible = false;
-    }
-    
-    this.playSound('death');
-    
-    if (CONFIG.ENEMY_DEATH_FADE_ENABLED) {
-      this.startDeathFade();
-    } else {
-      this.removeFromScene();
-    }
+    // Base implementation - can be overridden
   }
 
-  startDeathFade() {
-    if (this.isDying) return;
+  // Base collision check (can be overridden by specific enemies)
+  checkPlayerCollision(playerPosition, options = {}) {
+    const result = this.collision.checkPlayerCollision(playerPosition, options);
     
-    this.deathStartTime = performance.now();
-    this.isDying = true;
-    this.originalOpacity = new Map();
-    this.originalScale = this.mesh.scale.clone();
+    if (result) {
+      this.emit('playerCollision', {
+        enemy: this,
+        playerPosition: playerPosition.clone(),
+        damage: options.damage || this.config.damage
+      });
+      
+      this.audio.playAttackSound();
+    }
     
-    this.mesh.traverse((child) => {
-      if (child.isMesh && child.material) {
-        const materials = Array.isArray(child.material) ? child.material : [child.material];
-        materials.forEach((material, index) => {
-          const key = `${child.uuid}_${index}`;
-          this.originalOpacity.set(key, material.opacity !== undefined ? material.opacity : 1.0);
-          material.transparent = true;
-          material.needsUpdate = true;
-        });
-      }
-    });
+    return result;
   }
 
-  updateDeathFade(currentTime) {
-    if (!this.isDying || !this.originalOpacity) return;
-    const elapsedTime = (currentTime - this.deathStartTime) / 1000;
-    const fadeDelay = CONFIG.ENEMY_DEATH_FADE_DELAY || 0.5;
-    const fadeDuration = CONFIG.ENEMY_DEATH_FADE_DURATION || 2.0;
-    if (elapsedTime < fadeDelay) return;
-    const fadeElapsed = elapsedTime - fadeDelay;
-    const fadeProgress = Math.min(fadeElapsed / fadeDuration, 1.0);
-    const fadeFactor = 1.0 - fadeProgress;
-    this.mesh.traverse((child) => {
-      if (child.isMesh && child.material) {
-        const materials = Array.isArray(child.material) ? child.material : [child.material];
-        materials.forEach((material, index) => {
-          const key = `${child.uuid}_${index}`;
-          const originalOpacity = this.originalOpacity.get(key) || 1.0;
-          material.opacity = originalOpacity * fadeFactor;
-        });
-      }
-    });
-    if (CONFIG.ENEMY_DEATH_SCALE_EFFECT) {
-      const scaleMultiplier = 1.0 + (1.0 - fadeFactor) * 0.2;
-      this.mesh.scale.copy(this.originalScale).multiplyScalar(scaleMultiplier);
+  // Base update method (specific enemies should override this)
+  update(delta, camera, targetPosition, collidableObjects = [], otherEnemies = []) {
+    if (this.deathEffects.isDying) {
+      this.deathEffects.update();
+      return;
     }
-    if (CONFIG.ENEMY_DEATH_ROTATION_EFFECT) {
-      const rotationAmount = (1.0 - fadeFactor) * Math.PI * 2;
-      this.mesh.rotation.y = rotationAmount;
-    }
-    if (fadeProgress >= 1.0) {
-      this.fadeCompleted = true;
-      setTimeout(() => {
-        this.removeFromScene();
-      }, (CONFIG.ENEMY_DEATH_REMOVE_DELAY || 0.2) * 1000);
-    }
+
+    if (!this.isAlive) return;
+
+    this.audio.updateProximity(camera?.position);
+    this.healthBar.update(camera);
+    this.collision.updateBoundingBox();
   }
 
   removeFromScene() {
-    Object.values(this.sounds || {}).forEach(sound => {
-      if (sound && sound.isPlaying) {
-        try {
-          sound.stop();
-        } catch (error) {
-          console.debug('[AUDIO] Audio stop error (non-critical):', error.message);
-        }
-      }
-    });
-    
-    if (this.mesh && this.mesh.parent) {
+    if (this.mesh?.parent) {
       this.mesh.parent.remove(this.mesh);
     }
     this.dispose();
   }
 
-  updateBoundingBox() {
-    this.boundingBox.setFromObject(this.mesh);
-  }
-
-  checkCollision(otherBoundingBox) {
-    return this.boundingBox.intersectsBox(otherBoundingBox);
-  }
-
-  checkEnvironmentCollision(targetPosition, collidableObjects, delta) {
-    if (!CONFIG.LOST_SOUL_ENABLE_COLLISION || !collidableObjects.length) return null;
-    const currentPosition = this.mesh.position;
-    const intendedPosition = currentPosition.clone().addScaledVector(this.velocity, delta);
-    return checkLostSoulCollision(
-      currentPosition,
-      intendedPosition,
-      collidableObjects,
-      this.config.radius || CONFIG.LOST_SOUL_COLLISION_RADIUS
-    );
-  }
-
-  applyCollisionCorrection(targetPosition, collidableObjects) {
-    if (!CONFIG.LOST_SOUL_ENABLE_COLLISION || !collidableObjects.length) return false;
-    const correction = applyLostSoulCollisionCorrection(this, collidableObjects, targetPosition);
-    if (correction.corrected) {
-      this.velocity.copy(correction.newDirection)
-        .multiplyScalar(this.config.speed * (CONFIG.LOST_SOUL_WALL_AVOIDANCE || 1.0));
-      return true;
-    }
-    return false;
-  }
-
-  moveTowardsTarget(targetPosition, delta, options = {}) {
-    if (!this.isAlive) return;
-    
-    const {
-      use6DOF = false,
-      enableCollision = false,
-      collidableObjects = [],
-      speedMultiplier = 1.0
-    } = options;
-    
-    const direction = new THREE.Vector3()
-      .subVectors(targetPosition, this.mesh.position);
-    
-    if (!use6DOF) {
-      direction.setY(0);
-    }
-    
-    direction.normalize();
-    
-    this.velocity.copy(direction).multiplyScalar(this.config.speed * speedMultiplier);
-    
-    if (enableCollision && collidableObjects.length > 0) {
-      const collision = this.checkEnvironmentCollision(targetPosition, collidableObjects, delta);
-      
-      if (collision && collision.hasCollision) {
-        const safeDistance = CONFIG.LOST_SOUL_COLLISION_DISTANCE || 2.0;
-        
-        if (collision.distance < safeDistance) {
-          const corrected = this.applyCollisionCorrection(targetPosition, collidableObjects);
-          
-          if (!corrected) {
-            this.velocity.multiplyScalar(0.2);
-          }
-        }
-      }
-    }
-    
-    this.mesh.position.addScaledVector(this.velocity, delta);
-    this.updateBoundingBox();
-    
-    return this.velocity.clone();
-  }
-
-  moveTowards(targetPosition, delta) {
-    return this.moveTowardsTarget(targetPosition, delta, { use6DOF: false });
-  }
-
-  moveTowards6DOF(targetPosition, delta) {
-    return this.moveTowardsTarget(targetPosition, delta, { use6DOF: true });
-  }
-
-  moveTowardsWithCollision(targetPosition, delta, collidableObjects = []) {
-    return this.moveTowardsTarget(targetPosition, delta, { 
-      use6DOF: false, 
-      enableCollision: true, 
-      collidableObjects 
-    });
-  }
-
-  moveTowards6DOFWithCollision(targetPosition, delta, collidableObjects = []) {
-    return this.moveTowardsTarget(targetPosition, delta, { 
-      use6DOF: true, 
-      enableCollision: true, 
-      collidableObjects 
-    });
-  }
-
-  checkPlayerCollision(targetPosition, options = {}) {
-    const {
-      collisionRadius = this.config.collisionRadius || this.config.radius,
-      radiusMultiplier = 1.0,
-      damage = 10,
-      destroyOnHit = false
-    } = options;
-    
-    const distanceToPlayer = this.mesh.position.distanceTo(targetPosition);
-    const effectiveRadius = collisionRadius * radiusMultiplier;
-    
-    if (distanceToPlayer <= effectiveRadius) {
-      this.playAttackSound();
-      
-      this.dealDamageToPlayer(damage);
-      
-      if (destroyOnHit) {
-        this.currentHealth = 0;
-        this.isAlive = false;
-        this.onDeath();
-      }
-      
-      return true;
-    }
-    
-    return false;
-  }
-
-  dealDamageToPlayer(damage) {
-    if (typeof window.playerTakeDamage === 'function') {
-      window.playerTakeDamage(damage);
-      console.log(`[${this.constructor.name}] Dealt ${damage} damage to player`);
-    } else {
-      console.warn(`[${this.constructor.name}] Player damage system not available!`);
-    }
-  }
-
-  orientModelToTarget(model, targetPosition, options = {}) {
-    if (!model) return;
-    
-    const {
-      useVelocity = false,
-      smoothRotation = true,
-      rotationSpeed = 5.0,
-      rotationOffsets = {}
-    } = options;
-    
-    let direction;
-    
-    if (useVelocity && this.velocity && this.velocity.length() > 0.1) {
-      direction = this.velocity.clone().normalize();
-    } else {
-      direction = new THREE.Vector3()
-        .subVectors(targetPosition, this.mesh.position)
-        .normalize();
-    }
-    
-    const targetQuaternion = new THREE.Quaternion();
-    const lookAtMatrix = new THREE.Matrix4();
-    const up = new THREE.Vector3(0, 1, 0);
-    const currentPos = model.position.clone();
-    const targetPos = currentPos.clone().add(direction);
-    
-    lookAtMatrix.lookAt(currentPos, targetPos, up);
-    targetQuaternion.setFromRotationMatrix(lookAtMatrix);
-    
-    this.applyRotationOffsets(targetQuaternion, rotationOffsets);
-    
-    if (smoothRotation) {
-      const speed = rotationSpeed * 0.016; // Assuming 60fps
-      model.quaternion.slerp(targetQuaternion, Math.min(speed, 1.0));
-    } else {
-      model.quaternion.copy(targetQuaternion);
-    }
-  }
-
-  applyRotationOffsets(quaternion, offsets = {}) {
-    const {
-      x = 0,
-      y = 0,
-      z = 0
-    } = offsets;
-    
-    const rotationOffsets = [
-      { axis: new THREE.Vector3(0, 1, 0), angle: y },
-      { axis: new THREE.Vector3(1, 0, 0), angle: x },
-      { axis: new THREE.Vector3(0, 0, 1), angle: z }
-    ];
-    
-    rotationOffsets.forEach(({ axis, angle }) => {
-      if (angle !== 0) {
-        const adjustment = new THREE.Quaternion().setFromAxisAngle(axis, angle);
-        quaternion.multiplyQuaternions(quaternion, adjustment);
-      }
-    });
-  }
-
-  update(delta, camera, targetPosition, collidableObjects = []) {
-    if (this.isDying) {
-      this.updateDeathFade(performance.now());
-      return;
-    }
-
-    if (!this.isAlive) return;
-
-    if (camera && camera.position) {
-      this.updateProximityAudio(camera.position);
-    }
-
-    this.updateBoundingBox();
-
-    if (this.healthBarGroup && camera) {
-      this.healthBarGroup.lookAt(camera.position);
-    }
-  }
-
   dispose() {
-    Object.values(this.sounds || {}).forEach(sound => {
-      if (sound) {
-        try {
-          if (sound.isPlaying) sound.stop();
-          if (sound.source && sound.context && sound.context.state !== 'closed') {
-            sound.disconnect();
-          }
-        } catch (error) {
-          console.debug('[AUDIO] Audio disconnect error (non-critical):', error.message);
-        }
-      }
-    });
+    // Emit dispose event before cleanup
+    this.emit('disposing', { enemy: this });
+
+    // Dispose components
+    this.audio.dispose();
+    this.healthBar.dispose();
+    this.movement.dispose();
+    this.collision.dispose();
+    this.deathEffects.dispose();
     
-    if (this.healthBarBg) {
-      this.healthBarBg.geometry.dispose();
-      this.healthBarBg.material.dispose();
+    // Clean up mesh
+    if (this.mesh) {
+      this.mesh.traverse((child) => {
+        if (child.isMesh) {
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) {
+            const materials = Array.isArray(child.material) ? child.material : [child.material];
+            materials.forEach(material => {
+              if (material.map) material.map.dispose();
+              if (material.normalMap) material.normalMap.dispose();
+              if (material.roughnessMap) material.roughnessMap.dispose();
+              if (material.metalnessMap) material.metalnessMap.dispose();
+              material.dispose();
+            });
+          }
+        }
+      });
     }
-    if (this.healthBarFill) {
-      this.healthBarFill.geometry.dispose();
-      this.healthBarFill.material.dispose();
-    }
+    
+    // Clear references
+    this.mesh = null;
+    this.velocity = null;
+    this.config = null;
+    
+    // Clear event listeners
+    this.removeAllListeners();
   }
 }
 
-export class EnemyManager {
+export class EnemyManager extends SimpleEventEmitter {
   constructor() {
-    this.enemies = [];
+    super(); // Initialize EventEmitter
+    this.enemies = new Map(); // Use Map for better performance
     this.enemiesGroup = null;
+    this.nextEnemyId = 1;
   }
 
   initialize(scene) {
@@ -517,38 +355,186 @@ export class EnemyManager {
     scene.add(this.enemiesGroup);
   }
 
+  generateEnemyId() {
+    return `enemy_${this.nextEnemyId++}`;
+  }
+
   addEnemy(enemy) {
-    this.enemies.push(enemy);
+    // Assign unique ID to enemy if it doesn't have one
+    if (!enemy.id) {
+      enemy.id = this.generateEnemyId();
+    }
+    
+    // Listen to enemy events
+    enemy.on('death', (eventData) => {
+      this.emit('enemyDeath', eventData);
+      // Auto-remove dead enemies after fade
+      setTimeout(() => {
+        this.removeEnemy(enemy.id);
+      }, 3000); // Give time for death animation
+    });
+
+    enemy.on('damaged', (eventData) => {
+      this.emit('enemyDamaged', eventData);
+    });
+
+    enemy.on('playerCollision', (eventData) => {
+      this.emit('playerCollision', eventData);
+    });
+
+    enemy.on('playerSighted', (eventData) => {
+      this.emit('playerSighted', eventData);
+    });
+
+    enemy.on('error', (eventData) => {
+      this.emit('enemyError', eventData);
+      console.error(`[ENEMY_MANAGER] Enemy ${enemy.id} error:`, eventData.error);
+    });
+    
+    this.enemies.set(enemy.id, enemy);
     this.enemiesGroup.add(enemy.mesh);
+    
+    // Emit enemy added event
+    this.emit('enemyAdded', { enemy, id: enemy.id });
+    
+    console.log(`[ENEMY_MANAGER] Added enemy ${enemy.id} (${enemy.constructor.name})`);
     return enemy;
   }
 
+  removeEnemy(enemyId) {
+    const enemy = this.enemies.get(enemyId);
+    if (!enemy) return false;
+    
+    // Emit enemy removed event
+    this.emit('enemyRemoved', { enemy, id: enemyId });
+    
+    this.enemiesGroup.remove(enemy.mesh);
+    enemy.dispose();
+    this.enemies.delete(enemyId);
+    
+    console.log(`[ENEMY_MANAGER] Removed enemy ${enemyId}`);
+    return true;
+  }
+
+  getEnemy(enemyId) {
+    return this.enemies.get(enemyId);
+  }
+
+  hasEnemy(enemyId) {
+    return this.enemies.has(enemyId);
+  }
+
   update(delta, camera, targetPosition) {
-    this.enemies.forEach(enemy => {
-      enemy.update(delta, camera, targetPosition);
+    const deadEnemies = [];
+    
+    // Update all enemies and collect dead ones
+    this.enemies.forEach((enemy, enemyId) => {
+      if (enemy.isAlive) {
+        try {
+          enemy.update(delta, camera, targetPosition);
+        } catch (error) {
+          console.error(`[ENEMY_MANAGER] Update error for enemy ${enemyId}:`, error);
+          // Mark as dead if update fails
+          enemy.isAlive = false;
+          deadEnemies.push(enemyId);
+        }
+      } else {
+        deadEnemies.push(enemyId);
+      }
     });
     
-    this.enemies = this.enemies.filter(enemy => {
-      if (!enemy.isAlive) {
-        this.enemiesGroup.remove(enemy.mesh);
-        enemy.dispose();
-        return false;
-      }
-      return true;
+    // Remove dead enemies
+    deadEnemies.forEach(enemyId => {
+      this.removeEnemy(enemyId);
     });
   }
 
   getAliveEnemies() {
-    return this.enemies.filter(enemy => enemy.isAlive);
+    const aliveEnemies = [];
+    this.enemies.forEach(enemy => {
+      if (enemy.isAlive) {
+        aliveEnemies.push(enemy);
+      }
+    });
+    return aliveEnemies;
+  }
+
+  getEnemiesByType(enemyType) {
+    const typeEnemies = [];
+    this.enemies.forEach(enemy => {
+      if (enemy.constructor.name === enemyType) {
+        typeEnemies.push(enemy);
+      }
+    });
+    return typeEnemies;
+  }
+
+  getEnemiesInRadius(position, radius) {
+    const nearbyEnemies = [];
+    this.enemies.forEach(enemy => {
+      if (enemy.isAlive && enemy.mesh.position.distanceTo(position) <= radius) {
+        nearbyEnemies.push(enemy);
+      }
+    });
+    return nearbyEnemies;
   }
 
   getEnemyCount() {
-    const alive = this.getAliveEnemies().length;
-    return { total: this.enemies.length, alive, dead: this.enemies.length - alive };
+    let alive = 0;
+    let total = this.enemies.size;
+    
+    this.enemies.forEach(enemy => {
+      if (enemy.isAlive) alive++;
+    });
+    
+    return { total, alive, dead: total - alive };
+  }
+
+  clear() {
+    this.enemies.forEach(enemy => {
+      this.enemiesGroup.remove(enemy.mesh);
+      enemy.dispose();
+    });
+    this.enemies.clear();
   }
 
   dispose() {
-    this.enemies.forEach(enemy => enemy.dispose());
-    this.enemies = [];
+    this.clear();
+    
+    if (this.enemiesGroup && this.enemiesGroup.parent) {
+      this.enemiesGroup.parent.remove(this.enemiesGroup);
+    }
+    
+    this.enemiesGroup = null;
+    
+    // Clear all event listeners
+    this.removeAllListeners();
   }
+}
+
+// ============================================================================
+// UTILITY FUNCTIONS FOR HEALTH BAR DEBUGGING
+// ============================================================================
+
+/**
+ * Forces all enemy health bars to be visible (debugging utility)
+ */
+export function forceShowAllHealthBars(enemies) {
+  enemies.forEach((enemy, index) => {
+    if (enemy && enemy.healthBar) {
+      enemy.healthBar.show();
+    }
+  });
+}
+
+/**
+ * Logs health bar status for all enemies (debugging utility)
+ */
+export function debugAllHealthBars(enemies) {
+  enemies.forEach((enemy, index) => {
+    if (enemy && enemy.healthBar) {
+      const hb = enemy.healthBar;
+      // Debug information available but not logged
+    }
+  });
 }

@@ -2,10 +2,9 @@ import * as THREE from '../../../../../build/three.module.js';
 import { Enemy } from '../base/enemies.js';
 import { loadSkullModel, preloadSkullModel } from '../../../utils/skullLoader.js';
 import { CONFIG } from '../../../core/config.js';
-import { applyLostSoulCollisionCorrection, checkLostSoulInterCollision } from '../../../systems/collision.js';
-import { ExplosionEffects } from '../utils/explosionEffects.js';
-import { IdleBehaviors } from '../utils/idleBehaviors.js';
-import { PersistentPursuitManager } from '../behaviors/persistentPursuit.js';
+import { EnemyExplosionEffects } from '../components/EnemyExplosionEffects.js';
+import { EnemyIdleBehaviors } from '../components/EnemyIdleBehaviors.js';
+import { EnemyPersistentPursuitManager } from '../components/EnemyPersistentPursuitBehavior.js';
 import { getLostSouls } from '../enemy.js';
 import { getLostSoulConfig } from '../config/enemyConfig.js';
 
@@ -54,7 +53,7 @@ export class LostSoul extends Enemy {
     
     this.skullModel = null;
     
-    this.pursuitBehavior = PersistentPursuitManager.attachPursuitBehavior(this, {
+    this.pursuitBehavior = EnemyPersistentPursuitManager.attachPursuitBehavior(this, {
       baseAggressionLevel: 1.3,
       speedMultiplier: 1.5,
       attackRangeMultiplier: 1.0,
@@ -93,11 +92,13 @@ export class LostSoul extends Enemy {
       
       skullWrapper.add(clonedModel);
       
-      skullWrapper.rotation.set(
-        Math.PI / 2,
-        this.config.skullYRotationOffset,
-        this.config.skullZRotationOffset
-      );
+      // Não aplicar rotação inicial - será aplicada dinamicamente no orientSkull
+      // skullWrapper.rotation.set(
+      //   this.config.skullXRotationOffset,
+      //   this.config.skullYRotationOffset,
+      //   this.config.skullZRotationOffset
+      // );
+      
       skullWrapper.scale.setScalar(this.config.skullScale);
       
       skullWrapper.traverse((child) => {
@@ -109,6 +110,11 @@ export class LostSoul extends Enemy {
       
       
       this.setupSkullModel(skullWrapper);
+      
+      // Ensure health bar is visible after model setup
+      if (this.healthBar && this.healthBar.healthBarGroup) {
+        this.healthBar.show();
+      }
     } catch (error) {
       console.warn('Failed to load Lost Soul skull model:', error);
     }
@@ -121,16 +127,32 @@ export class LostSoul extends Enemy {
     const oldPosition = this.mesh.position.clone();
     const oldRotation = this.mesh.rotation.clone();
     
+    // Preserve the health bar before removing the mesh
+    let preservedHealthBar = null;
+    if (this.healthBar && this.healthBar.healthBarGroup) {
+      preservedHealthBar = this.healthBar.healthBarGroup;
+    }
+    
     parent.remove(this.mesh);
     
     const group = new THREE.Group();
     group.position.copy(oldPosition);
     group.rotation.copy(oldRotation);
+    
     group.add(model);
     
     this.skullModel = model;
     
-    if (this.healthBarGroup) group.add(this.healthBarGroup);
+    // Re-add the preserved health bar
+    if (preservedHealthBar) {
+      group.add(preservedHealthBar);
+    } else if (this.healthBar) {
+      // If no health bar group exists, try to recreate it
+      this.healthBar.initialize();
+      if (this.healthBar.healthBarGroup) {
+        group.add(this.healthBar.healthBarGroup);
+      }
+    }
     
     this.mesh = group;
     this.mesh.userData.enemy = this;
@@ -213,32 +235,30 @@ export class LostSoul extends Enemy {
       return false;
     }
     
-    const collisionResult = applyLostSoulCollisionCorrection(
-      this, 
-      collidableObjects, 
-      targetPosition
-    );
+    // Verificar colisão com ambiente
+    const avoidanceDirection = this.getCollisionAvoidance(collidableObjects, targetPosition, 2.0);
     
-    if (collisionResult.corrected) {
+    if (avoidanceDirection && avoidanceDirection.length() > 0) {
       state.lastCollisionTime = currentTime;
       
-      if (collisionResult.newDirection) {
-        const avoidanceStrength = Math.min(1.0, (currentTime - state.lastCollisionTime) / 500);
-        state.collisionAvoidanceForce.lerp(collisionResult.newDirection, avoidanceStrength);
-      }
+      // Suavizar a força de evasão
+      const avoidanceStrength = Math.min(0.5, (currentTime - state.lastCollisionTime) / 1000);
+      state.collisionAvoidanceForce.lerp(avoidanceDirection, avoidanceStrength);
+      
+      // Prevenir overlap de forma suave
+      this.preventOverlap(collidableObjects, delta);
       
       return true;
     }
     
-    state.collisionAvoidanceForce.multiplyScalar(0.9);
+    state.collisionAvoidanceForce.multiplyScalar(0.95); // Decay mais suave
     return false;
   }
 
-  checkLostSoulInterCollision(delta) {
+  checkLostSoulInterCollision(delta, otherEnemies = []) {
     const currentTime = Date.now();
     const state = this.movementState;
     
-    // Throttle inter-collision checks for performance
     if (currentTime - state.lastInterCollisionCheck < state.interCollisionCheckInterval) {
       return false;
     }
@@ -249,23 +269,20 @@ export class LostSoul extends Enemy {
       return false;
     }
     
-    // Get other alive Lost Souls
-    const otherLostSouls = getLostSouls().filter(ls => ls !== this && ls.isAlive);
+    const lostSoulEnemies = otherEnemies.filter(e => e.constructor.name === 'LostSoul' && e.isAlive);
     
-    if (otherLostSouls.length === 0) {
+    if (lostSoulEnemies.length === 0) {
       state.separationForce.set(0, 0, 0);
       return false;
     }
     
-    const collisionResult = checkLostSoulInterCollision(this, otherLostSouls);
+    const collisionResult = this.checkEnemyCollisions(lostSoulEnemies, 4.0);
     
     if (collisionResult.hasCollision) {
-      // Apply separation force with smoothing
-      const smoothingFactor = Math.min(delta * 3.0, 1.0);
+      const smoothingFactor = Math.min(delta * 5.0, 1.0);
       state.separationForce.lerp(collisionResult.separationForce, smoothingFactor);
       return true;
     } else {
-      // Gradually reduce separation force when no collision
       state.separationForce.multiplyScalar(0.9);
       return false;
     }
@@ -290,10 +307,12 @@ export class LostSoul extends Enemy {
     
     // Apply Lost Soul separation force (reduced when very close to player)
     if (state.separationForce.length() > 0.1) {
-      // Reduce separation force when very close to player to allow final approach
       const playerDistanceFactor = Math.min(1.0, distance / 5.0);
-      const separationWeight = Math.min(0.4, state.separationForce.length()) * playerDistanceFactor;
+      const separationWeight = Math.min(0.8, state.separationForce.length()) * playerDistanceFactor;
       finalDirection.addScaledVector(state.separationForce, separationWeight).normalize();
+      
+      const directSeparation = state.separationForce.clone().multiplyScalar(this.config.speed * 2.0 * delta);
+      this.mesh.position.add(directSeparation);
     }
     
     if (this.stuckTimer > this.stuckThreshold) {
@@ -318,14 +337,50 @@ export class LostSoul extends Enemy {
   orientSkull(targetPosition) {
     if (!this.skullModel) return;
     
-    this.orientModelToTarget(this.skullModel, targetPosition, {
-      useVelocity: CONFIG.SKULL_ORIENT_TO_MOVEMENT,
-      smoothRotation: CONFIG.SKULL_SMOOTH_ROTATION,
-      rotationSpeed: CONFIG.SKULL_ROTATION_SPEED || 5.0,
-      rotationOffsets: {
-        x: this.config.skullXRotationOffset,
-        y: this.config.skullYRotationOffset,
-        z: this.config.skullZRotationOffset
+    // Calcular direção para o target
+    let direction;
+    
+    if (this.config.skullOrientToMovement && this.velocity && this.velocity.length() > 0.1) {
+      direction = this.velocity.clone().normalize();
+    } else {
+      direction = new THREE.Vector3()
+        .subVectors(targetPosition, this.mesh.position)
+        .normalize();
+    }
+    
+    // Criar quaternion base para olhar na direção do target
+    const targetQuaternion = new THREE.Quaternion();
+    const lookAtMatrix = new THREE.Matrix4();
+    const up = new THREE.Vector3(0, 1, 0);
+    const currentPos = this.skullModel.position.clone();
+    const targetPos = currentPos.clone().add(direction);
+    
+    lookAtMatrix.lookAt(currentPos, targetPos, up);
+    targetQuaternion.setFromRotationMatrix(lookAtMatrix);
+    
+    // Aplicar os offsets de rotação
+    this.applySkullRotationOffsets(targetQuaternion);
+    
+    // Aplicar rotação suave ou direta
+    if (this.config.skullSmoothRotation) {
+      const speed = (this.config.skullRotationSpeed || 5.0) * 0.016; // Assuming 60fps
+      this.skullModel.quaternion.slerp(targetQuaternion, Math.min(speed, 1.0));
+    } else {
+      this.skullModel.quaternion.copy(targetQuaternion);
+    }
+  }
+
+  applySkullRotationOffsets(quaternion) {
+    const rotationOffsets = [
+      { axis: new THREE.Vector3(0, 1, 0), angle: this.config.skullYRotationOffset },
+      { axis: new THREE.Vector3(1, 0, 0), angle: this.config.skullXRotationOffset },
+      { axis: new THREE.Vector3(0, 0, 1), angle: this.config.skullZRotationOffset }
+    ];
+    
+    rotationOffsets.forEach(({ axis, angle }) => {
+      if (angle !== 0) {
+        const adjustment = new THREE.Quaternion().setFromAxisAngle(axis, angle);
+        quaternion.multiplyQuaternions(quaternion, adjustment);
       }
     });
   }
@@ -346,7 +401,7 @@ export class LostSoul extends Enemy {
                         !this.movementState.isNearPlayer;
     
     if (canStartDash) {
-      this.playAttackSound();
+      this.audio.playAttackSound();
       
       this.isDashing = true;
       this.timeSinceLastDash = 0;
@@ -368,48 +423,42 @@ export class LostSoul extends Enemy {
     }
   }
 
-  executeMovement(targetPosition, delta, collidableObjects = []) {
+  executeMovement(targetPosition, delta, collidableObjects = [], otherEnemies = []) {
     if (!this.isAlive) return;
     
     this.updateMovementState(targetPosition, delta);
     
     if (this.isDashing) {
-      return this.executeDashMovement(targetPosition, delta, collidableObjects);
+      return this.executeDashMovement(targetPosition, delta, collidableObjects, otherEnemies);
     }
     
-    return this.executeNormalMovement(targetPosition, delta, collidableObjects);
+    return this.executeNormalMovement(targetPosition, delta, collidableObjects, otherEnemies);
   }
   
-  executeDashMovement(targetPosition, delta, collidableObjects = []) {
+  executeDashMovement(targetPosition, delta, collidableObjects = [], otherEnemies = []) {
     const dashVelocity = this.dashDirection.clone().multiplyScalar(this.dashSpeed);
     const newPosition = this.mesh.position.clone().addScaledVector(dashVelocity, delta);
     
-    // Check for Lost Soul inter-collision during dash (with reduced impact)
-    this.checkLostSoulInterCollision(delta);
+    this.checkLostSoulInterCollision(delta, otherEnemies);
     
-    // Apply reduced separation force during dash to prevent overlap but maintain dash aggression
     const state = this.movementState;
     if (state.separationForce.length() > 0.1) {
-      const dashSeparationWeight = 0.2; // Reduced weight during dash
+      const dashSeparationWeight = 0.2;
       const separationVelocity = state.separationForce.clone().multiplyScalar(this.config.speed * dashSeparationWeight);
       newPosition.addScaledVector(separationVelocity, delta);
     }
     
     if (CONFIG.LOST_SOUL_ENABLE_COLLISION && collidableObjects.length > 0) {
-      const collisionResult = applyLostSoulCollisionCorrection(
-        { mesh: { position: newPosition }, config: this.config }, 
-        collidableObjects, 
-        targetPosition
-      );
+      const collision = this.checkEnvironmentCollision(collidableObjects, newPosition);
       
-      if (collisionResult.corrected) {
+      if (collision.hasCollision) {
         this.isDashing = false;
         this.dashCooldown = this.config.dashInterval * 0.5;
         
         let correctedVelocity = new THREE.Vector3();
-        if (collisionResult.newDirection) {
-          this.dashDirection.copy(collisionResult.newDirection);
-          correctedVelocity = collisionResult.newDirection.multiplyScalar(this.config.speed);
+        if (collision.normal) {
+          this.dashDirection.reflect(collision.normal);
+          correctedVelocity = this.dashDirection.multiplyScalar(this.config.speed);
           this.mesh.position.addScaledVector(correctedVelocity, delta);
         }
         return correctedVelocity;
@@ -422,29 +471,34 @@ export class LostSoul extends Enemy {
     return dashVelocity;
   }
   
-  executeNormalMovement(targetPosition, delta, collidableObjects = []) {
+  executeNormalMovement(targetPosition, delta, collidableObjects = [], otherEnemies = []) {
     this.performCollisionCheck(targetPosition, collidableObjects, delta);
-    this.checkLostSoulInterCollision(delta);
+    this.checkLostSoulInterCollision(delta, otherEnemies);
+    
+    // Verificar separação de outros inimigos (mais suave)
+    const separationResult = this.checkEnemyCollisions(otherEnemies);
+    if (separationResult.hasCollision) {
+      this.applySeparationForce(separationResult.separationForce, delta, 0.5);
+    }
     
     const finalVelocity = this.calculateFinalMovement(targetPosition, delta);
     
     this.mesh.position.addScaledVector(finalVelocity, delta);
     
+    // Prevenir overlap de forma suave após o movimento
+    this.preventOverlap(collidableObjects, delta);
+    
     return finalVelocity;
   }
 
   idleBehavior(delta) {
-    IdleBehaviors.combinedIdleBehavior(this, delta, {
+    EnemyIdleBehaviors.combinedIdleBehavior(this, delta, {
       movement: '6dof',
       enableModelRotation: true,
       model: this.skullModel,
       amplitude: 0.15,
       amplitudeVariation: 0.05
     });
-  }
-
-  onDeath() {
-    super.onDeath();
   }
 
   checkPlayerCollision(targetPosition) {
@@ -459,17 +513,35 @@ export class LostSoul extends Enemy {
     });
   }
 
-  update(delta, camera, targetPosition, collidableObjects = []) {
-    super.update(delta, camera, targetPosition, collidableObjects);
+  ensureHealthBarExists() {
+    if (!this.healthBar || !this.healthBar.healthBarGroup) {
+      if (this.healthBar) {
+        this.healthBar.initialize();
+        
+        // Make sure it's added to the current mesh
+        if (this.healthBar.healthBarGroup && this.mesh) {
+          if (!this.mesh.children.includes(this.healthBar.healthBarGroup)) {
+            this.mesh.add(this.healthBar.healthBarGroup);
+          }
+        }
+      }
+    }
+  }
+
+  update(delta, camera, targetPosition, collidableObjects = [], otherEnemies = []) {
+    super.update(delta, camera, targetPosition, collidableObjects, otherEnemies);
     
-    if (!this.isAlive || this.isDying) return;
+    // Ensure health bar is always present
+    this.ensureHealthBarExists();
+    
+    if (!this.isAlive || this.deathEffects.isDying) return;
 
     const activationDistance = 30.0;
-    const isPursuing = PersistentPursuitManager.updatePursuitBehavior(
+    const isPursuing = EnemyPersistentPursuitManager.updatePursuitBehavior(
       this, targetPosition, delta, activationDistance
     );
     
-    const effectiveTarget = PersistentPursuitManager.getEffectiveTarget(this, targetPosition);
+    const effectiveTarget = EnemyPersistentPursuitManager.getEffectiveTarget(this, targetPosition);
     
     this.hasBeenActivated = this.pursuitBehavior.hasBeenActivated;
     this.aggressionLevel = this.pursuitBehavior.aggressionLevel;
@@ -478,7 +550,7 @@ export class LostSoul extends Enemy {
     if (!effectiveTarget) return;
     
     this.updateDash(delta, effectiveTarget, collidableObjects);
-    this.executeMovement(effectiveTarget, delta, collidableObjects);
+    this.executeMovement(effectiveTarget, delta, collidableObjects, otherEnemies);
     
     this.orientSkull(effectiveTarget);
     
@@ -494,14 +566,10 @@ export class LostSoul extends Enemy {
     }
   }
 
-  dispose() {
-    super.dispose();
-  }
-
   createExplosionEffect() {
     if (!this.mesh || !this.mesh.parent) return;
     
-    ExplosionEffects.createExplosion(this.mesh.position, this.mesh.parent, {
+    EnemyExplosionEffects.createExplosion(this.mesh.position, this.mesh.parent, {
       particles: {
         particleCount: 8,
         colors: [0xff4444, 0xff6666, 0xff8888, 0xffaaaa],

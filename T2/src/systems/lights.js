@@ -2,7 +2,7 @@ import * as THREE from '../../../build/three.module.js';
 
 const LIGHTING_CONFIG = {
     ambient: {
-        color: "rgb(50,50,50)",
+        color: "rgb(100,100,100)",
         intensity: 0.8
     },
     directional: {
@@ -13,18 +13,18 @@ const LIGHTING_CONFIG = {
         shadow: {
             mapSize: { width: 4096, height: 4096 },
             camera: {
-                near: 0.5,
-                far: 1000,
-                left: -500,
-                right: 500,
-                top: 500,
-                bottom: -500
+                near: 300,
+                far: 880,
+                left: -375,
+                right: 375,
+                top: 350,
+                bottom: -260
             },
             bias: -0.0001
         }
     },
     helpers: {
-        enabled: true,
+        enabled: false,
         directionalLightHelperSize: 5
     },
     oposeLight: {
@@ -40,6 +40,7 @@ class LightingSystem {
         this.ambientLight = null;
         this.directionalLight = null;
         this.directionalLightHelper = null;
+        this.directionalLightShadowHelper = null;
         this.oposeLight = null;
         this.oposeLightHelper = null;
         this.lights = [];
@@ -60,8 +61,7 @@ class LightingSystem {
 
     _setupShadows(renderer) {
         renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFShadowMap;
-        renderer.shadowMap.radius = 5.0;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.shadowMap.autoUpdate = true;
     }
 
@@ -72,29 +72,35 @@ class LightingSystem {
     }
 
     _setupDirectionalLight(scene, config) {
-        this.directionalLight = new THREE.DirectionalLight(config.color, config.intensity);
-        this.directionalLight.position.set(
-            config.position.x,
-            config.position.y,
-            config.position.z
-        );
-        if (config.castShadow) {
-            this.directionalLight.castShadow = true;
-            const shadow = this.directionalLight.shadow;
-            shadow.mapSize.width = config.shadow.mapSize.width;
-            shadow.mapSize.height = config.shadow.mapSize.height;
-            const camera = shadow.camera;
-            camera.near = config.shadow.camera.near;
-            camera.far = config.shadow.camera.far;
-            camera.left = config.shadow.camera.left;
-            camera.right = config.shadow.camera.right;
-            camera.top = config.shadow.camera.top;
-            camera.bottom = config.shadow.camera.bottom;
-            shadow.bias = config.shadow.bias;
-        }
-        scene.add(this.directionalLight);
-        this.lights.push(this.directionalLight);
+    this.directionalLight = new THREE.DirectionalLight(config.color, config.intensity);
+    this.directionalLight.position.set(
+        config.position.x,
+        config.position.y,
+        config.position.z
+    );
+    if (config.castShadow) {
+        this.directionalLight.castShadow = true;
+        const shadow = this.directionalLight.shadow;
+        shadow.mapSize.width = config.shadow.mapSize.width;
+        shadow.mapSize.height = config.shadow.mapSize.height;
+        const camera = shadow.camera;
+        camera.near = config.shadow.camera.near;
+        camera.far = config.shadow.camera.far;
+        camera.left = config.shadow.camera.left;
+        camera.right = config.shadow.camera.right;
+        camera.top = config.shadow.camera.top;
+        camera.bottom = config.shadow.camera.bottom;
+        shadow.bias = config.shadow.bias;
+        
+        // Adiciona o helper da câmera de sombra
+        //this.directionalLightShadowHelper = new THREE.CameraHelper(this.directionalLight.shadow.camera);
+        //scene.add(this.directionalLightShadowHelper);
+        //this.helpers.push(this.directionalLightShadowHelper);
     }
+    this.directionalLight.shadow.normalBias = 0.02;
+    scene.add(this.directionalLight);
+    this.lights.push(this.directionalLight);
+}
 
     _setupOposeLight(scene, config) {
         this.oposeLight = new THREE.DirectionalLight(config.color, config.intensity);
