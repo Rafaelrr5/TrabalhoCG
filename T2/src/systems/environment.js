@@ -1,8 +1,7 @@
 import * as THREE from '../../../build/three.module.js';
-import { setDefaultMaterial, createGroundPlaneXZ } from "../../../libs/util/util.js";
+import { createGroundPlaneXZ } from "../../../libs/util/util.js";
 import { CONFIG } from '../core/config.js';
-import { CSG } from '../../../libs/other/CSGMesh.js';
-import { enemies, areAllEnemiesDefeated, areAllArea1EnemiesDefeated, areAllArea2EnemiesDefeated, cleanupDeadEnemies } from '../entities/enemies/enemy.js';
+import { areAllArea1EnemiesDefeated, areAllArea2EnemiesDefeated, cleanupDeadEnemies } from '../entities/enemies/enemy.js';
 import {createElevator} from '../systems/elevator.js';
 import { enableShadowsForAll } from './lights.js';
 import { keyManager, Key } from '../entities/items/key.js';
@@ -503,7 +502,6 @@ function createRuinStructures(scene) {
     const columnHeight = 12;
     const structureHeight = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + columnHeight + 1.5; // Acima dos capitéis
     
-    // Definir grupos de colunas que serão conectadas por estruturas
     const ruinConnections = [
         // Estrutura principal: Grande estrutura conectando todos os pilares do lado norte (oposto à escada)
         // e se estendendo aos 2 primeiros pilares dos lados esquerdo e direito
@@ -734,29 +732,6 @@ function createDetailedBeamWithCSG(length, height, width, material) {
     });
     
     return beamGroup;
-}
-
-// Cria arcos quebrados entre as colunas
-function createBrokenArchesBetweenColumns(columnPositions, height, material, parentGroup, isHorizontal) {
-    for (let i = 0; i < columnPositions.length - 1; i++) {
-        const pos1 = columnPositions[i];
-        const pos2 = columnPositions[i + 1];
-        
-        const midX = (pos1.x + pos2.x) / 2;
-        const midZ = (pos1.z + pos2.z) / 2;
-        const distance = Math.sqrt(Math.pow(pos2.x - pos1.x, 2) + Math.pow(pos2.z - pos1.z, 2));
-        
-        // Criar arco quebrado
-        const archGroup = createBrokenArch(distance, material);
-        archGroup.position.set(midX, height - 1, midZ);
-        
-        // Orientar o arco corretamente
-        if (!isHorizontal) {
-            archGroup.rotation.y = Math.PI / 2;
-        }
-        
-        parentGroup.add(archGroup);
-    }
 }
 
 // Cria um arco quebrado usando CSG
