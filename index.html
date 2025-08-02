@@ -23,9 +23,14 @@
 						iframe.src = "html/welcome.html";
 						document.body.appendChild(iframe);
 					}
+					
+					function openGame()
+					{
+						window.location.href = "T2/index.html";
+					}
 				</script>
 
-				<h1><a onclick='openWelcomePage()'> Computer Graphics Course</a></h1>
+				<h1><a onclick='openGame()'>Trabalho CG</a></h1>
 				<!--div id="sections">
 				</div-->
 				<div id="expandButton"></div>
@@ -360,9 +365,10 @@
 			}
 		</script>
 
-		<!-- Open welcome page when page starts -->
+		<!-- Redirect to game automatically -->
 		<script>
-			openWelcomePage();
+			// Automatically redirect to the T2 game
+			window.location.href = "T2/index.html";
 		</script>
 
 	</body>

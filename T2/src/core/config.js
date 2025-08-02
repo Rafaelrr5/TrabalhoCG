@@ -35,7 +35,7 @@ export const CONFIG = {
     PLAYER_IMMORTAL: true,
 
     // Configurações de movimento e física
-    MOVE_SPEED: 90,
+    MOVE_SPEED: 30,
     SPRINT_MULTIPLIER: 3, // Multiplicador de velocidade ao pressionar Shift
     GRAVITY: -20,
       // Configurações do jogador
