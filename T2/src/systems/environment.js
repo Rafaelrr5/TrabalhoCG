@@ -503,34 +503,25 @@ function createRuinStructures(scene) {
     const columnHeight = 12;
     const structureHeight = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + columnHeight + 1.5; // Acima dos capitéis
     
-    // Definir grupos de 3 colunas que serão conectadas por estruturas
+    // Definir grupos de colunas que serão conectadas por estruturas
     const ruinConnections = [
-        // Estrutura 1: Conecta as 3 primeiras colunas da frente (sul)
+        // Estrutura principal: Grande estrutura conectando todos os pilares do lado norte (oposto à escada)
+        // e se estendendo aos 2 primeiros pilares dos lados esquerdo e direito
         {
             columns: [
-                { x: -152.25 - 40, z: -131.0 + 50 },
-                { x: -152.25 - 15, z: -131.0 + 50 },
-                { x: -152.25 + 15, z: -131.0 + 50 }
-            ],
-            name: "FrontRuin"
-        },
-        // Estrutura 2: Conecta as 3 primeiras colunas de trás (norte)
-        {
-            columns: [
+                // Lado esquerdo - 2 primeiros pilares
+                { x: -152.25 - 50, z: -131.0 - 25 },
+                { x: -152.25 - 50, z: -131.0 },
+                // Lado norte (trás) - todos os 4 pilares
                 { x: -152.25 - 40, z: -131.0 - 50 },
                 { x: -152.25 - 15, z: -131.0 - 50 },
-                { x: -152.25 + 15, z: -131.0 - 50 }
-            ],
-            name: "BackRuin"
-        },
-        // Estrutura 3: Conecta 3 colunas do lado direito
-        {
-            columns: [
+                { x: -152.25 + 15, z: -131.0 - 50 },
+                { x: -152.25 + 40, z: -131.0 - 50 },
+                // Lado direito - 2 primeiros pilares
                 { x: -152.25 + 50, z: -131.0 - 25 },
-                { x: -152.25 + 50, z: -131.0 },
-                { x: -152.25 + 50, z: -131.0 + 25 }
+                { x: -152.25 + 50, z: -131.0 }
             ],
-            name: "RightRuin"
+            name: "MainRuinStructure"
         }
     ];
     
@@ -543,97 +534,494 @@ function createRuinStructures(scene) {
     return ruinsGroup;
 }
 
-// Cria uma estrutura de ruína conectando 3 colunas específicas
+// Cria uma estrutura de ruína conectando múltiplas colunas
 function createSingleRuinStructure(columnPositions, height, material) {
     const structureGroup = new THREE.Group();
     
-    if (columnPositions.length !== 3) {
-        console.warn('Estrutura de ruína precisa de exatamente 3 colunas');
+    if (columnPositions.length < 3) {
+        console.warn('Estrutura de ruína precisa de pelo menos 3 colunas');
         return structureGroup;
     }
     
-    // Calcular o centro das 3 colunas
-    const centerX = (columnPositions[0].x + columnPositions[1].x + columnPositions[2].x) / 3;
-    const centerZ = (columnPositions[0].z + columnPositions[1].z + columnPositions[2].z) / 3;
+    // Criar a estrutura principal com 8 colunas
+    createMainRuinStructure(columnPositions, height, material, structureGroup);
     
-    // Determinar se é uma estrutura horizontal ou vertical baseada na disposição das colunas
-    const isHorizontal = Math.abs(columnPositions[0].z - columnPositions[2].z) < 5; // Colunas alinhadas horizontalmente
+    return structureGroup;
+}
+
+// Cria a estrutura principal de ruínas conectando 8 colunas
+function createMainRuinStructure(columnPositions, height, material, structureGroup) {
+    // Separar as colunas por grupos
+    const leftColumns = columnPositions.slice(0, 2);   // 2 primeiros (lado esquerdo)
+    const backColumns = columnPositions.slice(2, 6);   // 4 do meio (lado norte/trás)
+    const rightColumns = columnPositions.slice(6, 8);  // 2 últimos (lado direito)
     
-    // Criar viga principal conectando as 3 colunas
-    let beamLength, beamWidth, beamHeight;
+    // Criar viga principal horizontal conectando todo o lado norte
+    const backCenterX = (backColumns[0].x + backColumns[3].x) / 2;
+    const backCenterZ = backColumns[0].z; // Todos têm o mesmo Z
+    const backLength = Math.abs(backColumns[3].x - backColumns[0].x) + 6;
     
-    if (isHorizontal) {
-        // Viga horizontal (conecta colunas alinhadas no eixo X)
-        beamLength = Math.abs(columnPositions[2].x - columnPositions[0].x) + 4; // +4 para sobreposição
-        beamWidth = 3;
-        beamHeight = 2;
-    } else {
-        // Viga vertical (conecta colunas alinhadas no eixo Z)
-        beamLength = 3;
-        beamWidth = Math.abs(columnPositions[2].z - columnPositions[0].z) + 4; // +4 para sobreposição
-        beamHeight = 2;
+    const mainBackBeam = createDetailedBeamWithCSG(backLength, 3, 4, material);
+    mainBackBeam.position.set(backCenterX, height, backCenterZ);
+    structureGroup.add(mainBackBeam);
+    
+    // Criar vigas conectoras do lado esquerdo
+    const leftBeamLength = Math.abs(leftColumns[0].z - backColumns[0].z) + 4;
+    const leftBeam1 = createDetailedBeamWithCSG(4, 3, leftBeamLength, material);
+    leftBeam1.position.set(leftColumns[0].x, height, (leftColumns[0].z + backColumns[0].z) / 2);
+    structureGroup.add(leftBeam1);
+    
+    const leftBeam2 = createDetailedBeamWithCSG(4, 3, leftBeamLength - 10, material);
+    leftBeam2.position.set(leftColumns[1].x, height, (leftColumns[1].z + backColumns[1].z) / 2);
+    structureGroup.add(leftBeam2);
+    
+    // Criar vigas conectoras do lado direito
+    const rightBeamLength = Math.abs(rightColumns[0].z - backColumns[3].z) + 4;
+    const rightBeam1 = createDetailedBeamWithCSG(4, 3, rightBeamLength, material);
+    rightBeam1.position.set(rightColumns[0].x, height, (rightColumns[0].z + backColumns[3].z) / 2);
+    structureGroup.add(rightBeam1);
+    
+    const rightBeam2 = createDetailedBeamWithCSG(4, 3, rightBeamLength - 10, material);
+    rightBeam2.position.set(rightColumns[1].x, height, (rightColumns[1].z + backColumns[2].z) / 2);
+    structureGroup.add(rightBeam2);
+    
+    // Criar arcos entre as colunas do lado norte
+    for (let i = 0; i < backColumns.length - 1; i++) {
+        const pos1 = backColumns[i];
+        const pos2 = backColumns[i + 1];
+        const midX = (pos1.x + pos2.x) / 2;
+        const midZ = (pos1.z + pos2.z) / 2;
+        const distance = Math.abs(pos2.x - pos1.x);
+        
+        const archGroup = createBrokenArch(distance, material);
+        archGroup.position.set(midX, height - 1, midZ);
+        structureGroup.add(archGroup);
     }
     
-    const mainBeamGeometry = new THREE.BoxGeometry(beamLength, beamHeight, beamWidth);
-    const mainBeam = new THREE.Mesh(mainBeamGeometry, material);
-    mainBeam.position.set(centerX, height, centerZ);
-    mainBeam.castShadow = true;
-    mainBeam.receiveShadow = true;
-    structureGroup.add(mainBeam);
+    // Criar arcos conectores nos lados
+    // Lado esquerdo
+    const leftArch1 = createBrokenArch(Math.abs(leftColumns[0].z - backColumns[0].z), material);
+    leftArch1.position.set(leftColumns[0].x, height - 1, (leftColumns[0].z + backColumns[0].z) / 2);
+    leftArch1.rotation.y = Math.PI / 2;
+    structureGroup.add(leftArch1);
     
-    // Adicionar blocos decorativos quebrados nas extremidades (simulando ruínas)
+    // Lado direito
+    const rightArch1 = createBrokenArch(Math.abs(rightColumns[0].z - backColumns[3].z), material);
+    rightArch1.position.set(rightColumns[0].x, height - 1, (rightColumns[0].z + backColumns[3].z) / 2);
+    rightArch1.rotation.y = Math.PI / 2;
+    structureGroup.add(rightArch1);
+    
+    // Adicionar capitéis decorativos e fragmentos em todas as colunas
     columnPositions.forEach((pos, i) => {
-        // Bloco decorativo sobre cada coluna
-        const decorativeBlockGeometry = new THREE.BoxGeometry(2.5, 1, 2.5);
-        const decorativeBlock = new THREE.Mesh(decorativeBlockGeometry, material);
-        decorativeBlock.position.set(pos.x, height + 1.5, pos.z);
-        decorativeBlock.castShadow = true;
-        decorativeBlock.receiveShadow = true;
-        structureGroup.add(decorativeBlock);
+        const decorativeCapital = createDamagedCapital(material);
+        decorativeCapital.position.set(pos.x, height + 2, pos.z);
+        structureGroup.add(decorativeCapital);
         
-        // Adicionar pequenos fragmentos de pedra para efeito de ruína
-        if (Math.random() > 0.5) { // Randomizar a presença de fragmentos
-            const fragmentGeometry = new THREE.BoxGeometry(
-                0.5 + Math.random() * 1, 
-                0.3 + Math.random() * 0.5, 
-                0.5 + Math.random() * 1
-            );
-            const fragment = new THREE.Mesh(fragmentGeometry, material);
-            fragment.position.set(
-                pos.x + (Math.random() - 0.5) * 4,
-                height - 1 + Math.random() * 2,
-                pos.z + (Math.random() - 0.5) * 4
-            );
-            fragment.rotation.set(
-                Math.random() * Math.PI,
-                Math.random() * Math.PI,
-                Math.random() * Math.PI
-            );
-            fragment.castShadow = true;
-            fragment.receiveShadow = true;
-            structureGroup.add(fragment);
+        createComplexFragments(pos.x, pos.z, height, material, structureGroup);
+    });
+    
+    // Adicionar detalhes arquitetônicos romanos na viga principal
+    createRomanArchitecturalDetails(backCenterX, backCenterZ, height, backLength, 4, material, structureGroup, true);
+    
+    // Adicionar torres de ruínas nas extremidades
+    createRuinTower(backColumns[0].x, backColumns[0].z, height, material, structureGroup);
+    createRuinTower(backColumns[3].x, backColumns[3].z, height, material, structureGroup);
+}
+
+// Cria uma torre de ruína decorativa
+function createRuinTower(x, z, height, material, parentGroup) {
+    const towerGroup = new THREE.Group();
+    
+    // Base da torre
+    const baseGeometry = new THREE.CylinderGeometry(2.5, 3, 2, 12);
+    const baseMesh = new THREE.Mesh(baseGeometry, material);
+    baseMesh.position.set(x, height + 3, z);
+    towerGroup.add(baseMesh);
+    
+    // Corpo da torre (quebrado)
+    const bodyGeometry = new THREE.CylinderGeometry(2, 2.5, 4, 8);
+    const bodyMesh = new THREE.Mesh(bodyGeometry, material);
+    bodyMesh.position.set(x, height + 6, z);
+    // Inclinar ligeiramente para parecer danificada
+    bodyMesh.rotation.z = (Math.random() - 0.5) * 0.3;
+    towerGroup.add(bodyMesh);
+    
+    // Adicionar danos à torre
+    const damageCount = 2 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < damageCount; i++) {
+        const damageGeometry = new THREE.SphereGeometry(0.3 + Math.random() * 0.4);
+        const damageMesh = new THREE.Mesh(damageGeometry, material);
+        damageMesh.position.set(
+            x + (Math.random() - 0.5) * 3,
+            height + 3 + Math.random() * 5,
+            z + (Math.random() - 0.5) * 3
+        );
+        
+        const holeMaterial = new THREE.MeshLambertMaterial({ 
+            color: 0x3a3a3a,
+            transparent: true,
+            opacity: 0.6
+        });
+        damageMesh.material = holeMaterial;
+        towerGroup.add(damageMesh);
+    }
+    
+    towerGroup.traverse((child) => {
+        if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
         }
     });
     
-    // Adicionar danos/buracos na viga principal para efeito de ruína
-    const damageCount = 1 + Math.floor(Math.random() * 2); // 1-2 buracos
-    for (let i = 0; i < damageCount; i++) {
-        const holeGeometry = new THREE.SphereGeometry(0.8 + Math.random() * 0.4);
-        const holeMaterial = new THREE.MeshLambertMaterial({ 
-            color: 0x8B4513, // Tom mais escuro para simular buraco
-            transparent: true,
-            opacity: 0.7
-        });
-        const hole = new THREE.Mesh(holeGeometry, holeMaterial);
-        hole.position.set(
-            centerX + (Math.random() - 0.5) * beamLength * 0.6,
-            height,
-            centerZ + (Math.random() - 0.5) * beamWidth * 0.6
-        );
-        structureGroup.add(hole);
+    parentGroup.add(towerGroup);
+}
+
+// Cria uma viga detalhada usando operações CSG
+function createDetailedBeamWithCSG(length, height, width, material) {
+    const beamGroup = new THREE.Group();
+    
+    // Viga principal
+    const mainBeamGeometry = new THREE.BoxGeometry(length, height, width);
+    const mainBeamMesh = new THREE.Mesh(mainBeamGeometry, material);
+    
+    try {
+        // Criar molduras decorativas usando CSG
+        const moldingHeight = height * 0.3;
+        const moldingGeometry1 = new THREE.BoxGeometry(length + 0.5, moldingHeight, width + 0.5);
+        const molding1 = new THREE.Mesh(moldingGeometry1, material);
+        molding1.position.y = height/2 - moldingHeight/2;
+        
+        const moldingGeometry2 = new THREE.BoxGeometry(length + 0.5, moldingHeight, width + 0.5);
+        const molding2 = new THREE.Mesh(moldingGeometry2, material);
+        molding2.position.y = -height/2 + moldingHeight/2;
+        
+        beamGroup.add(mainBeamMesh);
+        beamGroup.add(molding1);
+        beamGroup.add(molding2);
+        
+        // Adicionar danos usando CSG (buracos e rachaduras)
+        const damageCount = 2 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < damageCount; i++) {
+            const damageSize = 0.5 + Math.random() * 1.0;
+            const damageGeometry = new THREE.SphereGeometry(damageSize);
+            const damageMesh = new THREE.Mesh(damageGeometry, material);
+            damageMesh.position.set(
+                (Math.random() - 0.5) * length * 0.8,
+                (Math.random() - 0.5) * height * 0.6,
+                (Math.random() - 0.5) * width * 0.8
+            );
+            
+            // Criar material escuro para os buracos
+            const holeMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x4a4a4a,
+                transparent: true,
+                opacity: 0.8
+            });
+            damageMesh.material = holeMaterial;
+            beamGroup.add(damageMesh);
+        }
+        
+    } catch (error) {
+        console.warn('CSG operation failed, using simple beam:', error);
+        beamGroup.add(mainBeamMesh);
     }
     
-    return structureGroup;
+    beamGroup.traverse((child) => {
+        if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+        }
+    });
+    
+    return beamGroup;
+}
+
+// Cria arcos quebrados entre as colunas
+function createBrokenArchesBetweenColumns(columnPositions, height, material, parentGroup, isHorizontal) {
+    for (let i = 0; i < columnPositions.length - 1; i++) {
+        const pos1 = columnPositions[i];
+        const pos2 = columnPositions[i + 1];
+        
+        const midX = (pos1.x + pos2.x) / 2;
+        const midZ = (pos1.z + pos2.z) / 2;
+        const distance = Math.sqrt(Math.pow(pos2.x - pos1.x, 2) + Math.pow(pos2.z - pos1.z, 2));
+        
+        // Criar arco quebrado
+        const archGroup = createBrokenArch(distance, material);
+        archGroup.position.set(midX, height - 1, midZ);
+        
+        // Orientar o arco corretamente
+        if (!isHorizontal) {
+            archGroup.rotation.y = Math.PI / 2;
+        }
+        
+        parentGroup.add(archGroup);
+    }
+}
+
+// Cria um arco quebrado usando CSG
+function createBrokenArch(span, material) {
+    const archGroup = new THREE.Group();
+    
+    try {
+        const archRadius = span / 2.5;
+        const archThickness = 1.5;
+        const archHeight = archRadius * 1.2;
+        
+        // Criar geometria do arco usando torus e box
+        const archGeometry = new THREE.TorusGeometry(archRadius, archThickness / 2, 8, 16, Math.PI);
+        const archMesh = new THREE.Mesh(archGeometry, material);
+        archMesh.rotation.z = Math.PI;
+        
+        // Adicionar pilares do arco
+        const pillarGeometry = new THREE.BoxGeometry(archThickness, archHeight, archThickness);
+        const leftPillar = new THREE.Mesh(pillarGeometry, material);
+        const rightPillar = new THREE.Mesh(pillarGeometry, material);
+        
+        leftPillar.position.set(-archRadius, -archHeight/2, 0);
+        rightPillar.position.set(archRadius, -archHeight/2, 0);
+        
+        archGroup.add(archMesh);
+        archGroup.add(leftPillar);
+        archGroup.add(rightPillar);
+        
+        // Adicionar danos aleatórios ao arco
+        if (Math.random() > 0.3) {
+            const breakGeometry = new THREE.BoxGeometry(
+                archThickness * 2,
+                archThickness,
+                archThickness * 2
+            );
+            const breakMesh = new THREE.Mesh(breakGeometry, material);
+            breakMesh.position.set(
+                (Math.random() - 0.5) * archRadius,
+                Math.random() * archHeight * 0.5,
+                0
+            );
+            
+            const holeMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x3a3a3a,
+                transparent: true,
+                opacity: 0.7
+            });
+            breakMesh.material = holeMaterial;
+            archGroup.add(breakMesh);
+        }
+        
+    } catch (error) {
+        console.warn('Failed to create arch with CSG, using simple geometry:', error);
+        // Fallback simples
+        const simpleArchGeometry = new THREE.BoxGeometry(span, 1, 1.5);
+        const simpleArch = new THREE.Mesh(simpleArchGeometry, material);
+        archGroup.add(simpleArch);
+    }
+    
+    archGroup.traverse((child) => {
+        if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+        }
+    });
+    
+    return archGroup;
+}
+
+// Cria um capitel danificado
+function createDamagedCapital(material) {
+    const capitalGroup = new THREE.Group();
+    
+    // Base do capitel
+    const baseGeometry = new THREE.CylinderGeometry(3, 2.5, 0.8, 12);
+    const baseMesh = new THREE.Mesh(baseGeometry, material);
+    capitalGroup.add(baseMesh);
+    
+    // Ábaco (parte superior quadrada)
+    const abacusGeometry = new THREE.BoxGeometry(3.5, 0.4, 3.5);
+    const abacusMesh = new THREE.Mesh(abacusGeometry, material);
+    abacusMesh.position.y = 0.6;
+    capitalGroup.add(abacusMesh);
+    
+    // Adicionar volutas (decorações enroladas) danificadas
+    for (let i = 0; i < 4; i++) {
+        if (Math.random() > 0.3) { // Algumas volutas podem estar quebradas
+            const volutaGeometry = new THREE.TorusGeometry(0.3, 0.1, 6, 12);
+            const volutaMesh = new THREE.Mesh(volutaGeometry, material);
+            const angle = (i / 4) * Math.PI * 2;
+            volutaMesh.position.set(
+                Math.cos(angle) * 1.2,
+                0.2,
+                Math.sin(angle) * 1.2
+            );
+            volutaMesh.rotation.z = Math.PI / 2;
+            volutaMesh.rotation.y = angle;
+            capitalGroup.add(volutaMesh);
+        }
+    }
+    
+    // Adicionar danos
+    const damageCount = 1 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < damageCount; i++) {
+        const damageGeometry = new THREE.SphereGeometry(0.2 + Math.random() * 0.3);
+        const damageMesh = new THREE.Mesh(damageGeometry, material);
+        damageMesh.position.set(
+            (Math.random() - 0.5) * 2,
+            Math.random() * 0.8,
+            (Math.random() - 0.5) * 2
+        );
+        
+        const holeMaterial = new THREE.MeshLambertMaterial({ 
+            color: 0x4a4a4a,
+            transparent: true,
+            opacity: 0.6
+        });
+        damageMesh.material = holeMaterial;
+        capitalGroup.add(damageMesh);
+    }
+    
+    capitalGroup.traverse((child) => {
+        if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+        }
+    });
+    
+    return capitalGroup;
+}
+
+// Cria fragmentos complexos ao redor das colunas
+function createComplexFragments(x, z, height, material, parentGroup) {
+    const fragmentCount = 3 + Math.floor(Math.random() * 4);
+    
+    for (let i = 0; i < fragmentCount; i++) {
+        const fragmentGroup = new THREE.Group();
+        
+        // Criar fragmentos com formas variadas
+        const shapes = ['box', 'cylinder', 'cone'];
+        const shapeType = shapes[Math.floor(Math.random() * shapes.length)];
+        
+        let fragmentGeometry;
+        const size = 0.3 + Math.random() * 0.8;
+        
+        switch (shapeType) {
+            case 'box':
+                fragmentGeometry = new THREE.BoxGeometry(
+                    size,
+                    size * (0.5 + Math.random()),
+                    size * (0.5 + Math.random())
+                );
+                break;
+            case 'cylinder':
+                fragmentGeometry = new THREE.CylinderGeometry(
+                    size * 0.5,
+                    size * 0.7,
+                    size,
+                    8
+                );
+                break;
+            case 'cone':
+                fragmentGeometry = new THREE.ConeGeometry(
+                    size * 0.6,
+                    size * 1.2,
+                    8
+                );
+                break;
+        }
+        
+        const fragmentMesh = new THREE.Mesh(fragmentGeometry, material);
+        
+        // Posicionar fragmentos ao redor da coluna
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 3 + Math.random() * 4;
+        fragmentMesh.position.set(
+            x + Math.cos(angle) * distance,
+            height - 2 + Math.random() * 3,
+            z + Math.sin(angle) * distance
+        );
+        
+        // Rotação aleatória para parecer caído naturalmente
+        fragmentMesh.rotation.set(
+            Math.random() * Math.PI,
+            Math.random() * Math.PI,
+            Math.random() * Math.PI
+        );
+        
+        fragmentMesh.castShadow = true;
+        fragmentMesh.receiveShadow = true;
+        fragmentGroup.add(fragmentMesh);
+        
+        parentGroup.add(fragmentGroup);
+    }
+}
+
+// Adiciona detalhes arquitetônicos romanos
+function createRomanArchitecturalDetails(centerX, centerZ, height, length, width, material, parentGroup, isHorizontal) {
+    // Criar friso decorativo
+    const friezeHeight = 0.6;
+    const friezeGeometry = new THREE.BoxGeometry(
+        isHorizontal ? length : width,
+        friezeHeight,
+        isHorizontal ? width : length
+    );
+    const friezeMesh = new THREE.Mesh(friezeGeometry, material);
+    friezeMesh.position.set(centerX, height + 2, centerZ);
+    
+    // Adicionar decorações ao friso
+    const decorationCount = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < decorationCount; i++) {
+        const decorationGeometry = new THREE.SphereGeometry(0.1 + Math.random() * 0.1);
+        const decorationMesh = new THREE.Mesh(decorationGeometry, material);
+        
+        const spacing = (isHorizontal ? length : width) / (decorationCount + 1);
+        decorationMesh.position.set(
+            centerX + (isHorizontal ? (i - decorationCount/2) * spacing * 0.8 : 0),
+            height + 2,
+            centerZ + (!isHorizontal ? (i - decorationCount/2) * spacing * 0.8 : 0)
+        );
+        
+        decorationMesh.castShadow = true;
+        decorationMesh.receiveShadow = true;
+        parentGroup.add(decorationMesh);
+    }
+    
+    friezeMesh.castShadow = true;
+    friezeMesh.receiveShadow = true;
+    parentGroup.add(friezeMesh);
+    
+    // Adicionar cornija quebrada
+    if (Math.random() > 0.4) {
+        const corniceGeometry = new THREE.BoxGeometry(
+            isHorizontal ? length * 1.1 : width * 1.1,
+            0.4,
+            isHorizontal ? width * 1.1 : length * 1.1
+        );
+        const corniceMesh = new THREE.Mesh(corniceGeometry, material);
+        corniceMesh.position.set(centerX, height + 2.8, centerZ);
+        
+        // Adicionar quebra na cornija
+        const breakSize = 0.8 + Math.random() * 0.4;
+        const breakGeometry = new THREE.BoxGeometry(breakSize, 0.6, breakSize);
+        const breakMesh = new THREE.Mesh(breakGeometry, material);
+        breakMesh.position.set(
+            centerX + (Math.random() - 0.5) * (isHorizontal ? length : width) * 0.6,
+            height + 2.8,
+            centerZ + (Math.random() - 0.5) * (isHorizontal ? width : length) * 0.6
+        );
+        
+        const holeMaterial = new THREE.MeshLambertMaterial({ 
+            color: 0x2a2a2a,
+            transparent: true,
+            opacity: 0.8
+        });
+        breakMesh.material = holeMaterial;
+        
+        corniceMesh.castShadow = true;
+        corniceMesh.receiveShadow = true;
+        breakMesh.castShadow = true;
+        breakMesh.receiveShadow = true;
+        
+        parentGroup.add(corniceMesh);
+        parentGroup.add(breakMesh);
+    }
 }
 
 // Cria a plataforma para a chave vermelha
