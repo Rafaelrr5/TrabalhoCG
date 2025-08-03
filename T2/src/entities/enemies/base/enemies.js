@@ -83,22 +83,6 @@ export class Enemy extends SimpleEventEmitter {
     // Merge user config with defaults
     this.config = mergeEnemyConfig(config);
     
-    // Ensure health bar config exists
-    if (!this.config.healthBar) {
-      this.config.healthBar = {
-        enabled: true,
-        offset: 0.5,
-        width: 1.0,
-        height: {
-          background: 0.1,
-          fill: 0.08
-        }
-      };
-    }
-    
-    // Validate configuration
-    this.validateConfig();
-
     // Basic properties
     this.id = this.generateId();
     this.mesh = new THREE.Group();
@@ -122,29 +106,6 @@ export class Enemy extends SimpleEventEmitter {
     this.initialize();
   }
 
-  /**
-   * Validates the enemy configuration
-   * @throws {Error} If configuration is invalid
-   */
-  validateConfig() {
-    if (this.config.maxHealth <= 0) {
-      throw new Error(`[ENEMY] Invalid maxHealth: ${this.config.maxHealth}. Must be > 0`);
-    }
-    
-    if (this.config.speed < 0) {
-      throw new Error(`[ENEMY] Invalid speed: ${this.config.speed}. Must be >= 0`);
-    }
-    
-    if (this.config.radius <= 0) {
-      throw new Error(`[ENEMY] Invalid radius: ${this.config.radius}. Must be > 0`);
-    }
-    
-    // Set collision radius to radius if not specified
-    if (this.config.collisionRadius === null) {
-      this.config.collisionRadius = this.config.radius;
-    }
-  }
-
   initialize() {
     this.audio.initialize();
     this.healthBar.initialize();
@@ -153,11 +114,6 @@ export class Enemy extends SimpleEventEmitter {
 
   generateId() {
     return `enemy_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  // Wrapper method for backward compatibility
-  updateHealthBar() {
-    this.healthBar.update();
   }
 
   // Audio wrappers for backward compatibility
@@ -212,72 +168,6 @@ export class Enemy extends SimpleEventEmitter {
 
   preventOverlap(collidableObjects, delta) {
     return this.collision.preventOverlap(collidableObjects, delta);
-  }
-
-  takeDamage(damage) {
-    if (!this.isAlive) return false;
-    
-    const validDamage = Math.max(0, Number(damage) || 0);
-    if (validDamage === 0) return false;
-
-    const previousHealth = this.currentHealth;
-    this.currentHealth = Math.max(0, this.currentHealth - validDamage);
-    
-    this.healthBar.update();
-    this.audio.playHitSound();
-    
-    // Emit damage event
-    this.emit('damaged', {
-      enemy: this,
-      damage: validDamage,
-      previousHealth,
-      currentHealth: this.currentHealth,
-      healthPercent: this.currentHealth / this.maxHealth
-    });
-    
-    if (this.currentHealth <= 0) {
-      this.die();
-      return true;
-    }
-    return false;
-  }
-
-  die() {
-    this.isAlive = false;
-    this.emit('death', {
-      enemy: this,
-      position: this.mesh.position.clone(),
-      finalHealth: this.currentHealth
-    });
-
-    this.healthBar.hide();
-    this.audio.playDeathSound();
-    this.deathEffects.start();
-    
-    // Call onDeath hook for derived classes
-    this.onDeath();
-  }
-  
-  // Override this method in derived classes for custom death behavior
-  onDeath() {
-    // Base implementation - can be overridden
-  }
-
-  // Base collision check (can be overridden by specific enemies)
-  checkPlayerCollision(playerPosition, options = {}) {
-    const result = this.collision.checkPlayerCollision(playerPosition, options);
-    
-    if (result) {
-      this.emit('playerCollision', {
-        enemy: this,
-        playerPosition: playerPosition.clone(),
-        damage: options.damage || this.config.damage
-      });
-      
-      this.audio.playAttackSound();
-    }
-    
-    return result;
   }
 
   // Base update method (specific enemies should override this)
