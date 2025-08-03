@@ -7,6 +7,7 @@ import { enableShadowsForAll } from './lights.js';
 import { keyManager, Key } from '../entities/items/key.js';
 import { createDoor, createtotem } from './door.js';
 import { loadOBJModel } from '../utils/modelLoader.js';
+import { applyTexture } from '../utils/textureUtils.js';
 
 export let area1KeyPlatform = null;
 export let area2KeyPlatform = null;
@@ -86,6 +87,65 @@ export async function createAreas(scene, collidableObjects) {
     const area2Group = scene.getObjectByName("Area2");
     if (area2Group) {
         area2KeyPlatform = area2Group.getObjectByName("CentralBlock");
+    }
+    
+    // Aplicar texturas após criação das áreas
+    updateProgress(64, 'Aplicando texturas...');
+    await applyEnvironmentTextures(scene);
+    updateProgress(66, 'Texturas aplicadas!');
+}
+
+/**
+ * Aplica texturas em diversos elementos do ambiente
+ * @param {THREE.Scene} scene 
+ */
+async function applyEnvironmentTextures(scene) {
+    console.log('[ENVIRONMENT] Iniciando aplicação de texturas no ambiente...');
+    
+    // Aplicar texturas nos blocos metálicos da área 2
+    const area2Group = scene.getObjectByName("Area2");
+    if (area2Group) {
+        const metalBlocksGroup = area2Group.getObjectByName("MetalBlocks");
+        if (metalBlocksGroup && metalBlocksGroup.children.length > 0) {
+            console.log('[ENVIRONMENT] Aplicando textura caixametal.jpg nos blocos da área 2...');
+            applyTexture(metalBlocksGroup, 'caixametal.jpg', 'standard', { roughness: 0.3, metalness: 0.9 });
+        }
+    }
+    
+    console.log('[ENVIRONMENT] ✅ Texturas do ambiente processadas');
+}
+
+/**
+ * Aplica texturas específicas para o hangar
+ * @param {THREE.Group} hangarGroup 
+ */
+async function applyHangarTextures(hangarGroup) {
+    try {
+        console.log('[ENVIRONMENT] Verificando texturas do hangar...');
+        
+        // Procurar por meshes do hangar que possam precisar de textura
+        hangarGroup.traverse(async (child) => {
+            if (child.isMesh && child.name && child.name.includes('hangar')) {
+                // Aplicar textura metálica se não tiver material adequado
+                if (!child.material.map && child.material.type === 'MeshLambertMaterial') {
+                    try {
+                        const metalMaterial = await MaterialPresets.metal('caixametal.jpg', {
+                            roughness: 0.4,
+                            metalness: 0.7,
+                            color: 0x888888
+                        });
+                        child.material = metalMaterial;
+                        child.material.needsUpdate = true;
+                        console.log(`[ENVIRONMENT] Textura aplicada em: ${child.name}`);
+                    } catch (error) {
+                        console.warn(`[ENVIRONMENT] Erro ao aplicar textura no hangar: ${error}`);
+                    }
+                }
+            }
+        });
+        
+    } catch (error) {
+        console.warn('[ENVIRONMENT] Erro ao processar texturas do hangar:', error);
     }
 }
 
@@ -1488,9 +1548,12 @@ function createGradientBlocksWithGap(point1, point2, scene, baseHeight, collidab
     
     // Criar um grupo para os blocos
     const blocksGroup = new THREE.Group();
+    blocksGroup.name = "MetalBlocks";
     
     // Array para armazenar todos os blocos criados
     const blocks = [];
+    
+    console.log('[ENVIRONMENT] Iniciando criação de blocos com textura de metal...');
     
     // Gerar blocos com o espaçamento correto
     for (let x = minX; x <= maxX; x += totalSpacing) {
@@ -1518,11 +1581,26 @@ function createGradientBlocksWithGap(point1, point2, scene, baseHeight, collidab
             
             // Criar geometria do bloco
             const geometry = new THREE.BoxGeometry(blockSize, heightVariation, blockSize);
-            const material = new THREE.MeshLambertMaterial({ color: 'red' });
-            const block = new THREE.Mesh(geometry, material);
+            
+            // Material temporário que será substituído pela textura de metal
+            const tempMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x8b4513, // Cor marrom temporária para distinguir dos vermelhos
+                roughness: 0.3,
+                metalness: 0.8
+            });
+            const block = new THREE.Mesh(geometry, tempMaterial);
+            
+            // Marcar como bloco para identificação posterior
+            block.userData.isBlock = true;
+            block.userData.blockType = 'metal';
+            block.userData.needsMetalTexture = true;
             
             // Posicionar o bloco com a altura modificada pela onda
             block.position.set(x, finalHeight, z);
+            
+            // Configurar sombras
+            block.castShadow = true;
+            block.receiveShadow = true;
             
             // Armazenar informações do bloco
             blocks.push({
@@ -1548,7 +1626,17 @@ function createGradientBlocksWithGap(point1, point2, scene, baseHeight, collidab
     // Remover os blocos centrais
     for (const block of blocksToRemove) {
         blocksGroup.remove(block.mesh);
+        // Remover também do array blocks
+        const index = blocks.findIndex(b => b.mesh === block.mesh);
+        if (index > -1) {
+            blocks.splice(index, 1);
+        }
     }
+    
+    console.log(`[ENVIRONMENT] Criados ${blocks.length} blocos metálicos na área 2`);
+    
+    // Aplicar textura diretamente
+    applyTexture(blocksGroup, 'caixametal.jpg', 'standard', { roughness: 0.3, metalness: 0.9 });
     
     // Adicionar o grupo à cena
     scene.add(blocksGroup);
@@ -1557,6 +1645,10 @@ function createGradientBlocksWithGap(point1, point2, scene, baseHeight, collidab
     return blocksGroup;
 }
 
+/**
+ * Aplica textura de metal nos blocos de forma assíncrona
+ * @param {THREE.Group} blocksGroup 
+ */
 function raiseCentralBlock(blockGroup, delta) {
     const centralBlock = blockGroup.userData.centralBlock;
     const keyInstance = blockGroup.userData.keyInstance;

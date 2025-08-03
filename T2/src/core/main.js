@@ -857,3 +857,97 @@ window.testHangarDoors = function() {
     console.log('[DEBUG] Area3 not found');
   }
 };
+
+// Debug function to test dynamic texture application
+window.testDynamicTextures = function() {
+  console.log('[DEBUG] Testando aplicação dinâmica de texturas...');
+  
+  // Import the dynamic texture system
+  import('../systems/dynamicTextures.js').then(module => {
+    const { DynamicTextureApplicator, QuickTexture } = module;
+    
+    // Criar instância do aplicador
+    const textureApplicator = new DynamicTextureApplicator(scene);
+    
+    // Aplicar textura de metal nos blocos da área 2
+    QuickTexture.applyMetal(scene, 'MetalBlocks', 'caixametal.jpg')
+      .then(success => {
+        if (success) {
+          console.log('[DEBUG] ✅ Textura de metal aplicada nos blocos!');
+        } else {
+          console.log('[DEBUG] ❌ Falha ao aplicar textura de metal');
+        }
+      });
+      
+    // Aplicar texturas em objetos por critério
+    textureApplicator.applyTextureByCriteria(
+      { userData: { isBlock: true } },
+      'caixametal.jpg',
+      { materialType: 'metal', roughness: 0.2, metalness: 0.95 }
+    ).then(count => {
+      console.log(`[DEBUG] Texturas aplicadas em ${count} blocos por critério`);
+    });
+    
+    // Mostrar informações sobre texturas aplicadas
+    setTimeout(() => {
+      const info = textureApplicator.getAppliedTexturesInfo();
+      console.log('[DEBUG] Informações sobre texturas aplicadas:', info);
+    }, 2000);
+  });
+};
+
+// Function to demonstrate different texture applications
+window.applyTextureVariations = function() {
+  console.log('[DEBUG] Aplicando variações de texturas...');
+  
+  import('../systems/dynamicTextures.js').then(module => {
+    const { DynamicTextureApplicator } = module;
+    const applicator = new DynamicTextureApplicator(scene);
+    
+    // Lista de variações de textura para testar
+    const textureVariations = [
+      { name: 'MetalBlocks', texture: 'caixametal.jpg', type: 'metal' },
+      // Adicione mais variações conforme necessário
+    ];
+    
+    textureVariations.forEach(async (variation, index) => {
+      setTimeout(async () => {
+        try {
+          const success = await applicator.applyTextureByName(
+            variation.name, 
+            variation.texture, 
+            { 
+              materialType: variation.type,
+              roughness: 0.2 + (index * 0.2),
+              metalness: 0.9 - (index * 0.1)
+            }
+          );
+          
+          if (success) {
+            console.log(`[DEBUG] ✅ Variação ${index + 1} aplicada: ${variation.texture}`);
+          }
+        } catch (error) {
+          console.log(`[DEBUG] ❌ Erro na variação ${index + 1}:`, error);
+        }
+      }, index * 1000);
+    });
+  });
+};
+
+// Initialize dynamic texture system on game start
+window.initializeDynamicTextures = function() {
+  if (!scene) {
+    console.log('[DEBUG] Cena não está pronta ainda');
+    return;
+  }
+  
+  import('../systems/dynamicTextures.js').then(module => {
+    const { getGlobalTextureApplicator } = module;
+    const applicator = getGlobalTextureApplicator(scene);
+    
+    // Aplicar texturas padrão
+    applicator.applyDefaultTextures().then(() => {
+      console.log('[DEBUG] ✅ Sistema de texturas dinâmicas inicializado');
+    });
+  });
+};
