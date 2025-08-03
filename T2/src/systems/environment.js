@@ -18,6 +18,14 @@ export function createWalls(scene, collidableObjects) {
     plane.receiveShadow = true; 
 
     plane.position.y = CONFIG.GROUND_HEIGHT;
+    
+    // Aplicar textura de piso intertravado no chão principal
+    applyTexture(plane, CONFIG.FLOOR_TEXTURE.NAME, 'standard', { 
+        roughness: CONFIG.FLOOR_TEXTURE.ROUGHNESS, 
+        metalness: CONFIG.FLOOR_TEXTURE.METALNESS,
+        textureOptions: { repeat: CONFIG.FLOOR_TEXTURE.REPEAT }
+    });
+    
     scene.add(plane);
     plane.receiveShadow = true;
     collidableObjects.push(plane);

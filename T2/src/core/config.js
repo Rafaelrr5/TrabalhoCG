@@ -69,6 +69,14 @@ export const CONFIG = {
     WALL_HEIGHT: 20,
     WALL_Y_POSITION: 9.0,
     
+    // Configurações de texturas
+    FLOOR_TEXTURE: {
+        NAME: 'pisointertravado.jpg',
+        REPEAT: { x: 100, y: 100 },
+        ROUGHNESS: 0,
+        METALNESS: 0.0
+    },
+    
     // Configurações das escadas
     STAIR_STEP_HEIGHT: 0.485,
     STAIR_STEP_DEPTH: 0.8,
