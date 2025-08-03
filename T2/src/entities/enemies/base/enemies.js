@@ -100,7 +100,7 @@ export class Enemy extends SimpleEventEmitter {
     this.audio = new EnemyAudio(this);
     this.healthBar = new EnemyHealthBar(this);
     this.movement = new EnemyMovement(this);
-    this.collision = new EnemyCollision(this);
+    this.collision = new EnemyCollision(this, {performance:{raycastUpdateInterval: 50}});
     this.deathEffects = new EnemyDeathEffects(this);
     
     this.initialize();
