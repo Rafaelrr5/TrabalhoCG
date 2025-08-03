@@ -13,6 +13,7 @@ import { updateElevator } from '../systems/elevator.js';
 import { keyManager } from '../entities/items/key.js';
 import { ambientAudioManager, playerAudioManager, gameAudioManager, audioManager } from '../systems/index.js';
 import { updateTotem, updateDoorAnimation, updateKeyAnimation, totem } from '../systems/door.js';
+import { loadSky } from '../systems/sky.js';
 
 // Global function to handle player damage (called by Lost Soul kamikaze attacks)
 window.playerTakeDamage = function(damage) {
@@ -598,6 +599,10 @@ async function createEnvironment() {
     
     updateLoadingProgress(50, 'Carregando áreas do jogo...');
     await createAreas(scene, collidableObjects);
+    
+    updateLoadingProgress(55, 'Carregando céu...');
+    // Load sky with red tint filter
+    loadSky(scene, '../assets/textures/skybox/panorama1.jpg', { redTint: 0.4 });
     
     updateLoadingProgress(65, 'Criando inimigos...');
     //gun = createGun(camera); // Captura a referência da arma
