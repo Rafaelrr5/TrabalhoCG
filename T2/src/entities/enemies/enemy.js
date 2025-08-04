@@ -2,7 +2,9 @@ import * as THREE from '../../../../build/three.module.js';
 import { LostSoul } from './types/lostSoul.js';
 import { Cacodemon } from './types/cacodemon.js';
 import { preloadSkullModel } from '../../utils/skullLoader.js';
-import { CONFIG } from '../../core/config.js';
+import { DEBUG_CONFIG } from '../../core/config/debugConfig.js';
+import { WORLD_CONFIG } from '../../core/config/worldConfig.js';
+import { PLAYER_CONFIG } from '../../core/config/playerConfig.js';
 import { isPlayerInArea1, isPlayerInArea2 } from '../../systems/environment.js';
 import { cleanupAllProjectiles } from './systems/cacodeemonProjectile.js';
 import { EnemyPersistentPursuitManager } from './components/EnemyPersistentPursuitBehavior.js';
@@ -24,7 +26,7 @@ export async function preloadEnemies() {
 export async function createEnemies(scene) {
   await preloadEnemies();
   
-  const lostSoulY = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT / 2 + 8.0;
+  const lostSoulY = WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT / 2 + 8.0;
   const lostSoulPositions = [
     [-170, lostSoulY, -140],
     [-160, lostSoulY, -130],
@@ -59,7 +61,7 @@ export async function createEnemies(scene) {
 export function updateEnemies(delta, scene, camera, gun = null, collidableObjects = []) {
   const hitboxTop = new THREE.Vector3(
     camera.position.x,
-    CONFIG.CAMERA_HEIGHT + CONFIG.PLAYER_HEIGHT,
+    PLAYER_CONFIG.CAMERA_HEIGHT + PLAYER_CONFIG.PLAYER_HEIGHT,
     camera.position.z
   );
   

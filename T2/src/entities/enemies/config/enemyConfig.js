@@ -274,14 +274,8 @@ export function getCacodeemonConfig() {
   };
 }
 
-// ============================================================================
-// FUNÇÕES DE CONVERSÃO PARA COMPATIBILIDADE COM CONFIG GLOBAL
-// ============================================================================
-
-// Função para converter configurações do enemy config para o formato esperado pelo CONFIG global
 export function getConfigCompatibilityValues() {
   return {
-    // Configurações gerais de inimigos
     ENEMY_COLLISION_ENABLED: ENEMY_CONFIG.COLLISION_ENABLED,
     ENEMY_COLLISION_DEBUG: ENEMY_CONFIG.COLLISION_DEBUG,
     
@@ -298,7 +292,6 @@ export function getConfigCompatibilityValues() {
     LOST_SOUL_RAYCAST_DISTANCE: LOST_SOUL_CONFIG.RAYCAST_DISTANCE,
     LOST_SOUL_COLLISION_SMOOTHING: LOST_SOUL_CONFIG.COLLISION_SMOOTHING,
     
-    // Lost Soul - configurações de colisão entre Lost Souls
     LOST_SOUL_INTER_COLLISION: LOST_SOUL_CONFIG.INTER_COLLISION,
     LOST_SOUL_INTER_COLLISION_RADIUS: LOST_SOUL_CONFIG.INTER_COLLISION_RADIUS,
     LOST_SOUL_SEPARATION_FORCE: LOST_SOUL_CONFIG.SEPARATION_FORCE,

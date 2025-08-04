@@ -1,5 +1,6 @@
 import * as THREE from '../../../../build/three.module.js';
-import { CONFIG } from '../../core/config.js';
+import { ITEMS_CONFIG } from '../../core/config/itemsConfig.js';
+import { DEBUG_CONFIG } from '../../core/config/debugConfig.js';
 import { CSG } from '../../../../libs/other/CSGMesh.js';
 import { gameAudioManager } from '../../systems/index.js';
 
@@ -35,11 +36,11 @@ export class Key {
         const keyGroup = new THREE.Group();
         keyGroup.name = `${this.keyType}Key`;
         
-        const keyColor = CONFIG.KEYS.COLORS[this.keyType] || CONFIG.KEYS.COLORS.red;
+        const keyColor = ITEMS_CONFIG.KEYS.COLORS[this.keyType] || ITEMS_CONFIG.KEYS.COLORS.red;
         const keyMaterial = new THREE.MeshPhongMaterial({ 
             color: keyColor, 
-            shininess: CONFIG.KEYS.MATERIAL.SHININESS, 
-            specular: CONFIG.KEYS.MATERIAL.SPECULAR 
+            shininess: ITEMS_CONFIG.KEYS.MATERIAL.SHININESS, 
+            specular: ITEMS_CONFIG.KEYS.MATERIAL.SPECULAR 
         });
 
         const cube = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), keyMaterial);
@@ -81,11 +82,11 @@ export class Key {
         
         if (this.isCollected && !this.isInTotemAnimation) return;
 
-        this.mesh.rotation.y += CONFIG.KEYS.ANIMATION.ROTATION_SPEED;
+        this.mesh.rotation.y += ITEMS_CONFIG.KEYS.ANIMATION.ROTATION_SPEED;
 
         if (!this.isCollected) {
-            this.floatOffset += CONFIG.KEYS.ANIMATION.FLOAT_SPEED * delta;
-            const floatY = this.originalY + Math.sin(this.floatOffset) * CONFIG.KEYS.ANIMATION.FLOAT_AMPLITUDE;
+            this.floatOffset += ITEMS_CONFIG.KEYS.ANIMATION.FLOAT_SPEED * delta;
+            const floatY = this.originalY + Math.sin(this.floatOffset) * ITEMS_CONFIG.KEYS.ANIMATION.FLOAT_AMPLITUDE;
             this.mesh.position.y = floatY;
             
             const worldPosition = new THREE.Vector3();
@@ -98,7 +99,7 @@ export class Key {
         if (this.isCollected) return false;
 
         const distance = this.position.distanceTo(playerPosition);
-        const checkDistance = collectionDistance || CONFIG.KEYS.ANIMATION.COLLECTION_DISTANCE;
+        const checkDistance = collectionDistance || ITEMS_CONFIG.KEYS.ANIMATION.COLLECTION_DISTANCE;
         
         return distance <= checkDistance;
     }
@@ -114,18 +115,18 @@ export class Key {
         if (totemPosition && this.mesh) {
             this.mesh.position.set(
                 totemPosition.x,
-                totemPosition.y + CONFIG.KEYS.TOTEM.HEIGHT_OFFSET,
+                totemPosition.y + ITEMS_CONFIG.KEYS.TOTEM.HEIGHT_OFFSET,
                 totemPosition.z
             );
             this.mesh.visible = false;
-            this.originalY = totemPosition.y + CONFIG.KEYS.TOTEM.HEIGHT_OFFSET;
+            this.originalY = totemPosition.y + ITEMS_CONFIG.KEYS.TOTEM.HEIGHT_OFFSET;
         } else {
             if (this.mesh) {
                 this.mesh.visible = false;
             }
         }
 
-        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+        if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
             console.log(`[KEY] ${this.keyType} key collected!`);
         }
 
@@ -248,7 +249,7 @@ export class Key {
 
         const success = keyManager.useKey(this.keyType);
         
-        if (success && CONFIG.DEBUG_CONSOLE_LOGS) {
+        if (success && DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
             console.log(`[KEY] ${this.keyType} key used and removed from inventory!`);
         }
 
@@ -261,7 +262,7 @@ export class Key {
     }
 
     static create(keyType, position) {
-        if (!CONFIG.KEYS.COLORS[keyType]) {
+        if (!ITEMS_CONFIG.KEYS.COLORS[keyType]) {
             console.warn(`Unknown key type: ${keyType}. Using red as default.`);
             keyType = 'red';
         }
@@ -289,7 +290,7 @@ export class KeyManager {
         if (success) {
             this.keys.set(key.getId(), key);
             
-            if (CONFIG.DEBUG_CONSOLE_LOGS) {
+            if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
                 console.log(`[KEY MANAGER] Added ${key.getType()} key with ID: ${key.getId()}`);
             }
         }
@@ -365,7 +366,7 @@ export class KeyManager {
         this.collectedKeys.delete(keyType);
         this.notifyInventoryChange('used', keyType);
         
-        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+        if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
             console.log(`[KEY MANAGER] Used ${keyType} key - removed from inventory`);
         }
 
@@ -463,7 +464,7 @@ export class KeyManager {
         this.collectedKeys.add(keyType);
         this.notifyInventoryChange('cheat_added', keyType);
         
-        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+        if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
             console.log(`[KEY MANAGER] Added ${keyType} key directly to inventory (cheat)`);
         }
 

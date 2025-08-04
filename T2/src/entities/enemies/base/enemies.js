@@ -1,5 +1,6 @@
 import * as THREE from '../../../../../build/three.module.js';
-import { CONFIG } from '../../../core/config.js';
+import { DEBUG_CONFIG } from '../../../core/config/debugConfig.js';
+import { WORLD_CONFIG } from '../../../core/config/worldConfig.js';
 import { SimpleEventEmitter } from '../components/SimpleEventEmitter.js';
 import { EnemyAudio } from '../components/EnemyAudio.js';
 import { EnemyHealthBar } from '../components/EnemyHealthBar.js';

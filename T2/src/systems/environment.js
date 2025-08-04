@@ -1,37 +1,35 @@
 import * as THREE from '../../../build/three.module.js';
 import { createGroundPlaneXZ } from "../../../libs/util/util.js";
-import { CONFIG } from '../core/config.js';
+import { WORLD_CONFIG } from '../core/config/worldConfig.js';
+import { TEXTURE_CONFIG } from '../core/config/textureConfig.js';
+import { ITEMS_CONFIG } from '../core/config/itemsConfig.js';
 import { areAllArea1EnemiesDefeated, areAllArea2EnemiesDefeated, cleanupDeadEnemies } from '../entities/enemies/enemy.js';
 import {createElevator} from '../systems/elevator.js';
 import { enableShadowsForAll } from './lights.js';
 import { keyManager, Key } from '../entities/items/key.js';
 import { createDoor, createtotem } from './door.js';
 import { loadOBJModel } from '../utils/modelLoader.js';
-import { applyTexture } from '../utils/textureUtils.js';
+import { applyTexture, QuickTexture } from '../utils/textureUtils.js';
 
 export let area1KeyPlatform = null;
 export let area2KeyPlatform = null;
 
 export function createWalls(scene, collidableObjects) {
     let material = new THREE.MeshLambertMaterial({ color: 'orange' });
-    let plane = createGroundPlaneXZ(CONFIG.WORLD_SIZE, CONFIG.WORLD_SIZE);
+    let plane = createGroundPlaneXZ(WORLD_CONFIG.WORLD_SIZE, WORLD_CONFIG.WORLD_SIZE);
     plane.receiveShadow = true; 
 
-    plane.position.y = CONFIG.GROUND_HEIGHT;
+    plane.position.y = WORLD_CONFIG.GROUND_HEIGHT;
     
     // Aplicar textura de piso intertravado no chão principal
-    applyTexture(plane, CONFIG.FLOOR_TEXTURE.NAME, 'standard', { 
-        roughness: CONFIG.FLOOR_TEXTURE.ROUGHNESS, 
-        metalness: CONFIG.FLOOR_TEXTURE.METALNESS,
-        textureOptions: { repeat: CONFIG.FLOOR_TEXTURE.REPEAT }
-    });
+    QuickTexture.floor(plane);
     
     scene.add(plane);
     plane.receiveShadow = true;
     collidableObjects.push(plane);
 
     // Cria geometria das paredes
-    let wallGeometry = new THREE.PlaneGeometry(CONFIG.WORLD_SIZE, CONFIG.WALL_HEIGHT);
+    let wallGeometry = new THREE.PlaneGeometry(WORLD_CONFIG.WORLD_SIZE, WORLD_CONFIG.WALL_HEIGHT);
     
     // Cria as 4 paredes
     let wall0 = new THREE.Mesh(wallGeometry, material);
@@ -41,12 +39,12 @@ export function createWalls(scene, collidableObjects) {
     const walls = new THREE.Group();
 
     // Posiciona as paredes
-    wall0.position.set(0.0, CONFIG.WALL_Y_POSITION, (-CONFIG.WORLD_SIZE/2)+0.1);
-    wall1.position.set(0.0, CONFIG.WALL_Y_POSITION, CONFIG.WORLD_SIZE/2-0.1);
+    wall0.position.set(0.0, WORLD_CONFIG.WALL_Y_POSITION, (-WORLD_CONFIG.WORLD_SIZE/2)+0.1);
+    wall1.position.set(0.0, WORLD_CONFIG.WALL_Y_POSITION, WORLD_CONFIG.WORLD_SIZE/2-0.1);
     wall1.rotateY(-1 * Math.PI);
-    wall2.position.set((-CONFIG.WORLD_SIZE/2)+0.1, CONFIG.WALL_Y_POSITION, 0.0);
+    wall2.position.set((-WORLD_CONFIG.WORLD_SIZE/2)+0.1, WORLD_CONFIG.WALL_Y_POSITION, 0.0);
     wall2.rotateY(Math.PI / 2);
-    wall3.position.set((CONFIG.WORLD_SIZE/2)-0.1, CONFIG.WALL_Y_POSITION, 0.0);
+    wall3.position.set((WORLD_CONFIG.WORLD_SIZE/2)-0.1, WORLD_CONFIG.WALL_Y_POSITION, 0.0);
     wall3.rotateY(-1 * Math.PI / 2);
 
     // Adiciona paredes à cena
@@ -116,7 +114,7 @@ async function applyEnvironmentTextures(scene) {
         const metalBlocksGroup = area2Group.getObjectByName("MetalBlocks");
         if (metalBlocksGroup && metalBlocksGroup.children.length > 0) {
             console.log('[ENVIRONMENT] Aplicando textura caixametal.jpg nos blocos da área 2...');
-            applyTexture(metalBlocksGroup, 'caixametal.jpg', 'standard', { roughness: 0.3, metalness: 0.9 });
+            QuickTexture.metal(metalBlocksGroup);
         }
     }
     
@@ -168,12 +166,12 @@ function createArea1(scene, materials, collidableObjects) {
     area1.name = "Area1";
     const stair1 = new THREE.Group();
 
-    area1_center.position.set(-152.25, CONFIG.AREA_Y_POSITION, -131.0);
-    area1_center.scale.set(125.0, CONFIG.AREA_HEIGHT, 125.0);
-    area1_left.position.set(-210.0, CONFIG.AREA_Y_POSITION, -66.0);
-    area1_left.scale.set(9.5, CONFIG.AREA_HEIGHT, 6.0);
-    area1_right.position.set(-140.0, CONFIG.AREA_Y_POSITION, -66.0);
-    area1_right.scale.set(100.5, CONFIG.AREA_HEIGHT, 6.0);
+    area1_center.position.set(-152.25, WORLD_CONFIG.AREA_Y_POSITION, -131.0);
+    area1_center.scale.set(125.0, WORLD_CONFIG.AREA_HEIGHT, 125.0);
+    area1_left.position.set(-210.0, WORLD_CONFIG.AREA_Y_POSITION, -66.0);
+    area1_left.scale.set(9.5, WORLD_CONFIG.AREA_HEIGHT, 6.0);
+    area1_right.position.set(-140.0, WORLD_CONFIG.AREA_Y_POSITION, -66.0);
+    area1_right.scale.set(100.5, WORLD_CONFIG.AREA_HEIGHT, 6.0);
     
     area1.add(area1_center);
     area1.add(area1_left);
@@ -192,7 +190,7 @@ function createArea1(scene, materials, collidableObjects) {
     area1.add(keyPlatform);
     
     scene.add(area1);
-    stair1.add(createStair(-197.75, CONFIG.STAIR_HEIGHT_OFFSET, -62.8, CONFIG.AREA_HEIGHT, true, materials.stair));
+    stair1.add(createStair(-197.75, WORLD_CONFIG.STAIR_HEIGHT_OFFSET, -62.8, WORLD_CONFIG.AREA_HEIGHT, true, materials.stair));
     scene.add(stair1);
     markCollisionObject(area1, collidableObjects);
     markCollisionObject(stair1, collidableObjects);
@@ -215,12 +213,12 @@ function createArea2(scene, materials, collidableObjects) {
     area2.name = "Area2";
     //const stair2 = new THREE.Group();
 
-    area2_center.position.set(0.0, CONFIG.AREA_Y_POSITION, -131.0);
-    area2_center.scale.set(125.0, CONFIG.AREA_HEIGHT, 125.0);
-    area2_left.position.set(-10.0, CONFIG.AREA_Y_POSITION, -66.0);
-    area2_left.scale.set(105.0, CONFIG.AREA_HEIGHT, 6.0);
-    area2_right.position.set(60.0, CONFIG.AREA_Y_POSITION, -66.0);
-    area2_right.scale.set(5.0, CONFIG.AREA_HEIGHT, 6.0);
+    area2_center.position.set(0.0, WORLD_CONFIG.AREA_Y_POSITION, -131.0);
+    area2_center.scale.set(125.0, WORLD_CONFIG.AREA_HEIGHT, 125.0);
+    area2_left.position.set(-10.0, WORLD_CONFIG.AREA_Y_POSITION, -66.0);
+    area2_left.scale.set(105.0, WORLD_CONFIG.AREA_HEIGHT, 6.0);
+    area2_right.position.set(60.0, WORLD_CONFIG.AREA_Y_POSITION, -66.0);
+    area2_right.scale.set(5.0, WORLD_CONFIG.AREA_HEIGHT, 6.0);
 
     area2.add(area2_center);
     area2.add(area2_left);
@@ -296,7 +294,7 @@ async function createArea3(scene, materials, collidableObjects) {
         const area3 = new THREE.Group();
         area3.name = "Area3";
         
-        hangarModel.position.set(156.25, CONFIG.AREA_Y_POSITION -2, -50.0);
+        hangarModel.position.set(156.25, WORLD_CONFIG.AREA_Y_POSITION -2, -50.0);
         hangarModel.name = "HangarModel";
         
         hangarModel.visible = true;
@@ -375,7 +373,7 @@ async function createArea3(scene, materials, collidableObjects) {
             });
             
             planeModel.name = "PlaneModel";
-            planeModel.position.set(156.25, CONFIG.AREA_Y_POSITION + 3, -50.0);
+            planeModel.position.set(156.25, WORLD_CONFIG.AREA_Y_POSITION + 3, -50.0);
             
             area3.add(planeModel);
             
@@ -422,7 +420,7 @@ async function createArea3(scene, materials, collidableObjects) {
         
         const hangarBody = new THREE.BoxGeometry(100, 20, 80);
         const hangarMesh = new THREE.Mesh(hangarBody, hangarMaterial);
-        hangarMesh.position.set(156.25, CONFIG.AREA_Y_POSITION + 12, -131.0); // Slightly above base plane
+        hangarMesh.position.set(156.25, WORLD_CONFIG.AREA_Y_POSITION + 12, -131.0); // Slightly above base plane
         hangarMesh.castShadow = true;
         hangarMesh.receiveShadow = true;
         area3.add(hangarMesh);
@@ -431,7 +429,7 @@ async function createArea3(scene, materials, collidableObjects) {
             const roofGeometry = new THREE.BoxGeometry(100, 5, 10);
             const roofMesh = new THREE.Mesh(roofGeometry, hangarMaterial);
             const angle = (i - 2) * 0.3; // Create slight arch
-            roofMesh.position.set(156.25, CONFIG.AREA_Y_POSITION + 22 + Math.cos(angle) * 5, -131.0 + (i - 2) * 15);
+            roofMesh.position.set(156.25, WORLD_CONFIG.AREA_Y_POSITION + 22 + Math.cos(angle) * 5, -131.0 + (i - 2) * 15);
             roofMesh.rotation.x = angle;
             roofMesh.castShadow = true;
             roofMesh.receiveShadow = true;
@@ -455,18 +453,18 @@ function createArea4(scene, materials, collidableObjects) {
     area4.name = "Area4";
     const stair4 = new THREE.Group();
     
-    area4_center.position.set(0.0, CONFIG.AREA_Y_POSITION, 131.0);
-    area4_center.scale.set(375.0, CONFIG.AREA_HEIGHT, 125.0);
-    area4_left.position.set(-97.5, CONFIG.AREA_Y_POSITION, 66.0);
-    area4_left.scale.set(180.0, CONFIG.AREA_HEIGHT, 6.0);
-    area4_right.position.set(97.5, CONFIG.AREA_Y_POSITION, 66.0);
-    area4_right.scale.set(180.0, CONFIG.AREA_HEIGHT, 6.0);
+    area4_center.position.set(0.0, WORLD_CONFIG.AREA_Y_POSITION, 131.0);
+    area4_center.scale.set(375.0, WORLD_CONFIG.AREA_HEIGHT, 125.0);
+    area4_left.position.set(-97.5, WORLD_CONFIG.AREA_Y_POSITION, 66.0);
+    area4_left.scale.set(180.0, WORLD_CONFIG.AREA_HEIGHT, 6.0);
+    area4_right.position.set(97.5, WORLD_CONFIG.AREA_Y_POSITION, 66.0);
+    area4_right.scale.set(180.0, WORLD_CONFIG.AREA_HEIGHT, 6.0);
 
     area4.add(area4_center);
     area4.add(area4_left);
     area4.add(area4_right);
     scene.add(area4);
-    stair4.add(createStair(0.0, CONFIG.STAIR_HEIGHT_OFFSET, 62.8, CONFIG.AREA_HEIGHT, false, materials.stair));
+    stair4.add(createStair(0.0, WORLD_CONFIG.STAIR_HEIGHT_OFFSET, 62.8, WORLD_CONFIG.AREA_HEIGHT, false, materials.stair));
     scene.add(stair4);
     markCollisionObject(area4, collidableObjects);
     markCollisionObject(stair4, collidableObjects);
@@ -671,7 +669,7 @@ function createRomanColumns(scene) {
     columnPositions.forEach((pos, index) => {
         const column = createSingleColumn(columnRadius, columnHeight, columnSegments, columnHeightSegments, capitalHeight, baseHeight, columnMaterial);
         // Posiciona a coluna apoiada sobre a superfície da área
-        column.position.set(pos.x, CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + columnHeight/2, pos.z);
+        column.position.set(pos.x, WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT/2 + columnHeight/2, pos.z);
         
         // Garantir que todas as meshes da coluna tenham sombras ativadas
         column.traverse((child) => {
@@ -725,7 +723,7 @@ function createRuinStructures(scene) {
     
     // Altura das colunas para calcular a posição das estruturas superiores
     const columnHeight = 12;
-    const structureHeight = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + columnHeight + 1.5; // Acima dos capitéis
+    const structureHeight = WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT/2 + columnHeight + 1.5; // Acima dos capitéis
     
     const ruinConnections = [
         // Estrutura principal: Grande estrutura conectando todos os pilares do lado norte (oposto à escada)
@@ -1235,11 +1233,11 @@ function createKeyPlatform(scene) {
     // Plataforma circular
     const platformGeometry = new THREE.CylinderGeometry(3, 3, 0.5, 16);
     const platform = new THREE.Mesh(platformGeometry, platformMaterial);
-    platform.position.set(-152.25, CONFIG.AREA_Y_POSITION - 2, -131.0); // Começa subterrânea
+    platform.position.set(-152.25, WORLD_CONFIG.AREA_Y_POSITION - 2, -131.0); // Começa subterrânea
     platformGroup.add(platform);
     
     // Criar chave vermelha usando o sistema Key
-    const keyPosition = new THREE.Vector3(-152.25, CONFIG.AREA_Y_POSITION - 1.0, -131.0);
+    const keyPosition = new THREE.Vector3(-152.25, WORLD_CONFIG.AREA_Y_POSITION - 1.0, -131.0);
     const redKeyInstance = new Key('red', keyPosition);
     
     // Adicionar a chave ao keyManager e à cena
@@ -1248,9 +1246,9 @@ function createKeyPlatform(scene) {
         if (redKeyInstance.getMesh()) {
             redKeyInstance.getMesh().visible = false;
             // Posicionar inicialmente abaixo do chão com a plataforma
-            redKeyInstance.getMesh().position.set(-152.25, CONFIG.AREA_Y_POSITION - 1.0, -131.0);
+            redKeyInstance.getMesh().position.set(-152.25, WORLD_CONFIG.AREA_Y_POSITION - 1.0, -131.0);
             redKeyInstance.position.copy(redKeyInstance.getMesh().position);
-            redKeyInstance.originalY = CONFIG.AREA_Y_POSITION - 1.0;
+            redKeyInstance.originalY = WORLD_CONFIG.AREA_Y_POSITION - 1.0;
         }
     }
     
@@ -1258,7 +1256,7 @@ function createKeyPlatform(scene) {
     platformGroup.userData.platform = platform;
     platformGroup.userData.keyInstance = redKeyInstance; // Referência para o objeto Key
     platformGroup.userData.isRaised = false;
-    platformGroup.userData.targetY = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + 0.5;
+    platformGroup.userData.targetY = WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT/2 + 0.5;
     
     return platformGroup;
 }
@@ -1272,13 +1270,13 @@ function createCentralBlockWithKey(scene) {
     // Criar bloco central como um cubo grande
     const blockGeometry = new THREE.BoxGeometry(12, 12, 12);
     const centralBlock = new THREE.Mesh(blockGeometry, blockMaterial);
-    centralBlock.position.set(0.0, CONFIG.AREA_Y_POSITION + 6, -131.0); // Posição inicial no chão
+    centralBlock.position.set(0.0, WORLD_CONFIG.AREA_Y_POSITION + 6, -131.0); // Posição inicial no chão
     centralBlock.castShadow = true;
     centralBlock.receiveShadow = true;
     blockGroup.add(centralBlock);
     
     // Criar a chave amarela na posição final (mesma altura da chave vermelha após subir)
-    const redKeyTargetY = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + 0.5;
+    const redKeyTargetY = WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT/2 + 0.5;
     const finalKeyHeight = redKeyTargetY + 1.0; // Mesma altura da chave vermelha após subir
     const keyPosition = new THREE.Vector3(0.0, finalKeyHeight, -131.0);
     const yellowKeyInstance = new Key('yellow', keyPosition);
@@ -1297,8 +1295,8 @@ function createCentralBlockWithKey(scene) {
     blockGroup.userData.keyInstance = yellowKeyInstance;
     blockGroup.userData.isRaised = false;
     blockGroup.userData.shouldRaise = false;
-    blockGroup.userData.originalY = CONFIG.AREA_Y_POSITION + 6;
-    blockGroup.userData.targetY = CONFIG.AREA_Y_POSITION + 20; // Altura final
+    blockGroup.userData.originalY = WORLD_CONFIG.AREA_Y_POSITION + 6;
+    blockGroup.userData.targetY = WORLD_CONFIG.AREA_Y_POSITION + 20; // Altura final
     
     return blockGroup;
 }
@@ -1311,10 +1309,10 @@ function createBlueKeyPlatform(scene) {
     
     const platformGeometry = new THREE.CylinderGeometry(3, 3, 0.5, 16);
     const platform = new THREE.Mesh(platformGeometry, platformMaterial);
-    platform.position.set(20.0, CONFIG.AREA_Y_POSITION - 2, -131.0); // Movida para X = 20.0
+    platform.position.set(20.0, WORLD_CONFIG.AREA_Y_POSITION - 2, -131.0); // Movida para X = 20.0
     platformGroup.add(platform);
     
-    const keyPosition = new THREE.Vector3(20.0, CONFIG.AREA_Y_POSITION - 1.0, -131.0);
+    const keyPosition = new THREE.Vector3(20.0, WORLD_CONFIG.AREA_Y_POSITION - 1.0, -131.0);
     const blueKeyInstance = new Key('blue', keyPosition);
     
     if (keyManager.addKey(blueKeyInstance, scene)) {
@@ -1322,9 +1320,9 @@ function createBlueKeyPlatform(scene) {
         if (blueKeyInstance.getMesh()) {
             blueKeyInstance.getMesh().visible = false;
             // Posicionar inicialmente abaixo do chão com a plataforma (posição X atualizada)
-            blueKeyInstance.getMesh().position.set(20.0, CONFIG.AREA_Y_POSITION - 1.0, -131.0);
+            blueKeyInstance.getMesh().position.set(20.0, WORLD_CONFIG.AREA_Y_POSITION - 1.0, -131.0);
             blueKeyInstance.position.copy(blueKeyInstance.getMesh().position);
-            blueKeyInstance.originalY = CONFIG.AREA_Y_POSITION - 1.0;
+            blueKeyInstance.originalY = WORLD_CONFIG.AREA_Y_POSITION - 1.0;
         }
     }
     
@@ -1332,7 +1330,7 @@ function createBlueKeyPlatform(scene) {
     platformGroup.userData.keyInstance = blueKeyInstance;
     platformGroup.userData.isRaised = false;
     platformGroup.userData.shouldRaise = false;
-    platformGroup.userData.targetY = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + 0.5;
+    platformGroup.userData.targetY = WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT/2 + 0.5;
     
     return platformGroup;
 }
@@ -1500,15 +1498,15 @@ function createStair(x, y, z, h, direction, material) {
     let stairGroup = new THREE.Group();
     stairGroup.name = "Escada";
     stairGroup.position.set(x, y, z);
-    const stepHeight = CONFIG.STAIR_STEP_HEIGHT; // Altura de cada degrau
-    const stepDepth = CONFIG.STAIR_STEP_DEPTH; // Profundidade de cada degrau
+    const stepHeight = WORLD_CONFIG.STAIR_STEP_HEIGHT; // Altura de cada degrau
+    const stepDepth = WORLD_CONFIG.STAIR_STEP_DEPTH; // Profundidade de cada degrau
       
     // Calcula o número de degraus necessários
     let steps = Math.floor(h / stepHeight);
     
     for (let i = 0; i < steps; i++) {
         // Geometria da escada
-        let stairGeometry = new THREE.BoxGeometry(CONFIG.STAIR_WIDTH, stepHeight, stepDepth);
+        let stairGeometry = new THREE.BoxGeometry(WORLD_CONFIG.STAIR_WIDTH, stepHeight, stepDepth);
         let step = new THREE.Mesh(stairGeometry, material);
         
         // Posiciona o degrau
@@ -1644,7 +1642,7 @@ function createGradientBlocksWithGap(point1, point2, scene, baseHeight, collidab
     console.log(`[ENVIRONMENT] Criados ${blocks.length} blocos metálicos na área 2`);
     
     // Aplicar textura diretamente
-    applyTexture(blocksGroup, 'caixametal.jpg', 'standard', { roughness: 0.3, metalness: 0.9 });
+    QuickTexture.metal(blocksGroup);
     
     // Adicionar o grupo à cena
     scene.add(blocksGroup);
@@ -1684,8 +1682,8 @@ function raiseCentralBlock(blockGroup, delta) {
             
             // Quando o bloco atinge a altura final, posicionar a chave na mesma altura da chave vermelha
             if (keyInstance && keyInstance.getMesh()) {
-                // Altura final da chave vermelha = targetY + 1.0 onde targetY = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + 0.5
-                const redKeyTargetY = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + 0.5;
+                // Altura final da chave vermelha = targetY + 1.0 onde targetY = WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT/2 + 0.5
+                const redKeyTargetY = WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT/2 + 0.5;
                 const finalKeyHeight = redKeyTargetY + 1.0; // Mesma altura da chave vermelha após subir
                 keyInstance.getMesh().position.y = finalKeyHeight;
                 keyInstance.position.y = finalKeyHeight;

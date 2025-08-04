@@ -1,5 +1,5 @@
 import * as THREE from '../../../build/three.module.js';
-import { CONFIG } from '../core/config.js';
+import { PLAYER_CONFIG } from '../core/config/playerConfig.js';
 import { hitbox, player } from '../entities/player/player.js';
 import { playerAudioManager } from './index.js';
 
@@ -9,17 +9,17 @@ export let wallColide = { x: false, z: false };
 let previousVelocityY = 0; // Track previous velocity for impact detection
 
 const raycaster = new THREE.Raycaster();
-const raySize = CONFIG.RAYCAST_DISTANCE;
+const raySize = PLAYER_CONFIG.RAYCAST_DISTANCE;
 const rays = [
-    { dir: new THREE.Vector3(1, 0, 0), axis: 'x', offset: new THREE.Vector3(0.5, CONFIG.PLAYER_HEIGHT/2, 0) },
-    { dir: new THREE.Vector3(-1, 0, 0), axis: 'x', offset: new THREE.Vector3(-0.5, CONFIG.PLAYER_HEIGHT/2, 0) },
-    { dir: new THREE.Vector3(0, 0, 1), axis: 'z', offset: new THREE.Vector3(0, CONFIG.PLAYER_HEIGHT/2, 0.5) },
-    { dir: new THREE.Vector3(0, 0, -1), axis: 'z', offset: new THREE.Vector3(0, CONFIG.PLAYER_HEIGHT/2, -0.5) },
+    { dir: new THREE.Vector3(1, 0, 0), axis: 'x', offset: new THREE.Vector3(0.5, PLAYER_CONFIG.PLAYER_HEIGHT/2, 0) },
+    { dir: new THREE.Vector3(-1, 0, 0), axis: 'x', offset: new THREE.Vector3(-0.5, PLAYER_CONFIG.PLAYER_HEIGHT/2, 0) },
+    { dir: new THREE.Vector3(0, 0, 1), axis: 'z', offset: new THREE.Vector3(0, PLAYER_CONFIG.PLAYER_HEIGHT/2, 0.5) },
+    { dir: new THREE.Vector3(0, 0, -1), axis: 'z', offset: new THREE.Vector3(0, PLAYER_CONFIG.PLAYER_HEIGHT/2, -0.5) },
 
-    { dir: new THREE.Vector3(1, 0, 1).normalize(), axis: 'xz', offset: new THREE.Vector3(0.35, CONFIG.PLAYER_HEIGHT/2, 0.35) },
-    { dir: new THREE.Vector3(1, 0, -1).normalize(), axis: 'xz', offset: new THREE.Vector3(0.35, CONFIG.PLAYER_HEIGHT/2, -0.35) },
-    { dir: new THREE.Vector3(-1, 0, 1).normalize(), axis: 'xz', offset: new THREE.Vector3(-0.35, CONFIG.PLAYER_HEIGHT/2, 0.35) },
-    { dir: new THREE.Vector3(-1, 0, -1).normalize(), axis: 'xz', offset: new THREE.Vector3(-0.35, CONFIG.PLAYER_HEIGHT/2, -0.35) }
+    { dir: new THREE.Vector3(1, 0, 1).normalize(), axis: 'xz', offset: new THREE.Vector3(0.35, PLAYER_CONFIG.PLAYER_HEIGHT/2, 0.35) },
+    { dir: new THREE.Vector3(1, 0, -1).normalize(), axis: 'xz', offset: new THREE.Vector3(0.35, PLAYER_CONFIG.PLAYER_HEIGHT/2, -0.35) },
+    { dir: new THREE.Vector3(-1, 0, 1).normalize(), axis: 'xz', offset: new THREE.Vector3(-0.35, PLAYER_CONFIG.PLAYER_HEIGHT/2, 0.35) },
+    { dir: new THREE.Vector3(-1, 0, -1).normalize(), axis: 'xz', offset: new THREE.Vector3(-0.35, PLAYER_CONFIG.PLAYER_HEIGHT/2, -0.35) }
 ];
 
 function checkGroundCollisions(collidableObjects, camera) {
@@ -69,7 +69,7 @@ function checkWallCollisions(collidableObjects, camera) {
         const intercepts = detectRayCollisions(origin, ray.dir, validObjects, raySize * 0.95, false);
         
         if (intercepts.length > 0 && intercepts[0].distance < raySize * 0.95) {
-            const correction = (intercepts[0].distance - raySize) * CONFIG.WALL_COLLISION_FACTOR;
+            const correction = (intercepts[0].distance - raySize) * PLAYER_CONFIG.WALL_COLLISION_FACTOR;
             
             // Trate colisões diagonais diferentemente
             if (ray.axis === 'xz') {
@@ -94,12 +94,12 @@ function checkWallCollisions(collidableObjects, camera) {
     // Verificação adicional com sphere casting
     const sphereCollisions = checkSphereCollisions(
         hitbox.position.clone(), 
-        CONFIG.PLAYER_RADIUS || 0.5, 
+        PLAYER_CONFIG.PLAYER_RADIUS || 0.5, 
         validObjects
     );
     
     for (const collision of sphereCollisions) {
-        const correction = collision.normal.multiplyScalar(CONFIG.PLAYER_RADIUS - 
+        const correction = collision.normal.multiplyScalar(PLAYER_CONFIG.PLAYER_RADIUS - 
             hitbox.position.distanceTo(collision.position));
         
         hitbox.position.add(correction);
@@ -121,7 +121,7 @@ export function applyGravity(delta, collidableObjects, camera) {
     if (!hitbox || !camera || !collidableObjects) return;
 
     if (!isGrounded) {
-        velocityY += CONFIG.GRAVITY * delta;
+        velocityY += PLAYER_CONFIG.GRAVITY * delta;
     } else {
         velocityY = 0;
     }
@@ -129,7 +129,7 @@ export function applyGravity(delta, collidableObjects, camera) {
     camera.position.y += velocityY * delta;
     checkGroundCollisions(collidableObjects, camera);
     checkWallCollisions(collidableObjects, camera);
-    camera.position.y = hitbox.position.y + CONFIG.PLAYER_HEIGHT/2;
+    camera.position.y = hitbox.position.y + PLAYER_CONFIG.PLAYER_HEIGHT/2;
 }
 
 function checkSphereCollisions(position, radius, collidableObjects) {
@@ -165,7 +165,7 @@ export function checkLostSoulCollision(lostSoulPosition, targetPosition, collida
     }
 
     const raycaster = new THREE.Raycaster();
-    const maxDistance = CONFIG.LOST_SOUL_RAYCAST_DISTANCE || 2.5;
+    const maxDistance = PLAYER_CONFIG.LOST_SOUL_RAYCAST_DISTANCE || 2.5;
     
     // Filtrar objetos válidos para colisão
     const validObjects = collidableObjects.filter(obj => {
@@ -185,7 +185,7 @@ export function checkLostSoulCollision(lostSoulPosition, targetPosition, collida
 
     // Sistema de múltiplos raycasts em formato esférico
     const rayDirections = [];
-    const numRays = CONFIG.LOST_SOUL_COLLISION_RAYS || 8;
+    const numRays = PLAYER_CONFIG.LOST_SOUL_COLLISION_RAYS || 8;
     
     // Adiciona direção principal (peso maior)
     rayDirections.push({ direction: mainDirection.clone(), weight: 1.0 });
@@ -208,7 +208,7 @@ export function checkLostSoulCollision(lostSoulPosition, targetPosition, collida
     }
 
     // Raycasts verticais se habilitado
-    if (CONFIG.LOST_SOUL_VERTICAL_COLLISION) {
+    if (PLAYER_CONFIG.LOST_SOUL_VERTICAL_COLLISION) {
         rayDirections.push({ direction: new THREE.Vector3(0, 1, 0), weight: 0.3 });
         rayDirections.push({ direction: new THREE.Vector3(0, -1, 0), weight: 0.3 });
     }
@@ -256,17 +256,17 @@ export function applyLostSoulCollisionCorrection(lostSoul, collidableObjects, ta
 
     const currentPos = lostSoul.mesh.position;
     const originalDirection = new THREE.Vector3().subVectors(targetPosition, currentPos).normalize();
-    const safeDistance = CONFIG.LOST_SOUL_COLLISION_DISTANCE || 1.8;
+    const safeDistance = PLAYER_CONFIG.LOST_SOUL_COLLISION_DISTANCE || 1.8;
     
     // Se está muito próximo da parede, aplica correção suave de posição
     if (collision.distance < safeDistance) {
-        if (CONFIG.LOST_SOUL_SMOOTH_COLLISION) {
+        if (PLAYER_CONFIG.LOST_SOUL_SMOOTH_COLLISION) {
             // Correção suave da posição para manter distância segura
             const penetrationDepth = safeDistance - collision.distance;
             const pushBackDirection = collision.normal.clone();
             
             // Aplica a correção gradualmente para evitar flickering
-            const correctionStrength = CONFIG.LOST_SOUL_COLLISION_SMOOTHING || 0.15;
+            const correctionStrength = PLAYER_CONFIG.LOST_SOUL_COLLISION_SMOOTHING || 0.15;
             const positionCorrection = pushBackDirection.multiplyScalar(penetrationDepth * correctionStrength);
             
             // Aplica a correção suavemente
@@ -274,7 +274,7 @@ export function applyLostSoulCollisionCorrection(lostSoul, collidableObjects, ta
         }
 
         // Sistema inteligente de pathfinding
-        if (CONFIG.LOST_SOUL_OBSTACLE_AVOIDANCE) {
+        if (PLAYER_CONFIG.LOST_SOUL_OBSTACLE_AVOIDANCE) {
             return findAlternativePath(currentPos, targetPosition, collision, collidableObjects, lostSoul.config.radius);
         } else {
             // Deflexão simples baseada na normal
@@ -299,7 +299,7 @@ function findAlternativePath(currentPos, targetPosition, collision, collidableOb
     
     // Deflexão vertical (para cima/baixo se for parede vertical)
     const isVerticalWall = Math.abs(normal.y) < 0.3;
-    if (isVerticalWall && CONFIG.LOST_SOUL_VERTICAL_COLLISION) {
+    if (isVerticalWall && PLAYER_CONFIG.LOST_SOUL_VERTICAL_COLLISION) {
         alternativeDirections.push(
             { direction: new THREE.Vector3(0, 1, 0), priority: 0.8 },
             { direction: new THREE.Vector3(0, -1, 0), priority: 0.6 }
@@ -329,12 +329,12 @@ function findAlternativePath(currentPos, targetPosition, collision, collidableOb
 
     // Testa cada direção alternativa
     for (const altData of alternativeDirections) {
-        const testDistance = CONFIG.LOST_SOUL_RAYCAST_DISTANCE || 2.5;
+        const testDistance = PLAYER_CONFIG.LOST_SOUL_RAYCAST_DISTANCE || 2.5;
         const testPosition = currentPos.clone().addScaledVector(altData.direction, testDistance);
         
         const testCollision = checkLostSoulCollision(currentPos, testPosition, collidableObjects, radius);
         
-        if (!testCollision.hasCollision || testCollision.distance > CONFIG.LOST_SOUL_COLLISION_DISTANCE) {
+        if (!testCollision.hasCollision || testCollision.distance > PLAYER_CONFIG.LOST_SOUL_COLLISION_DISTANCE) {
             return {
                 corrected: true,
                 newDirection: altData.direction,
@@ -356,7 +356,7 @@ function applySimpleDeflection(originalDirection, collision) {
     const deflectedDirection = originalDirection.clone().reflect(normal);
     
     // Mistura direção original com deflectida para manter o objetivo
-    const mixRatio = CONFIG.LOST_SOUL_COLLISION_CORRECTION || 0.8;
+    const mixRatio = PLAYER_CONFIG.LOST_SOUL_COLLISION_CORRECTION || 0.8;
     const finalDirection = originalDirection.clone().multiplyScalar(1 - mixRatio)
         .add(deflectedDirection.multiplyScalar(mixRatio))
         .normalize();
@@ -369,36 +369,15 @@ function applySimpleDeflection(originalDirection, collision) {
     };
 }
 
-// ============================================================================
-// SISTEMA DE COLISÃO ENTRE LOST SOULS
-// ============================================================================
-/*
- * Sistema de detecção de colisão entre Lost Souls para evitar sobreposição.
- * 
- * Características:
- * - Detecta colisões entre Lost Souls usando distância euclidiana
- * - Aplica força de separação para manter distância mínima
- * - Adiciona aleatoriedade para evitar formações perfeitas
- * - Força reduzida quando próximo ao jogador para permitir ataques
- * - Força ainda mais reduzida durante dash para manter agressividade
- * 
- * Configurações disponíveis em CONFIG:
- * - LOST_SOUL_INTER_COLLISION: habilita/desabilita o sistema
- * - LOST_SOUL_INTER_COLLISION_RADIUS: raio de detecção de colisão
- * - LOST_SOUL_SEPARATION_FORCE: intensidade da força de separação
- * - LOST_SOUL_SEPARATION_DISTANCE: distância mínima entre Lost Souls
- */
-
-// Função para detectar colisão entre Lost Souls
 export function checkLostSoulInterCollision(currentLostSoul, otherLostSouls) {
-    if (!CONFIG.LOST_SOUL_INTER_COLLISION || !otherLostSouls.length) {
+    if (!PLAYER_CONFIG.LOST_SOUL_INTER_COLLISION || !otherLostSouls.length) {
         return { hasCollision: false, separationForce: new THREE.Vector3() };
     }
 
     const currentPosition = currentLostSoul.mesh.position;
-    const collisionRadius = CONFIG.LOST_SOUL_INTER_COLLISION_RADIUS;
-    const separationDistance = CONFIG.LOST_SOUL_SEPARATION_DISTANCE;
-    const separationForceStrength = CONFIG.LOST_SOUL_SEPARATION_FORCE;
+    const collisionRadius = PLAYER_CONFIG.LOST_SOUL_INTER_COLLISION_RADIUS;
+    const separationDistance = PLAYER_CONFIG.LOST_SOUL_SEPARATION_DISTANCE;
+    const separationForceStrength = PLAYER_CONFIG.LOST_SOUL_SEPARATION_FORCE;
     
     let totalSeparationForce = new THREE.Vector3();
     let hasCollision = false;
@@ -443,7 +422,7 @@ export function checkLostSoulInterCollision(currentLostSoul, otherLostSouls) {
     if (collisionCount > 0) {
         totalSeparationForce.divideScalar(collisionCount);
         // Limita a magnitude da força para evitar movimentos abruptos
-        const maxForce = CONFIG.LOST_SOUL_SEPARATION_FORCE * 2;
+        const maxForce = PLAYER_CONFIG.LOST_SOUL_SEPARATION_FORCE * 2;
         if (totalSeparationForce.length() > maxForce) {
             totalSeparationForce.normalize().multiplyScalar(maxForce);
         }

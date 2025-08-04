@@ -1,6 +1,5 @@
 // door.js - versão corrigida
 import * as THREE from '../../../build/three.module.js';
-import { CONFIG } from '../core/config.js';
 import { keyManager } from '../entities/items/key.js';
 import { gameAudioManager } from './index.js';
 

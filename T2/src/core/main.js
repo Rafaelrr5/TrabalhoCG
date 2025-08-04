@@ -1,6 +1,9 @@
 import * as THREE from '../../../build/three.module.js';
 import { PointerLockControls } from '../../../build/jsm/controls/PointerLockControls.js';
-import { CONFIG } from './config.js';
+import { CAMERA_CONFIG } from './config/cameraConfig.js';
+import { PLAYER_CONFIG } from './config/playerConfig.js';
+import { WORLD_CONFIG } from './config/worldConfig.js';
+import { DEBUG_CONFIG } from './config/debugConfig.js';
 import { createWalls, createAreas, updateArea1, updateArea2, area1KeyPlatform, area2KeyPlatform, isPlayerInArea1, isPlayerInArea2, updateHangarDoors } from '../systems/environment.js';
 import { createGun } from '../components/weapon.js';
 import { createWeaponManager, updateProjectiles } from '../components/weaponManager.js';
@@ -15,7 +18,6 @@ import { ambientAudioManager, playerAudioManager, gameAudioManager, audioManager
 import { updateTotem, updateDoorAnimation, updateKeyAnimation, totem } from '../systems/door.js';
 import { loadSky } from '../systems/sky.js';
 
-// Global function to handle player damage (called by Lost Soul kamikaze attacks)
 window.playerTakeDamage = function(damage) {
   const isAlive = player.takeDamage(damage);
   
@@ -31,7 +33,7 @@ function updatePlayerHealthDisplay() {
   const healthDisplay = document.getElementById('player-health');
   if (healthDisplay) {
     // Hide health display if player is immortal
-    if (CONFIG.PLAYER_IMMORTAL) {
+    if (PLAYER_CONFIG.PLAYER_IMMORTAL) {
       healthDisplay.style.display = 'none';
       return;
     }
@@ -196,7 +198,7 @@ function createPlayerHealthHUD() {
     healthDisplay.style.textShadow = '2px 2px 4px rgba(0,0,0,0.8)';
     
     // Hide health display if player is immortal
-    if (CONFIG.PLAYER_IMMORTAL) {
+    if (PLAYER_CONFIG.PLAYER_IMMORTAL) {
         healthDisplay.style.display = 'none';
     } else {
         const healthStatus = player.getHealthStatus();
@@ -210,7 +212,7 @@ function createPlayerHealthHUD() {
 function initializeImmortalityIndicator() {
     const immortalityIndicator = document.getElementById('immortality-indicator');
     if (immortalityIndicator) {
-        immortalityIndicator.style.display = CONFIG.PLAYER_IMMORTAL ? 'block' : 'none';
+        immortalityIndicator.style.display = PLAYER_CONFIG.PLAYER_IMMORTAL ? 'block' : 'none';
     }
 }
 
@@ -512,7 +514,7 @@ async function init() {
         updateKeysDisplay();
         
         // Log da mudança para debug
-        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+        if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
             console.log(`[MAIN] Inventory changed - Action: ${action}, Key: ${keyType}, Total: ${collectedKeyCount}`);
         }
     });
@@ -547,10 +549,37 @@ function setupScene() {
 }
 
 function setupCamera() {
-    camera = new THREE.PerspectiveCamera(CONFIG.CAMERA_FOV, window.innerWidth/window.innerHeight, CONFIG.CAMERA_NEAR, CONFIG.CAMERA_FAR);
-    camera.position.y = CONFIG.CAMERA_HEIGHT;
+    camera = new THREE.PerspectiveCamera(CAMERA_CONFIG.CAMERA_FOV, window.innerWidth/window.innerHeight, CAMERA_CONFIG.CAMERA_NEAR, CAMERA_CONFIG.CAMERA_FAR);
+    camera.position.y = CAMERA_CONFIG.CAMERA_HEIGHT;
     // Adiciona listener de áudio à câmera para sons 3D
     window.listener = new THREE.AudioListener();
+    
+    // Proteção contra valores não finitos no AudioListener
+    const originalSetMasterVolume = window.listener.setMasterVolume;
+    window.listener.setMasterVolume = function(value) {
+        if (isFinite(value) && value >= 0 && value <= 1) {
+            originalSetMasterVolume.call(this, value);
+        }
+    };
+    
+    // Proteção no updateMatrixWorld
+    const originalUpdateMatrixWorld = window.listener.updateMatrixWorld;
+    window.listener.updateMatrixWorld = function(force) {
+        try {
+            // Verificar se a câmera pai tem posição válida
+            if (this.parent && this.parent.position) {
+                const pos = this.parent.position;
+                if (!isFinite(pos.x) || !isFinite(pos.y) || !isFinite(pos.z)) {
+                    // Resetar posição para valores válidos
+                    pos.set(0, PLAYER_CONFIG.INITIAL_PLAYER_HEIGHT || 7, 0);
+                }
+            }
+            originalUpdateMatrixWorld.call(this, force);
+        } catch (error) {
+            console.warn('[AUDIO] AudioListener update error:', error.message);
+        }
+    };
+    
     camera.add(window.listener);
     
     // Initialize ambient audio system
@@ -562,7 +591,7 @@ function setupCamera() {
 
 function resetPlayerPosition() {
     // Use a fixed safe height for initial positioning
-    const safeHeight = CONFIG.INITIAL_PLAYER_HEIGHT;
+    const safeHeight = PLAYER_CONFIG.INITIAL_PLAYER_HEIGHT;
     
     camera.position.set(0, safeHeight, 0);
     player.resetPosition();
@@ -620,6 +649,14 @@ function animate() {
     
     const delta = clock.getDelta();
     
+    // Validar valores da câmera para evitar problemas de áudio
+    if (camera && camera.position) {
+        const pos = camera.position;
+        if (!isFinite(pos.x)) pos.x = 0;
+        if (!isFinite(pos.y)) pos.y = PLAYER_CONFIG.INITIAL_PLAYER_HEIGHT || 7;
+        if (!isFinite(pos.z)) pos.z = 0;
+    }
+    
     // Only proceed with camera/controls dependent updates if they are initialized
     if (camera && controls) {
         player.update(delta, camera);
@@ -665,7 +702,7 @@ function animate() {
     // Atualizar sistema de chaves
     keyManager.updateKeys(delta);
     
-    // Only do rendering if scene exists
+    // Only do rendering if scene exists and camera position is valid
     if (scene && camera && renderer) {
         continuousCameraDebug(camera, controls, delta);
         renderer.render(scene, camera);
@@ -699,7 +736,7 @@ async function restartGame() {
     updatePlayerHealthDisplay();
     
     // Reset player to safe position using fixed height
-    const safeHeight = CONFIG.INITIAL_PLAYER_HEIGHT;
+    const safeHeight = PLAYER_CONFIG.INITIAL_PLAYER_HEIGHT;
     camera.position.set(0, safeHeight, 0);
     camera.rotation.set(0, 0, 0);
     
@@ -743,10 +780,10 @@ async function resetGameAreas() {
       const keyInstance = area1KeyPlatform.userData.keyInstance;
       
       if (platform) {
-        platform.position.y = CONFIG.AREA_Y_POSITION - 2;
+        platform.position.y = WORLD_CONFIG.AREA_Y_POSITION - 2;
       }
       if (keyInstance && keyInstance.getMesh()) {
-        keyInstance.getMesh().position.y = CONFIG.AREA_Y_POSITION - 1.0;
+        keyInstance.getMesh().position.y = WORLD_CONFIG.AREA_Y_POSITION - 1.0;
         keyInstance.getMesh().visible = false;
       }
     } else {
@@ -762,10 +799,10 @@ async function resetGameAreas() {
       const keyInstance = area2KeyPlatform.userData.keyInstance;
       
       if (centralBlock) {
-        centralBlock.position.y = CONFIG.AREA_Y_POSITION + 6; // Posição original do bloco
+        centralBlock.position.y = WORLD_CONFIG.AREA_Y_POSITION + 6; // Posição original do bloco
       }
       if (keyInstance && keyInstance.getMesh()) {
-        const redKeyTargetY = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + 0.5;
+        const redKeyTargetY = WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT/2 + 0.5;
         const finalKeyHeight = redKeyTargetY + 1.0; // Mesma altura da chave vermelha após subir
         keyInstance.getMesh().position.y = finalKeyHeight;
         keyInstance.getMesh().position.x = 0.0;

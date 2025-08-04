@@ -1,4 +1,6 @@
-import { CONFIG } from '../core/config.js';
+import { PLAYER_CONFIG } from '../core/config/playerConfig.js';
+import { DEBUG_CONFIG } from '../core/config/debugConfig.js';
+import { WEAPONS_CONFIG } from '../core/config/weaponsConfig.js';
 import { wallColide } from './collision.js';
 import { toggleHitboxVisibility, player } from '../entities/player/player.js';
 import { enemies } from '../entities/enemies/enemy.js';
@@ -72,7 +74,7 @@ function onKeyUp(event) {
 }
 
 function weaponSwitch(timestamp, deltaY) {
-    if (timestamp - lastWeaponSwitch < CONFIG.WEAPON_SWITCH_COOLDOWN) return;
+    if (timestamp - lastWeaponSwitch < WEAPONS_CONFIG.WEAPON_SWITCH_COOLDOWN) return;
     
     const direction = deltaY < 0 ? 1 : -1;
     lastWeaponSwitch = timestamp;
@@ -92,8 +94,8 @@ export function updateCameraMovement(delta, controls) {
     }
     
     // Aplica multiplicador de velocidade se Shift estiver pressionado
-    const sprintMultiplier = moveState.sprint ? CONFIG.SPRINT_MULTIPLIER : 1;
-    const distance = CONFIG.MOVE_SPEED * delta * sprintMultiplier;
+    const sprintMultiplier = moveState.sprint ? PLAYER_CONFIG.SPRINT_MULTIPLIER : 1;
+    const distance = PLAYER_CONFIG.MOVE_SPEED * delta * sprintMultiplier;
     
     // Calcula os vetores de movimento
     let moveX = 0;
@@ -120,10 +122,10 @@ export function updateCameraMovement(delta, controls) {
         // Fator de suavização baseado no ângulo:
         // - Quanto mais próximo de 0º ou 90º, mais suavização é aplicada.
         // - Para diagonais (45º), mantém a suavização padrão.
-        let smoothingFactor = CONFIG.COLLISION_SMOOTHING;
+        let smoothingFactor = PLAYER_CONFIG.COLLISION_SMOOTHING;
         
         // Ajusta o fator para movimentos laterais (ângulos próximos a 0º ou 90º)
-        const angleThreshold = CONFIG.COLLISION_ANGLE_THRESHOLD; // Margem para considerar "próximo a 90º"
+        const angleThreshold = PLAYER_CONFIG.COLLISION_ANGLE_THRESHOLD; // Margem para considerar "próximo a 90º"
         if (angleDeg <= angleThreshold || angleDeg >= 90 - angleThreshold) {
             smoothingFactor *= 2; // Dobra a suavização para movimentos retos
         }
@@ -150,7 +152,7 @@ function onWindowResize() {
 
 // Mostra informações de debug da câmera no console
 export function debugCameraInfo(camera, controls) {
-    if (!CONFIG.DEBUG_CONSOLE_LOGS) return;
+    if (!DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) return;
     
     // Debug logs removidos para limpeza do console
 }
@@ -158,7 +160,7 @@ export function debugCameraInfo(camera, controls) {
 // Debug contínuo da câmera (chama a cada X segundos)
 let lastCameraDebugTime = 0;
 export function continuousCameraDebug(camera, controls, delta, interval = 3.0) {
-    if (!CONFIG.DEBUG_SHOW_CAMERA) return;
+    if (!DEBUG_CONFIG.DEBUG_SHOW_CAMERA) return;
     
     lastCameraDebugTime += delta;
     if (lastCameraDebugTime >= interval) {
@@ -169,13 +171,13 @@ export function continuousCameraDebug(camera, controls, delta, interval = 3.0) {
 
 // Função para alternar imortalidade do jogador
 function togglePlayerImmortality() {
-    CONFIG.PLAYER_IMMORTAL = !CONFIG.PLAYER_IMMORTAL;
+    PLAYER_CONFIG.PLAYER_IMMORTAL = !PLAYER_CONFIG.PLAYER_IMMORTAL;
     
     // Atualiza a exibição de vida na interface
     const healthDisplay = document.getElementById('player-health');
     const immortalityIndicator = document.getElementById('immortality-indicator');
     
-    if (CONFIG.PLAYER_IMMORTAL) {
+    if (PLAYER_CONFIG.PLAYER_IMMORTAL) {
         // Esconde display de vida e mostra indicador de imortalidade
         if (healthDisplay) healthDisplay.style.display = 'none';
         if (immortalityIndicator) immortalityIndicator.style.display = 'block';
@@ -195,7 +197,7 @@ function togglePlayerImmortality() {
     }
     
     // Mostra notificação visual temporária
-    showImmortilityNotification(CONFIG.PLAYER_IMMORTAL);
+    showImmortilityNotification(PLAYER_CONFIG.PLAYER_IMMORTAL);
 }
 
 // Função para mostrar notificação visual de mudança de imortalidade

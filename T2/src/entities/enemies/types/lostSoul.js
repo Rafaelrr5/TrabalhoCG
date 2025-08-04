@@ -1,12 +1,11 @@
 import * as THREE from '../../../../../build/three.module.js';
 import { Enemy } from '../base/enemies.js';
 import { loadSkullModel, preloadSkullModel } from '../../../utils/skullLoader.js';
-import { CONFIG } from '../../../core/config.js';
 import { EnemyExplosionEffects } from '../components/EnemyExplosionEffects.js';
 import { EnemyIdleBehaviors } from '../components/EnemyIdleBehaviors.js';
 import { EnemyPersistentPursuitManager } from '../components/EnemyPersistentPursuitBehavior.js';
-import { getLostSouls } from '../enemy.js';
-import { getLostSoulConfig } from '../config/enemyConfig.js';
+import { ENEMY_CONFIG, getLostSoulConfig } from '../config/enemyConfig.js';
+import { PLAYER_CONFIG } from '../../../core/config/playerConfig.js';
 
 export class LostSoul extends Enemy {
   constructor(position = [0, 0, 0], config = {}) {
@@ -168,7 +167,7 @@ export class LostSoul extends Enemy {
     
     state.lastPlayerDistance = currentDistance;
     // When player is immortal, don't consider being "near" the player to allow dash-through behavior
-    const nearPlayerThreshold = CONFIG.PLAYER_IMMORTAL ? 0.5 : (this.config.collisionRadius + 2.0);
+    const nearPlayerThreshold = PLAYER_CONFIG.PLAYER_IMMORTAL ? 0.5 : (this.config.collisionRadius + 2.0);
     state.isNearPlayer = currentDistance <= nearPlayerThreshold;
     
     const rawDirection = new THREE.Vector3()
@@ -230,7 +229,7 @@ export class LostSoul extends Enemy {
       return false;
     }
     
-    if (!CONFIG.LOST_SOUL_ENABLE_COLLISION || !collidableObjects.length) {
+    if (!ENEMY_CONFIG.LOST_SOUL_ENABLE_COLLISION || !collidableObjects.length) {
       state.collisionAvoidanceForce.set(0, 0, 0);
       return false;
     }
@@ -264,7 +263,7 @@ export class LostSoul extends Enemy {
     }
     state.lastInterCollisionCheck = currentTime;
     
-    if (!CONFIG.LOST_SOUL_INTER_COLLISION) {
+    if (!ENEMY_CONFIG.LOST_SOUL_INTER_COLLISION) {
       state.separationForce.set(0, 0, 0);
       return false;
     }
@@ -448,7 +447,7 @@ export class LostSoul extends Enemy {
       newPosition.addScaledVector(separationVelocity, delta);
     }
     
-    if (CONFIG.LOST_SOUL_ENABLE_COLLISION && collidableObjects.length > 0) {
+    if (ENEMY_CONFIG.LOST_SOUL_ENABLE_COLLISION && collidableObjects.length > 0) {
       const collision = this.checkEnvironmentCollision(collidableObjects, newPosition);
       
       if (collision.hasCollision) {
@@ -503,7 +502,7 @@ export class LostSoul extends Enemy {
 
   checkPlayerCollision(targetPosition) {
     // When player is immortal, Lost Souls should not explode on collision
-    const shouldDestroy = !CONFIG.PLAYER_IMMORTAL;
+    const shouldDestroy = !PLAYER_CONFIG.PLAYER_IMMORTAL;
     
     return super.checkPlayerCollision(targetPosition, {
       collisionRadius: this.config.collisionRadius,
@@ -559,7 +558,7 @@ export class LostSoul extends Enemy {
       
       if (collisionOccurred && this.mesh && this.mesh.parent) {
         // Only create explosion effect if player is not immortal
-        if (!CONFIG.PLAYER_IMMORTAL) {
+        if (!PLAYER_CONFIG.PLAYER_IMMORTAL) {
           this.createExplosionEffect();
         }
       }

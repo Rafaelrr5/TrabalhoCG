@@ -1,6 +1,8 @@
 import * as THREE from '../../../../../../build/three.module.js';
 import { checkLostSoulCollision, applyLostSoulCollisionCorrection } from '../../../systems/collision.js';
-import { CONFIG } from '../../../core/config.js';
+import { DEBUG_CONFIG } from '../../../core/config/debugConfig.js';
+import { WORLD_CONFIG } from '../../../core/config/worldConfig.js';
+import { ENEMY_CONFIG } from '../config/enemyConfig.js';
 
 export class EnemyMovement {
   constructor(enemy) {
@@ -45,7 +47,7 @@ export class EnemyMovement {
     const collision = this.checkEnvironmentCollision(targetPosition, collidableObjects, delta);
     
     if (collision && collision.hasCollision) {
-      const safeDistance = CONFIG.LOST_SOUL_COLLISION_DISTANCE || 2.0;
+      const safeDistance = ENEMY_CONFIG.LOST_SOUL_COLLISION_DISTANCE || 2.0;
       
       if (collision.distance < safeDistance) {
         const corrected = this.applyCollisionCorrection(targetPosition, collidableObjects);
@@ -58,7 +60,7 @@ export class EnemyMovement {
   }
 
   checkEnvironmentCollision(targetPosition, collidableObjects, delta) {
-    if (!CONFIG.LOST_SOUL_ENABLE_COLLISION || !collidableObjects.length) return null;
+    if (!ENEMY_CONFIG.LOST_SOUL_ENABLE_COLLISION || !collidableObjects.length) return null;
     
     const currentPosition = this.enemy.mesh.position;
     const intendedPosition = currentPosition.clone().addScaledVector(this.enemy.velocity, delta);
@@ -67,17 +69,17 @@ export class EnemyMovement {
       currentPosition,
       intendedPosition,
       collidableObjects,
-      this.enemy.config.radius || CONFIG.LOST_SOUL_COLLISION_RADIUS
+      this.enemy.config.radius || ENEMY_CONFIG.LOST_SOUL_COLLISION_RADIUS
     );
   }
 
   applyCollisionCorrection(targetPosition, collidableObjects) {
-    if (!CONFIG.LOST_SOUL_ENABLE_COLLISION || !collidableObjects.length) return false;
+    if (!ENEMY_CONFIG.LOST_SOUL_ENABLE_COLLISION || !collidableObjects.length) return false;
     
     const correction = applyLostSoulCollisionCorrection(this.enemy, collidableObjects, targetPosition);
     if (correction.corrected) {
       this.enemy.velocity.copy(correction.newDirection)
-        .multiplyScalar(this.enemy.config.speed * (CONFIG.LOST_SOUL_WALL_AVOIDANCE || 1.0));
+        .multiplyScalar(this.enemy.config.speed * (ENEMY_CONFIG.LOST_SOUL_WALL_AVOIDANCE || 1.0));
       return true;
     }
     return false;

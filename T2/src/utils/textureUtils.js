@@ -1,4 +1,5 @@
 import { getTextureManager } from '../systems/textureManager.js';
+import { TEXTURE_CONFIG } from '../core/config/textureConfig.js';
 
 // Função principal - aplicar textura simples
 export async function applyTexture(object, textureName, materialType = 'standard', properties = {}) {
@@ -43,32 +44,31 @@ function matchesCriteria(object, criteria) {
     return true;
 }
 
-// Presets rápidos para tipos comuns (fácil de expandir)
+// Presets rápidos para tipos comuns (usando configurações modulares)
 export const TexturePresets = {
-    metal: (roughness = 0.3, metalness = 0.9) => ({
+    metal: (roughness = TEXTURE_CONFIG.MATERIAL_PRESETS.METAL.ROUGHNESS, metalness = TEXTURE_CONFIG.MATERIAL_PRESETS.METAL.METALNESS) => ({
         materialType: 'standard',
         properties: { roughness, metalness }
     }),
     
-    stone: (roughness = 0.8) => ({
+    stone: (roughness = TEXTURE_CONFIG.MATERIAL_PRESETS.STONE.ROUGHNESS) => ({
         materialType: 'standard', 
-        properties: { roughness, metalness: 0.0 }
+        properties: { roughness, metalness: TEXTURE_CONFIG.MATERIAL_PRESETS.STONE.METALNESS }
     }),
     
-    wood: (roughness = 0.7) => ({
+    wood: (roughness = TEXTURE_CONFIG.MATERIAL_PRESETS.WOOD.ROUGHNESS) => ({
         materialType: 'standard',
-        properties: { roughness, metalness: 0.0 }
+        properties: { roughness, metalness: TEXTURE_CONFIG.MATERIAL_PRESETS.WOOD.METALNESS }
     }),
     
-    fabric: (roughness = 0.9) => ({
-        materialType: 'lambert',
-        properties: { roughness }
+    concrete: (roughness = TEXTURE_CONFIG.MATERIAL_PRESETS.CONCRETE.ROUGHNESS) => ({
+        materialType: 'standard',
+        properties: { roughness, metalness: TEXTURE_CONFIG.MATERIAL_PRESETS.CONCRETE.METALNESS }
     }),
 
-    // Adicionar novos tipos é simples:
-    plastic: (roughness = 0.1) => ({
+    plastic: (roughness = TEXTURE_CONFIG.MATERIAL_PRESETS.PLASTIC.ROUGHNESS) => ({
         materialType: 'standard',
-        properties: { roughness, metalness: 0.0 }
+        properties: { roughness, metalness: TEXTURE_CONFIG.MATERIAL_PRESETS.PLASTIC.METALNESS }
     }),
 
     glass: (opacity = 0.3) => ({
@@ -76,12 +76,7 @@ export const TexturePresets = {
         properties: { roughness: 0.0, metalness: 0.0, transparent: true, opacity }
     }),
 
-    ceramic: (roughness = 0.2) => ({
-        materialType: 'standard',
-        properties: { roughness, metalness: 0.0 }
-    }),
-
-    rubber: (roughness = 0.8) => ({
+    fabric: (roughness = 0.9) => ({
         materialType: 'lambert',
         properties: { roughness }
     })
@@ -117,14 +112,21 @@ export async function applyMaterialVariations(objects, textureName, variations) 
     }
 }
 
-// Funções de conveniência para os tipos mais usados
+// Funções de conveniência para os tipos mais usados (usando configurações)
 export const QuickTexture = {
-    metal: async (object, textureName = 'caixametal.jpg') => 
+    metal: async (object, textureName = TEXTURE_CONFIG.METAL_BLOCKS.NAME) => 
         await applyTextureWithPreset(object, textureName, 'metal'),
         
     stone: async (object, textureName = 'pedra.jpg') => 
         await applyTextureWithPreset(object, textureName, 'stone'),
         
     wood: async (object, textureName = 'madeira.jpg') => 
-        await applyTextureWithPreset(object, textureName, 'wood')
+        await applyTextureWithPreset(object, textureName, 'wood'),
+        
+    floor: async (object, textureName = TEXTURE_CONFIG.FLOOR_TEXTURE.NAME) => 
+        await applyTexture(object, textureName, 'standard', {
+            roughness: TEXTURE_CONFIG.FLOOR_TEXTURE.ROUGHNESS,
+            metalness: TEXTURE_CONFIG.FLOOR_TEXTURE.METALNESS,
+            textureOptions: { repeat: TEXTURE_CONFIG.FLOOR_TEXTURE.REPEAT }
+        })
 };

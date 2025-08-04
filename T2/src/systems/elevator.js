@@ -1,13 +1,14 @@
 
 import * as THREE from '../../../build/three.module.js';
-import { CONFIG } from '../core/config.js';
+import { WORLD_CONFIG } from '../core/config/worldConfig.js';
+import { PLAYER_CONFIG } from '../core/config/playerConfig.js';
 import { hitbox } from '../entities/player/player.js';
 import { gameAudioManager } from './index.js';
 
 export let elevator = null;
-const returnDistance = CONFIG.ELEVATOR_ACTIVATION_DISTANCE;
-const riseSpeed = CONFIG.ELEVEVATOR_MOVEMENT_SPEED;
-const elevatorHeight = CONFIG.ELEVATOR_HEIGHT;
+const returnDistance = WORLD_CONFIG.ELEVATOR_ACTIVATION_DISTANCE;
+const riseSpeed = WORLD_CONFIG.ELEVEVATOR_MOVEMENT_SPEED;
+const elevatorHeight = WORLD_CONFIG.ELEVATOR_HEIGHT;
 
 export function createElevator(scene, collidableObjects, x, z) {
     let elevatorMaterial = new THREE.MeshLambertMaterial({ color: 'blue' });
@@ -40,7 +41,7 @@ export function updateElevator(delta) {
     // Verifica se o jogador está em cima do elevador
     const playerOnElevator = (
         horizontalDistance < 7.5 && // Metade da largura do elevador
-        hitbox.position.y - CONFIG.PLAYER_HEIGHT < elevator.position.y + 2.0 // Logo acima do elevador
+        hitbox.position.y - PLAYER_CONFIG.PLAYER_HEIGHT < elevator.position.y + 2.0 // Logo acima do elevador
     );
 
     // Verifica se o jogador está longe o suficiente para o elevador voltar

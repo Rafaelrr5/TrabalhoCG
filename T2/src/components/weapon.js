@@ -1,21 +1,22 @@
 import * as THREE from '../../../build/three.module.js';
-import { CONFIG } from '../core/config.js';
+import { WEAPONS_CONFIG } from '../core/config/weaponsConfig.js';
+import { DEBUG_CONFIG } from '../core/config/debugConfig.js';
 import { BaseWeapon } from './baseWeapon.js';
 
 export class Gun extends BaseWeapon {
     constructor(camera) {
-        super(camera, CONFIG.WEAPONS.LAUNCHER);
+        super(camera, WEAPONS_CONFIG.WEAPONS.LAUNCHER);
     }
 
     createWeaponMesh() {
-        const gunGeometry = new THREE.CylinderGeometry(CONFIG.GUN_RADIUS, CONFIG.GUN_RADIUS, CONFIG.GUN_LENGTH);
+        const gunGeometry = new THREE.CylinderGeometry(WEAPONS_CONFIG.GUN_RADIUS, WEAPONS_CONFIG.GUN_RADIUS, WEAPONS_CONFIG.GUN_LENGTH);
         const gunMaterial = new THREE.MeshLambertMaterial({color:'darkgrey'});
         this.mesh = new THREE.Mesh(gunGeometry, gunMaterial);
         
         // Rotaciona para apontar para frente
         this.mesh.rotation.x = Math.PI / 2;
         // Posiciona relativo à câmera (inferior-direita da visão)
-        this.mesh.position.set(CONFIG.GUN_POSITION.x, CONFIG.GUN_POSITION.y, CONFIG.GUN_POSITION.z);
+        this.mesh.position.set(WEAPONS_CONFIG.GUN_POSITION.x, WEAPONS_CONFIG.GUN_POSITION.y, WEAPONS_CONFIG.GUN_POSITION.z);
         
         // Define visibilidade baseada nas configurações de debug
         this.mesh.visible = this.isVisible;
@@ -23,7 +24,7 @@ export class Gun extends BaseWeapon {
         // Anexa a arma na câmera para mover com o jogador
         this.camera.add(this.mesh);
         
-        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+        if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
             console.log(`[GUN] Gun mesh created and attached to camera`);
         }
     }

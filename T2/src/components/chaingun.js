@@ -1,18 +1,19 @@
 import * as THREE from '../../../build/three.module.js';
-import { CONFIG } from '../core/config.js';
+import { WEAPONS_CONFIG } from '../core/config/weaponsConfig.js';
+import { DEBUG_CONFIG } from '../core/config/debugConfig.js';
 import { BaseWeapon } from './baseWeapon.js';
 import { SpriteMixer } from '../utils/spriteMixer.js';
 
 export class Chaingun extends BaseWeapon {
     constructor(camera) {
-        super(camera, CONFIG.WEAPONS.CHAINGUN);
+        super(camera, WEAPONS_CONFIG.WEAPONS.CHAINGUN);
         
-        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+        if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
             console.log('[CHAINGUN] Constructor called');
         }
         
         // Chaingun specific properties
-        this.activationDelay = CONFIG.WEAPONS.CHAINGUN.ACTIVATION_DELAY;
+        this.activationDelay = WEAPONS_CONFIG.WEAPONS.CHAINGUN.ACTIVATION_DELAY;
         this.activationTimer = 0;
         this.isActivating = false;
         this.actions = {};
@@ -33,7 +34,7 @@ export class Chaingun extends BaseWeapon {
         this.audioLoader = new THREE.AudioLoader();
         this.isAudioInitialized = false;
         
-        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+        if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
             console.log(`[CHAINGUN] Constructor finished, ID: ${this.id}`);
         }
     }
@@ -159,13 +160,13 @@ onStopShooting() {
         
         if (this.isLoaded && this.chaingunSprite) {
             this.chaingunSprite.visible = visible;
-            if (CONFIG.DEBUG_CONSOLE_LOGS) {
+            if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
                 console.log(`[CHAINGUN] Weapon visibility set to: ${visible ? 'VISIBLE' : 'HIDDEN'}`);
             }
         } else {
             // Salva para aplicar quando carregar
             this.pendingVisibility = visible;
-            if (CONFIG.DEBUG_CONSOLE_LOGS) {
+            if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
                 console.log(`[CHAINGUN] Weapon visibility pending: ${visible ? 'VISIBLE' : 'HIDDEN'}`);
             }
         }
@@ -196,13 +197,13 @@ onStopShooting() {
                 }
                 
                 const currentPath = possiblePaths[pathIndex];
-                if (CONFIG.DEBUG_CONSOLE_LOGS) {
+                if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
                     console.log(`[Chaingun] Tentando carregar: ${currentPath}`);
                 }
                 
                 this.loader.load(currentPath, 
                     (texture) => {
-                        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+                        if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
                             console.log(`[Chaingun] Sucesso ao carregar: ${currentPath}`);
                         }
                         
@@ -222,7 +223,7 @@ onStopShooting() {
                         }
                         
                         this.actions.shooting = this.spriteMixer.Action(this.chaingunSprite, 1, 2, 40);
-                        this.chaingunSprite.position.set(CONFIG.GUN_POSITION.x, CONFIG.GUN_POSITION.y , CONFIG.GUN_POSITION.z -1.0);
+                        this.chaingunSprite.position.set(WEAPONS_CONFIG.GUN_POSITION.x, WEAPONS_CONFIG.GUN_POSITION.y , WEAPONS_CONFIG.GUN_POSITION.z -1.0);
                         
                         if (this.chaingunSprite.geometry) {
                             this.chaingunSprite.scale.set(1, 0.8, 0.9);
@@ -236,12 +237,12 @@ onStopShooting() {
                         this.chaingunSprite.visible = finalVisibility;
                         this.isVisible = finalVisibility;
                         
-                        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+                        if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
                             console.log(`[Chaingun] Sprite carregado! Visibilidade: ${finalVisibility ? 'VISÍVEL' : 'OCULTA'}`);
                         }
                     },
                     (progress) => {
-                        if (CONFIG.DEBUG_CONSOLE_LOGS && progress.total > 0) {
+                        if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS && progress.total > 0) {
                             console.log(`[Chaingun] Carregando sprite: ${Math.round((progress.loaded / progress.total) * 100)}%`);
                         }
                     },
@@ -262,12 +263,12 @@ onStopShooting() {
 
     createFallbackMesh() {
         // Cria um modelo 3D simples como fallback
-        const gunGeometry = new THREE.CylinderGeometry(CONFIG.GUN_RADIUS, CONFIG.GUN_RADIUS, CONFIG.GUN_LENGTH);
+        const gunGeometry = new THREE.CylinderGeometry(WEAPONS_CONFIG.GUN_RADIUS, WEAPONS_CONFIG.GUN_RADIUS, WEAPONS_CONFIG.GUN_LENGTH);
         const gunMaterial = new THREE.MeshLambertMaterial({color:'darkgrey'});
         this.chaingunSprite = new THREE.Mesh(gunGeometry, gunMaterial);
         
         this.chaingunSprite.rotation.x = Math.PI / 2;
-        this.chaingunSprite.position.set(CONFIG.GUN_POSITION.x, CONFIG.GUN_POSITION.y - 0.2, CONFIG.GUN_POSITION.z - 0.4);
+        this.chaingunSprite.position.set(WEAPONS_CONFIG.GUN_POSITION.x, WEAPONS_CONFIG.GUN_POSITION.y - 0.2, WEAPONS_CONFIG.GUN_POSITION.z - 0.4);
         
         this.camera.add(this.chaingunSprite);
         this.mesh = this.chaingunSprite;
