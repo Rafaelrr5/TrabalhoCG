@@ -1,4 +1,3 @@
-// Configurações de armas
 export const WEAPONS_CONFIG = {
     WEAPON_SWITCH_COOLDOWN: 300,
     
@@ -26,7 +25,6 @@ export const WEAPONS_CONFIG = {
         },
     },
     
-    // Configurações da arma física
     GUN_RADIUS: 0.2,
     GUN_LENGTH: 1.5,
     GUN_TIP_OFFSET: -0.75,

@@ -1,4 +1,3 @@
-// Configurações de itens (chaves, etc.)
 export const ITEMS_CONFIG = {
     KEYS: {
         COLORS: {

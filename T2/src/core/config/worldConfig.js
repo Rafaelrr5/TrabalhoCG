@@ -1,22 +1,18 @@
-// Configurações relacionadas ao mundo e ambiente
 export const WORLD_CONFIG = {
     WORLD_SIZE: 500,
     WALL_HEIGHT: 20,
     WALL_Y_POSITION: 9.0,
     GROUND_HEIGHT: 0,
     
-    // Configurações das áreas
     AREA_HEIGHT: 4.0,
     AREA_Y_POSITION: 2.0,
     
-    // Configurações das escadas
     STAIR_STEP_HEIGHT: 0.485,
     STAIR_STEP_DEPTH: 0.8,
     STAIR_WIDTH: 15.0,
     STAIR_INCLINATION: 0.5 / 0.8,
     STAIR_HEIGHT_OFFSET: 0.1,
     
-    // Configurações do elevador
     ELEVATOR_ACTIVATION_DISTANCE: 2.0,
     ELEVEVATOR_MOVEMENT_SPEED: 1.5,
     ELEVATOR_HEIGHT: 3.9

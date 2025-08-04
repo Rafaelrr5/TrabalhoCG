@@ -46,7 +46,6 @@ export class Player {
 
     updateHitbox(camera) {
         if (!this.hitbox || !camera) {
-            // Only log error if we expect these to be initialized (after game setup)
             if (typeof window !== 'undefined' && window.gameInitialized) {
                 console.error("Hitbox or camera is missing");
             }
@@ -77,41 +76,27 @@ export class Player {
     }
 
     resetPosition() {
-        // Use a fixed safe height for initial positioning
         const safeHeight = PLAYER_CONFIG.INITIAL_PLAYER_HEIGHT;
         this.position.set(0, safeHeight, 0);
 
         if (this.hitbox) {
             this.hitbox.position.set(0, safeHeight - 1.0, 0);
         }
-        
-        console.log('[PLAYER] Position reset to:', this.position);
     }
 
     takeDamage(damage) {
         if (!this.isAlive) return false;
 
-        // Check if player is immortal
         if (PLAYER_CONFIG.PLAYER_IMMORTAL) {
-            if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
-                console.log(`[PLAYER] Immortal mode - ignored ${damage} damage. Health: ${this.health}/${this.maxHealth}`);
-            }
-            return true; // Player doesn't take damage but is still alive
+            return true;
         }
 
         this.health = Math.max(0, this.health - damage);
         
-        // Play injured sound when taking damage
         playerAudioManager.playInjuredSound();
-        
-        if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
-            console.log(`[PLAYER] Took ${damage} damage. Health: ${this.health}/${this.maxHealth}`);
-        }
-        
-        // Check for death
+                
         if (this.health <= 0) {
             this.isAlive = false;
-            // Play death sound when player dies
             playerAudioManager.playDeathSound();
             console.log('[PLAYER DEATH] Player died!');
             return false;
@@ -124,10 +109,6 @@ export class Player {
         if (!this.isAlive) return;
         
         this.health = Math.min(this.maxHealth, this.health + amount);
-        
-        if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
-            console.log(`[PLAYER] Healed ${amount}. Health: ${this.health}/${this.maxHealth}`);
-        }
     }
 
     respawn() {
@@ -166,13 +147,10 @@ export class Player {
     }
 }
 
-// Create a singleton instance for backward compatibility
 export const player = new Player();
 
-// Export the hitbox for backward compatibility
 export let hitbox = null;
 
-// Backward compatibility functions
 export function createHitbox(scene) {
     const success = player.init(scene);
     hitbox = player.getHitbox();

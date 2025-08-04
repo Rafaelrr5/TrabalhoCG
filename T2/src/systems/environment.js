@@ -101,19 +101,12 @@ export async function createAreas(scene, collidableObjects) {
     updateProgress(66, 'Texturas aplicadas!');
 }
 
-/**
- * Aplica texturas em diversos elementos do ambiente
- * @param {THREE.Scene} scene 
- */
 async function applyEnvironmentTextures(scene) {
-    console.log('[ENVIRONMENT] Iniciando aplicação de texturas no ambiente...');
     
-    // Aplicar texturas nos blocos metálicos da área 2
     const area2Group = scene.getObjectByName("Area2");
     if (area2Group) {
         const metalBlocksGroup = area2Group.getObjectByName("MetalBlocks");
         if (metalBlocksGroup && metalBlocksGroup.children.length > 0) {
-            console.log('[ENVIRONMENT] Aplicando textura caixametal.jpg nos blocos da área 2...');
             QuickTexture.metal(metalBlocksGroup);
         }
     }
@@ -121,18 +114,10 @@ async function applyEnvironmentTextures(scene) {
     console.log('[ENVIRONMENT] ✅ Texturas do ambiente processadas');
 }
 
-/**
- * Aplica texturas específicas para o hangar
- * @param {THREE.Group} hangarGroup 
- */
 async function applyHangarTextures(hangarGroup) {
     try {
-        console.log('[ENVIRONMENT] Verificando texturas do hangar...');
-        
-        // Procurar por meshes do hangar que possam precisar de textura
         hangarGroup.traverse(async (child) => {
             if (child.isMesh && child.name && child.name.includes('hangar')) {
-                // Aplicar textura metálica se não tiver material adequado
                 if (!child.material.map && child.material.type === 'MeshLambertMaterial') {
                     try {
                         const metalMaterial = await MaterialPresets.metal('caixametal.jpg', {
@@ -142,7 +127,6 @@ async function applyHangarTextures(hangarGroup) {
                         });
                         child.material = metalMaterial;
                         child.material.needsUpdate = true;
-                        console.log(`[ENVIRONMENT] Textura aplicada em: ${child.name}`);
                     } catch (error) {
                         console.warn(`[ENVIRONMENT] Erro ao aplicar textura no hangar: ${error}`);
                     }
@@ -155,7 +139,6 @@ async function applyHangarTextures(hangarGroup) {
     }
 }
 
-// Cria a Área 1 (azul claro) - Templo Romano com colunas
 function createArea1(scene, materials, collidableObjects) {
     let areaGeometry = new THREE.BoxGeometry(1, 1, 1);
     
@@ -177,15 +160,12 @@ function createArea1(scene, materials, collidableObjects) {
     area1.add(area1_left);
     area1.add(area1_right);
     
-    // Adiciona colunas romanas ao redor da área
     const romanColumns = createRomanColumns(scene);
     area1.add(romanColumns);
     
-    // Adiciona estruturas de ruínas conectando as colunas
     const ruinStructures = createRuinStructures(scene);
     area1.add(ruinStructures);
     
-    // Adiciona plataforma para a chave no centro da área
     const keyPlatform = createKeyPlatform(scene);
     area1.add(keyPlatform);
     
@@ -201,7 +181,6 @@ function createArea1(scene, materials, collidableObjects) {
     enableShadowsForAll(keyPlatform);
 }
 
-// Cria a Área 2 (vermelha)
 function createArea2(scene, materials, collidableObjects) {
     let areaGeometry = new THREE.BoxGeometry(1, 1, 1);
     
@@ -211,7 +190,6 @@ function createArea2(scene, materials, collidableObjects) {
 
     const area2 = new THREE.Group();
     area2.name = "Area2";
-    //const stair2 = new THREE.Group();
 
     area2_center.position.set(0.0, WORLD_CONFIG.AREA_Y_POSITION, -131.0);
     area2_center.scale.set(125.0, WORLD_CONFIG.AREA_HEIGHT, 125.0);
@@ -244,7 +222,6 @@ function createArea2(scene, materials, collidableObjects) {
     createtotem(scene, collidableObjects, 60.0, -59.05, 'red');
 }
 
-// Cria a Área 3 (Hangar OBJ)
 async function createArea3(scene, materials, collidableObjects) {
     const updateProgress = window.updateLoadingProgress || function() {};
     
@@ -264,7 +241,7 @@ async function createArea3(scene, materials, collidableObjects) {
                 rotation: { x: 0, y: 0, z: 0 },
                 castShadow: true,
                 receiveShadow: true,
-                mtlBasePath: 'assets/textures/hangar/', // Explicit base path for textures
+                mtlBasePath: 'assets/textures/hangar/',
                 onProgress: (progress) => {
                     if (progress.total > 0) {
                         const loadPercent = (progress.loaded / progress.total * 100);
@@ -298,7 +275,7 @@ async function createArea3(scene, materials, collidableObjects) {
         hangarModel.name = "HangarModel";
         
         hangarModel.visible = true;
-        let hangarDoors = []; // Array to store door meshes for animation
+        let hangarDoors = [];
         
         hangarModel.traverse((child) => {
             if (child.isMesh) {
@@ -315,20 +292,19 @@ async function createArea3(scene, materials, collidableObjects) {
                     const size = bbox.getSize(new THREE.Vector3());
                     const center = bbox.getCenter(new THREE.Vector3());
                     
-                    const isVertical = size.y > size.x && size.y > size.z; // Taller than wide/deep
-                    const isThin = (size.x < 5 || size.z < 5); // One dimension is thin
-                    const isAtFront = Math.abs(center.z + 131.0) < 80; // Near the front of hangar area
+                    const isVertical = size.y > size.x && size.y > size.z;
+                    const isThin = (size.x < 5 || size.z < 5);
+                    const isAtFront = Math.abs(center.z + 131.0) < 80;
                     
                     if (isVertical && isThin && isAtFront && size.y > 10) {
                         hangarDoors.push(child);
                     }
                 }
                 
-                // Only apply fallback material if no material exists or it's a default basic material without name
                 if (!child.material || 
                     (child.material.type === 'MeshBasicMaterial' && !child.material.name && !child.material.map)) {
                     child.material = new THREE.MeshLambertMaterial({
-                        color: 0x888888, // Gray color for hangar
+                        color: 0x888888,
                         side: THREE.DoubleSide
                     });
                 }
@@ -355,12 +331,7 @@ async function createArea3(scene, materials, collidableObjects) {
         markCollisionObject(area3, collidableObjects);
         
         enableShadowsForAll(area3);
-        
-        console.log('[ENVIRONMENT] Hangar OBJ model loaded successfully!');
-        console.log('[ENVIRONMENT] Hangar model position:', hangarModel.position);
-        console.log('[ENVIRONMENT] Hangar model scale:', hangarModel.scale);
-        console.log('[ENVIRONMENT] Hangar model bounding box:');
-                
+                        
         try {
             updateProgress(61, 'Carregando avião...');
 
@@ -377,8 +348,6 @@ async function createArea3(scene, materials, collidableObjects) {
             
             area3.add(planeModel);
             
-            console.log('[ENVIRONMENT] Plane model loaded and positioned inside hangar!');
-            console.log('[ENVIRONMENT] Plane position:', planeModel.position);
             updateProgress(62, 'Avião carregado!');
             
         } catch (planeError) {
@@ -386,17 +355,11 @@ async function createArea3(scene, materials, collidableObjects) {
             console.log('[ENVIRONMENT] Continuing without plane...');
         }
         
-        window.testHangarVisibility = function() {
-            console.log('[DEBUG] Hangar visibility test:');
-            console.log('  Hangar model visible:', hangarModel.visible);
-            console.log('  Hangar position:', hangarModel.position);
-            console.log('  Hangar in scene:', scene.getObjectByName('Area3') !== undefined);
-            
+        window.testHangarVisibility = function() {            
             hangarModel.visible = true;
             hangarModel.traverse((child) => {
                 if (child.isMesh) {
                     child.visible = true;
-                    console.log('  Child mesh:', child.name, 'visible:', child.visible);
                 }
             });
         };
@@ -410,9 +373,7 @@ async function createArea3(scene, materials, collidableObjects) {
         console.error('[ENVIRONMENT] Error loading hangar OBJ model:', error);
         console.error('[ENVIRONMENT] Error details:', error.message);
         console.error('[ENVIRONMENT] Stack trace:', error.stack);
-        
-        console.log('[ENVIRONMENT] Creating fallback hangar...');
-        
+                
         const area3 = new THREE.Group();
         area3.name = "Area3";
         
@@ -479,22 +440,17 @@ function createRomanColumns(scene) {
     const columnsGroup = new THREE.Group();
     columnsGroup.name = "RomanColumns";
     
-    // Carregar textura de pedra difusa
     const textureLoader = new THREE.TextureLoader();
     
-    // Material base (fallback) - cor de pedra bege com propriedades PBR
     const baseMaterial = new THREE.MeshStandardMaterial({ 
         color: 0xf5f5dc, // Bege claro (mármore/pedra)
-        roughness: 0.8, // Superfície rugosa
-        metalness: 0.0, // Não metálica
+        roughness: 0.8,
+        metalness: 0.0,
         transparent: false
     });
     
-    // Criar material com textura (será aplicado quando a textura carregar)
     let columnMaterial = baseMaterial;
     
-    // Tentar carregar a textura com tratamento de erro
-    console.log('Tentando carregar textura de pedra...');
     textureLoader.load(
         'assets/textures/pedradifusa.png',
         function(stoneTexture) {
@@ -531,8 +487,6 @@ function createRomanColumns(scene) {
                             texturedCount++;
                         }
                     });
-                    
-                    console.log(`✅ Normal mapping aplicado a ${texturedCount} meshes das colunas`);
                 },
                 // onProgress para normal map
                 function(progress) {
@@ -562,19 +516,16 @@ function createRomanColumns(scene) {
                 }
             );
         },
-        // onProgress - para textura principal
         function(progress) {
             if (progress.total > 0) {
                 const percent = (progress.loaded / progress.total * 100).toFixed(1);
                 console.log('Carregando textura principal:', percent + '%');
             }
         },
-        // onError - se a textura falhar ao carregar
         function(error) {
             console.error('❌ Erro ao carregar textura de pedra:', error);
             console.log('📁 Tentando caminhos alternativos...');
             
-            // Tentar caminhos alternativos
             const alternatePaths = [
                 '../assets/textures/pedradifusa.png',
                 '../../assets/textures/pedradifusa.png',
@@ -591,7 +542,6 @@ function createRomanColumns(scene) {
                 }
                 
                 const currentPath = alternatePaths[pathIndex];
-                console.log(`🔍 Tentando caminho: ${currentPath}`);
                 
                 textureLoader.load(
                     currentPath,
@@ -632,7 +582,6 @@ function createRomanColumns(scene) {
         }
     );
     
-    // Configurações das colunas
     const columnHeight = 12;
     const columnRadius = 2;
     const columnSegments = 24; // Reduzido para performance, ainda mantendo qualidade
@@ -640,8 +589,6 @@ function createRomanColumns(scene) {
     const capitalHeight = 1.5;
     const baseHeight = 1;
     
-    // Posições das colunas ao redor da área, EVITANDO a área da escada (X=-197.75)
-    // Área 1: centro (-152.25, -131.0), dimensões 125x125
     const columnPositions = [
         // Frente (sul) - borda interna
         { x: -152.25 - 40, z: -131.0 + 50 },
@@ -655,7 +602,7 @@ function createRomanColumns(scene) {
         { x: -152.25 + 15, z: -131.0 - 50 },
         { x: -152.25 + 40, z: -131.0 - 50 },
         
-        // Esquerda (oeste) - borda interna - REMOVIDA a coluna mais próxima da escada
+        // Esquerda (oeste)
         { x: -152.25 - 50, z: -131.0 - 25 },
         { x: -152.25 - 50, z: -131.0 },
         { x: -152.25 - 50, z: -131.0 + 25 },
@@ -1459,23 +1406,19 @@ function raisePlatform(platformGroup, delta) {
     }
 }
 
-// Função para criar uma escada
 function createStair(x, y, z, h, direction, material) {
     let stairGroup = new THREE.Group();
     stairGroup.name = "Escada";
     stairGroup.position.set(x, y, z);
-    const stepHeight = WORLD_CONFIG.STAIR_STEP_HEIGHT; // Altura de cada degrau
-    const stepDepth = WORLD_CONFIG.STAIR_STEP_DEPTH; // Profundidade de cada degrau
+    const stepHeight = WORLD_CONFIG.STAIR_STEP_HEIGHT;
+    const stepDepth = WORLD_CONFIG.STAIR_STEP_DEPTH;
       
-    // Calcula o número de degraus necessários
     let steps = Math.floor(h / stepHeight);
     
     for (let i = 0; i < steps; i++) {
-        // Geometria da escada
         let stairGeometry = new THREE.BoxGeometry(WORLD_CONFIG.STAIR_WIDTH, stepHeight, stepDepth);
         let step = new THREE.Mesh(stairGeometry, material);
         
-        // Posiciona o degrau
         step.position.y = i * stepHeight + stepHeight / 2;
         if (direction === true) {
             step.position.z = -i * stepDepth;
@@ -1489,7 +1432,6 @@ function createStair(x, y, z, h, direction, material) {
     return stairGroup;
 }
 
-//Esse médodo serve para marcar um objeto, pertencente a um grupo, como colidivel
 function markCollisionObject(object, collidableObjects){
     object.traverse(child => {
         if (child.isMesh) {
@@ -1499,59 +1441,42 @@ function markCollisionObject(object, collidableObjects){
 }
 
 function createGradientBlocksWithGap(point1, point2, scene, baseHeight, collidableObjects) {
-    // Determinar os limites da área
     const minX = Math.min(point1.x, point2.x);
     const maxX = Math.max(point1.x, point2.x);
     const minZ = Math.min(point1.z, point2.z);
     const maxZ = Math.max(point1.z, point2.z);
     
-    // Calcular o centro da área
     const centerX = (minX + maxX) / 2;
     const centerZ = (minZ + maxZ) / 2;
     
-    // Tamanho do bloco e espaço total entre blocos
     const blockSize = 4.0;
     const gapSize = 12.0;
     const totalSpacing = blockSize + gapSize;
     
-    // Parâmetros da onda senoidal
-    const waveAmplitude = 10.0; // Amplitude da oscilação vertical
-    const waveFrequency = 0.1; // Frequência da onda
+    const waveAmplitude = 10.0;
+    const waveFrequency = 0.1;
     
-    // Criar um grupo para os blocos
     const blocksGroup = new THREE.Group();
     blocksGroup.name = "MetalBlocks";
     
-    // Array para armazenar todos os blocos criados
     const blocks = [];
-    
-    console.log('[ENVIRONMENT] Iniciando criação de blocos com textura de metal...');
-    
-    // Gerar blocos com o espaçamento correto
+        
     for (let x = minX; x <= maxX; x += totalSpacing) {
         for (let z = minZ; z <= maxZ; z += totalSpacing) {
-            // Calcular distância normalizada do centro (0 a 1)
             const maxDistX = (maxX - minX) / 2;
             const maxDistZ = (maxZ - minZ) / 2;
             const distX = Math.abs(x - centerX) / maxDistX;
             const distZ = Math.abs(z - centerZ) / maxDistZ;
-            // Usar a maior distância (X ou Z) para determinar a altura
             const dist = Math.max(distX, distZ);
             
-            // Calcular altura baseada na distância (6.0 nas bordas, 20 no centro)
             const heightVariation = 6.0 + (20 - 6.0) * (1 - dist);
             
-            // Calcular a oscilação senoidal (varia entre -1 e 1)
             const waveFactor = Math.sin(x * waveFrequency) * Math.sin(z * waveFrequency);
             
-            // Calcular a posição vertical final
-            // Garantimos que a altura nunca seja menor que baseHeight + (heightVariation/2)
-            // E adicionamos a oscilação proporcional à heightVariation
             const waveEffect = waveAmplitude * waveFactor;
             const minHeight = baseHeight + (heightVariation / 2);
             const finalHeight = Math.max(minHeight, minHeight + waveEffect);
             
-            // Criar geometria do bloco
             const geometry = new THREE.BoxGeometry(blockSize, heightVariation, blockSize);
             
             // Material temporário que será substituído pela textura de metal
@@ -1595,32 +1520,22 @@ function createGradientBlocksWithGap(point1, point2, scene, baseHeight, collidab
         [blocks[0]] : // Se ímpar, remover o mais central
         blocks.slice(0, 4); // Se par, remover os 4 mais centrais
     
-    // Remover os blocos centrais
     for (const block of blocksToRemove) {
         blocksGroup.remove(block.mesh);
-        // Remover também do array blocks
         const index = blocks.findIndex(b => b.mesh === block.mesh);
         if (index > -1) {
             blocks.splice(index, 1);
         }
     }
-    
-    console.log(`[ENVIRONMENT] Criados ${blocks.length} blocos metálicos na área 2`);
-    
-    // Aplicar textura diretamente
+        
     QuickTexture.metal(blocksGroup);
     
-    // Adicionar o grupo à cena
     scene.add(blocksGroup);
     markCollisionObject(blocksGroup, collidableObjects);
 
     return blocksGroup;
 }
 
-/**
- * Aplica textura de metal nos blocos de forma assíncrona
- * @param {THREE.Group} blocksGroup 
- */
 function raiseCentralBlock(blockGroup, delta) {
     const centralBlock = blockGroup.userData.centralBlock;
     const keyInstance = blockGroup.userData.keyInstance;
@@ -1662,7 +1577,6 @@ function raiseCentralBlock(blockGroup, delta) {
 }
 
 
-// Easing functions for smooth animation
 function easeOutCubic(t) {
     return 1 - Math.pow(1 - t, 3);
 }
@@ -1671,7 +1585,6 @@ function easeInCubic(t) {
     return t * t * t;
 }
 
-// Animate hangar doors opening/closing
 export function animateHangarDoors(hangarModel, shouldOpen) {
     if (!hangarModel || !hangarModel.userData.doors || hangarModel.userData.animating) {
         console.log('[HANGAR] Cannot animate doors - missing model, doors, or already animating');
@@ -1683,19 +1596,15 @@ export function animateHangarDoors(hangarModel, shouldOpen) {
         console.log('[HANGAR] No doors found for animation');
         return;
     }
-    
-    console.log(`[HANGAR] Starting door animation - ${shouldOpen ? 'Opening' : 'Closing'} ${doors.length} door(s)`);
-    
+        
     hangarModel.userData.animating = true;
-    const animationDuration = 3000; // 3 seconds
+    const animationDuration = 3000;
     const startTime = Date.now();
     
-    // Store initial positions/rotations for all doors
     const doorInitialStates = doors.map(door => ({
         door: door,
         initialPosition: door.position.clone(),
         initialRotation: door.rotation.clone(),
-        // Calculate movement based on door position and orientation
         moveDirection: calculateDoorMovement(door, hangarModel)
     }));
     
@@ -1703,24 +1612,18 @@ export function animateHangarDoors(hangarModel, shouldOpen) {
         const elapsed = Date.now() - startTime;
         const progress = Math.min(elapsed / animationDuration, 1.0);
         
-        // Use easing for smooth animation
         const easedProgress = shouldOpen ? easeOutCubic(progress) : easeInCubic(progress);
         
         doorInitialStates.forEach(({ door, initialPosition, initialRotation, moveDirection }) => {
-            // Calculate animation progress for this door
             const animProgress = shouldOpen ? easedProgress : (1.0 - easedProgress);
             
-            // Apply movement based on door type
             if (moveDirection.type === 'slide') {
-                // Sliding doors (horizontal movement)
                 door.position.copy(initialPosition);
                 door.position.add(moveDirection.direction.clone().multiplyScalar(animProgress * moveDirection.distance));
             } else if (moveDirection.type === 'swing') {
-                // Swinging doors (rotation)
                 door.rotation.copy(initialRotation);
                 door.rotation.y += animProgress * moveDirection.angle;
             } else if (moveDirection.type === 'fold') {
-                // Folding doors (up/down movement)
                 door.position.copy(initialPosition);
                 door.position.y += animProgress * moveDirection.distance;
             }

@@ -1,4 +1,3 @@
-// Configurações relacionadas a texturas
 export const TEXTURE_CONFIG = {
     FLOOR_TEXTURE: {
         NAME: 'pisointertravado.jpg',
@@ -14,7 +13,6 @@ export const TEXTURE_CONFIG = {
         METALNESS: 0.9
     },
     
-    // Configurações base para diferentes tipos de materiais
     MATERIAL_PRESETS: {
         STONE: {
             ROUGHNESS: 0.8,

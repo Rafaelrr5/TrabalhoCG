@@ -1,4 +1,3 @@
-// Configurações de debug
 export const DEBUG_CONFIG = {
     DEBUG_SHOW_HITBOX: false,
     DEBUG_SHOW_CAMERA: false,

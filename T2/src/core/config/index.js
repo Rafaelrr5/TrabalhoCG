@@ -1,4 +1,3 @@
-// Arquivo de índice para configurações modulares
 export { DEBUG_CONFIG } from './debugConfig.js';
 export { WEAPONS_CONFIG } from './weaponsConfig.js';
 export { PLAYER_CONFIG } from './playerConfig.js';

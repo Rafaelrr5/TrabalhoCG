@@ -5,7 +5,6 @@ import { PLAYER_CONFIG } from './config/playerConfig.js';
 import { WORLD_CONFIG } from './config/worldConfig.js';
 import { DEBUG_CONFIG } from './config/debugConfig.js';
 import { createWalls, createAreas, updateArea1, updateArea2, area1KeyPlatform, area2KeyPlatform, isPlayerInArea1, isPlayerInArea2, updateHangarDoors } from '../systems/environment.js';
-import { createGun } from '../components/weapon.js';
 import { createWeaponManager, updateProjectiles } from '../components/weaponManager.js';
 import { createEnemies, updateEnemies, cleanupDeadEnemies, enemies, cleanupAllEnemyProjectiles, resetArea2Activation, resetArea1Activation } from '../entities/enemies/enemy.js';
 import { setupEventListeners, updateCameraMovement, continuousCameraDebug } from '../systems/controls.js';
@@ -28,23 +27,19 @@ window.playerTakeDamage = function(damage) {
   }
 };
 
-// Update health display on screen
 function updatePlayerHealthDisplay() {
   const healthDisplay = document.getElementById('player-health');
   if (healthDisplay) {
-    // Hide health display if player is immortal
     if (PLAYER_CONFIG.PLAYER_IMMORTAL) {
       healthDisplay.style.display = 'none';
       return;
     }
     
-    // Show health display if player is not immortal
     healthDisplay.style.display = 'block';
     
     const healthStatus = player.getHealthStatus();
     healthDisplay.textContent = `Health: ${healthStatus.current}/${healthStatus.max}`;
     
-    // Color coding based on health percentage
     const healthPercentage = healthStatus.percentage;
     if (healthPercentage < 0.3) {
       healthDisplay.style.color = 'red';
@@ -56,28 +51,22 @@ function updatePlayerHealthDisplay() {
   }
 }
 
-// Handle player death
 function handlePlayerDeath() {
-  // Unlock pointer controls to allow interaction with popup
   if (controls.isLocked) {
     controls.unlock();
   }
   
-  // Show game over popup
   showGameOverPopup();
 }
 
-// Show game over popup with restart option
 function showGameOverPopup() {
   console.log('[RESTART] Creating game over popup');
   
-  // Remove any existing popup first
   const existingOverlay = document.getElementById('game-over-overlay');
   if (existingOverlay) {
     document.body.removeChild(existingOverlay);
   }
   
-  // Create overlay
   const overlay = document.createElement('div');
   overlay.id = 'game-over-overlay';
   overlay.style.cssText = `
@@ -141,7 +130,6 @@ function showGameOverPopup() {
   `;
   restartButton.textContent = 'Continuar';
   
-  // Add event listeners directly
   restartButton.addEventListener('mouseenter', () => {
     restartButton.style.backgroundColor = '#ff6666';
   });
@@ -156,7 +144,6 @@ function showGameOverPopup() {
     event.stopPropagation();
     
     try {
-      // Remove the overlay
       if (overlay.parentNode) {
         overlay.parentNode.removeChild(overlay);
       }
@@ -184,7 +171,6 @@ function showGameOverPopup() {
   }, 100);
 }
 
-// Create simple health HUD
 function createPlayerHealthHUD() {
     const healthDisplay = document.createElement('div');
     healthDisplay.id = 'player-health';
@@ -197,7 +183,6 @@ function createPlayerHealthHUD() {
     healthDisplay.style.zIndex = '1000';
     healthDisplay.style.textShadow = '2px 2px 4px rgba(0,0,0,0.8)';
     
-    // Hide health display if player is immortal
     if (PLAYER_CONFIG.PLAYER_IMMORTAL) {
         healthDisplay.style.display = 'none';
     } else {
@@ -208,7 +193,6 @@ function createPlayerHealthHUD() {
     document.body.appendChild(healthDisplay);
 }
 
-// Initialize immortality indicator
 function initializeImmortalityIndicator() {
     const immortalityIndicator = document.getElementById('immortality-indicator');
     if (immortalityIndicator) {
@@ -216,7 +200,6 @@ function initializeImmortalityIndicator() {
     }
 }
 
-// Create keys HUD
 function createKeysHUD() {
     const keysDisplay = document.createElement('div');
     keysDisplay.id = 'keys-display';
@@ -590,21 +573,15 @@ function setupCamera() {
 }
 
 function resetPlayerPosition() {
-    // Use a fixed safe height for initial positioning
-    const safeHeight = PLAYER_CONFIG.INITIAL_PLAYER_HEIGHT;
-    
+    const safeHeight = PLAYER_CONFIG.INITIAL_PLAYER_HEIGHT;   
     camera.position.set(0, safeHeight, 0);
     player.resetPosition();
-    
-    console.log('[MAIN] Player position reset to:', camera.position);
 }
 
 function setupControls() {
     controls = new PointerLockControls(camera, document.body);
 
-    // Add click listener only to canvas/renderer element, not entire document
     renderer.domElement.addEventListener('click', () => {
-        // Only try to lock if not in a popup/modal
         const gameOverPopup = document.getElementById('game-over-overlay');
         if (!gameOverPopup) {
             controls.lock();
@@ -612,7 +589,6 @@ function setupControls() {
     });
     scene.add(controls.getObject());
     
-    // Adiciona handler de resize específico do main.js
     window.addEventListener('resize', onWindowResize);
 }
 
