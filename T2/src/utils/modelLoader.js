@@ -112,7 +112,6 @@ export function configureLoadedModel(model, options = {}) {
   return wrapper;
 }
 
-// Função para clonar modelo com materiais únicos
 function cloneModelWithUniqueMaterials(model) {
   const clonedModel = model.clone();
   
@@ -210,7 +209,6 @@ export async function loadOBJModel(objPath, mtlPath = null, options = {}) {
         objPath,
         (object) => {
           try {
-            // Apply default material if none provided
             if (!materials) {
               const defaultMaterial = new THREE.MeshLambertMaterial({ 
                 color: 0xcccccc, 
@@ -242,20 +240,25 @@ export async function loadOBJModel(objPath, mtlPath = null, options = {}) {
       );
     };
     
-    // Load MTL first if provided
     if (mtlPath) {
-      // More flexible approach: let the application handle exact paths
-      // If options.mtlBasePath is provided, use it. Otherwise, don't set any base path.
+      let mtlFilename = mtlPath;
       if (options.mtlBasePath) {
+        if (mtlPath.startsWith(options.mtlBasePath)) {
+          mtlFilename = mtlPath.substring(options.mtlBasePath.length);
+        } else {
+          mtlFilename = mtlPath.split('/').pop();
+        }
         mtlLoader.setPath(options.mtlBasePath);
+        console.log(`Loading MTL: basePath="${options.mtlBasePath}", filename="${mtlFilename}"`);
+      } else {
+        console.log(`Loading MTL: fullPath="${mtlPath}"`);
       }
       
       mtlLoader.load(
-        mtlPath,
+        mtlFilename,
         (materials) => {
           try {
             materials.preload();
-            // Reset path after loading if we set one
             if (options.mtlBasePath) {
               mtlLoader.setPath('');
             }
