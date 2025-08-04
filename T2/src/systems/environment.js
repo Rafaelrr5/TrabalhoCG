@@ -213,7 +213,7 @@ function createArea2(scene, materials, collidableObjects) {
     scene.add(area2);
 
     markCollisionObject(area2, collidableObjects);
-    markCollisionObject(centralBlock, collidableObjects); // Tornar o bloco central colidível
+    markCollisionObject(centralBlock, collidableObjects);
 
     createElevator(scene, collidableObjects, 50.0, -66.05);
     enableShadowsForAll(area2);
@@ -311,7 +311,6 @@ async function createArea3(scene, materials, collidableObjects) {
                 
                 if (child.material) {
                     child.material.needsUpdate = true;
-                    // Ensure material is not transparent unless needed
                     if (child.material.transparent && child.material.opacity === 1.0) {
                         child.material.transparent = false;
                     }
@@ -335,12 +334,19 @@ async function createArea3(scene, materials, collidableObjects) {
         try {
             updateProgress(61, 'Carregando avião...');
 
-            const planeModel = await loadOBJModel('../assets/objects/plane.obj', null, {
+            const planeModel = await loadOBJModel('../assets/objects/plane.obj', '../assets/objects/plane.mtl', {
                 scale: 0.5,
                 position: { x: 0, y: -8, z: -200 },
                 rotation: { x: 0, y: -Math.PI/2, z: 0 },
                 castShadow: true,
-                receiveShadow: true
+                receiveShadow: true,
+                mtlBasePath: '../assets/objects/',
+                onProgress: (progress) => {
+                    if (progress.total > 0) {
+                        const loadPercent = (progress.loaded / progress.total * 100);
+                        updateProgress(61 + (loadPercent * 0.01), `Carregando avião: ${loadPercent.toFixed(1)}%`);
+                    }
+                }
             });
             
             planeModel.name = "PlaneModel";
@@ -918,7 +924,6 @@ function createBrokenArch(span, material) {
         const archMesh = new THREE.Mesh(archGeometry, material);
         archMesh.rotation.z = Math.PI;
         
-        // Adicionar pilares do arco
         const pillarGeometry = new THREE.BoxGeometry(archThickness, archHeight, archThickness);
         const leftPillar = new THREE.Mesh(pillarGeometry, material);
         const rightPillar = new THREE.Mesh(pillarGeometry, material);
@@ -955,7 +960,6 @@ function createBrokenArch(span, material) {
         
     } catch (error) {
         console.warn('Failed to create arch with CSG, using simple geometry:', error);
-        // Fallback simples
         const simpleArchGeometry = new THREE.BoxGeometry(span, 1, 1.5);
         const simpleArch = new THREE.Mesh(simpleArchGeometry, material);
         archGroup.add(simpleArch);
@@ -971,24 +975,20 @@ function createBrokenArch(span, material) {
     return archGroup;
 }
 
-// Cria um capitel danificado
 function createDamagedCapital(material) {
     const capitalGroup = new THREE.Group();
     
-    // Base do capitel
     const baseGeometry = new THREE.CylinderGeometry(3, 2.5, 0.8, 12);
     const baseMesh = new THREE.Mesh(baseGeometry, material);
     capitalGroup.add(baseMesh);
     
-    // Ábaco (parte superior quadrada)
     const abacusGeometry = new THREE.BoxGeometry(3.5, 0.4, 3.5);
     const abacusMesh = new THREE.Mesh(abacusGeometry, material);
     abacusMesh.position.y = 0.6;
     capitalGroup.add(abacusMesh);
     
-    // Adicionar volutas (decorações enroladas) danificadas
     for (let i = 0; i < 4; i++) {
-        if (Math.random() > 0.3) { // Algumas volutas podem estar quebradas
+        if (Math.random() > 0.3) {
             const volutaGeometry = new THREE.TorusGeometry(0.3, 0.1, 6, 12);
             const volutaMesh = new THREE.Mesh(volutaGeometry, material);
             const angle = (i / 4) * Math.PI * 2;
@@ -1003,7 +1003,6 @@ function createDamagedCapital(material) {
         }
     }
     
-    // Adicionar danos
     const damageCount = 1 + Math.floor(Math.random() * 2);
     for (let i = 0; i < damageCount; i++) {
         const damageGeometry = new THREE.SphereGeometry(0.2 + Math.random() * 0.3);
@@ -1033,14 +1032,12 @@ function createDamagedCapital(material) {
     return capitalGroup;
 }
 
-// Cria fragmentos complexos ao redor das colunas
 function createComplexFragments(x, z, height, material, parentGroup) {
     const fragmentCount = 3 + Math.floor(Math.random() * 4);
     
     for (let i = 0; i < fragmentCount; i++) {
         const fragmentGroup = new THREE.Group();
         
-        // Criar fragmentos com formas variadas
         const shapes = ['box', 'cylinder', 'cone'];
         const shapeType = shapes[Math.floor(Math.random() * shapes.length)];
         
@@ -1074,7 +1071,6 @@ function createComplexFragments(x, z, height, material, parentGroup) {
         
         const fragmentMesh = new THREE.Mesh(fragmentGeometry, material);
         
-        // Posicionar fragmentos ao redor da coluna
         const angle = Math.random() * Math.PI * 2;
         const distance = 3 + Math.random() * 4;
         fragmentMesh.position.set(
@@ -1083,7 +1079,6 @@ function createComplexFragments(x, z, height, material, parentGroup) {
             z + Math.sin(angle) * distance
         );
         
-        // Rotação aleatória para parecer caído naturalmente
         fragmentMesh.rotation.set(
             Math.random() * Math.PI,
             Math.random() * Math.PI,
@@ -1098,9 +1093,7 @@ function createComplexFragments(x, z, height, material, parentGroup) {
     }
 }
 
-// Adiciona detalhes arquitetônicos romanos
 function createRomanArchitecturalDetails(centerX, centerZ, height, length, width, material, parentGroup, isHorizontal) {
-    // Criar friso decorativo
     const friezeHeight = 0.6;
     const friezeGeometry = new THREE.BoxGeometry(
         isHorizontal ? length : width,
@@ -1110,7 +1103,6 @@ function createRomanArchitecturalDetails(centerX, centerZ, height, length, width
     const friezeMesh = new THREE.Mesh(friezeGeometry, material);
     friezeMesh.position.set(centerX, height + 2, centerZ);
     
-    // Adicionar decorações ao friso
     const decorationCount = 3 + Math.floor(Math.random() * 3);
     for (let i = 0; i < decorationCount; i++) {
         const decorationGeometry = new THREE.SphereGeometry(0.1 + Math.random() * 0.1);
@@ -1132,7 +1124,6 @@ function createRomanArchitecturalDetails(centerX, centerZ, height, length, width
     friezeMesh.receiveShadow = true;
     parentGroup.add(friezeMesh);
     
-    // Adicionar cornija quebrada
     if (Math.random() > 0.4) {
         const corniceGeometry = new THREE.BoxGeometry(
             isHorizontal ? length * 1.1 : width * 1.1,
@@ -1142,7 +1133,6 @@ function createRomanArchitecturalDetails(centerX, centerZ, height, length, width
         const corniceMesh = new THREE.Mesh(corniceGeometry, material);
         corniceMesh.position.set(centerX, height + 2.8, centerZ);
         
-        // Adicionar quebra na cornija
         const breakSize = 0.8 + Math.random() * 0.4;
         const breakGeometry = new THREE.BoxGeometry(breakSize, 0.6, breakSize);
         const breakMesh = new THREE.Mesh(breakGeometry, material);
@@ -1169,39 +1159,30 @@ function createRomanArchitecturalDetails(centerX, centerZ, height, length, width
     }
 }
 
-// Cria a plataforma para a chave vermelha
 function createKeyPlatform(scene) {
     const platformGroup = new THREE.Group();
     platformGroup.name = "KeyPlatform";
     
-    // Material da plataforma
-    const platformMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 }); // Marrom
-    
-    // Plataforma circular
+    const platformMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 }); 
     const platformGeometry = new THREE.CylinderGeometry(3, 3, 0.5, 16);
     const platform = new THREE.Mesh(platformGeometry, platformMaterial);
-    platform.position.set(-152.25, WORLD_CONFIG.AREA_Y_POSITION - 2, -131.0); // Começa subterrânea
+    platform.position.set(-152.25, WORLD_CONFIG.AREA_Y_POSITION - 2, -131.0);
     platformGroup.add(platform);
     
-    // Criar chave vermelha usando o sistema Key
     const keyPosition = new THREE.Vector3(-152.25, WORLD_CONFIG.AREA_Y_POSITION - 1.0, -131.0);
     const redKeyInstance = new Key('red', keyPosition);
     
-    // Adicionar a chave ao keyManager e à cena
     if (keyManager.addKey(redKeyInstance, scene)) {
-        // Esconder a chave inicialmente (será mostrada quando a plataforma subir)
         if (redKeyInstance.getMesh()) {
             redKeyInstance.getMesh().visible = false;
-            // Posicionar inicialmente abaixo do chão com a plataforma
             redKeyInstance.getMesh().position.set(-152.25, WORLD_CONFIG.AREA_Y_POSITION - 1.0, -131.0);
             redKeyInstance.position.copy(redKeyInstance.getMesh().position);
             redKeyInstance.originalY = WORLD_CONFIG.AREA_Y_POSITION - 1.0;
         }
     }
     
-    // Armazena referências globais para animação
     platformGroup.userData.platform = platform;
-    platformGroup.userData.keyInstance = redKeyInstance; // Referência para o objeto Key
+    platformGroup.userData.keyInstance = redKeyInstance;
     platformGroup.userData.isRaised = false;
     platformGroup.userData.targetY = WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT/2 + 0.5;
     
@@ -1212,38 +1193,35 @@ function createCentralBlockWithKey(scene) {
     const blockGroup = new THREE.Group();
     blockGroup.name = "CentralBlock";
     
-    const blockMaterial = new THREE.MeshLambertMaterial({ color: 0x8B0000 }); // Vermelho escuro
+    const blockMaterial = new THREE.MeshLambertMaterial({ color: 0x8B0000 });
     
-    // Criar bloco central como um cubo grande
     const blockGeometry = new THREE.BoxGeometry(12, 12, 12);
     const centralBlock = new THREE.Mesh(blockGeometry, blockMaterial);
-    centralBlock.position.set(0.0, WORLD_CONFIG.AREA_Y_POSITION + 6, -131.0); // Posição inicial no chão
+    centralBlock.position.set(0.0, WORLD_CONFIG.AREA_Y_POSITION + 6, -131.0);
     centralBlock.castShadow = true;
     centralBlock.receiveShadow = true;
     blockGroup.add(centralBlock);
     
-    // Criar a chave amarela na posição final (mesma altura da chave vermelha após subir)
     const redKeyTargetY = WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT/2 + 0.5;
-    const finalKeyHeight = redKeyTargetY + 1.0; // Mesma altura da chave vermelha após subir
+    const finalKeyHeight = redKeyTargetY + 1.0;
     const keyPosition = new THREE.Vector3(0.0, finalKeyHeight, -131.0);
     const yellowKeyInstance = new Key('yellow', keyPosition);
     
     if (keyManager.addKey(yellowKeyInstance, scene)) {
         if (yellowKeyInstance.getMesh()) {
-            yellowKeyInstance.getMesh().visible = false; // Inicialmente invisível
+            yellowKeyInstance.getMesh().visible = false;
             yellowKeyInstance.getMesh().position.copy(keyPosition);
             yellowKeyInstance.position.copy(keyPosition);
             yellowKeyInstance.originalY = finalKeyHeight;
         }
     }
     
-    // Configurar userData para controle da animação
     blockGroup.userData.centralBlock = centralBlock;
     blockGroup.userData.keyInstance = yellowKeyInstance;
     blockGroup.userData.isRaised = false;
     blockGroup.userData.shouldRaise = false;
     blockGroup.userData.originalY = WORLD_CONFIG.AREA_Y_POSITION + 6;
-    blockGroup.userData.targetY = WORLD_CONFIG.AREA_Y_POSITION + 20; // Altura final
+    blockGroup.userData.targetY = WORLD_CONFIG.AREA_Y_POSITION + 20;
     
     return blockGroup;
 }
@@ -1283,11 +1261,6 @@ export function isPlayerInArea1(camera) {
     const playerX = camera.position.x;
     const playerZ = camera.position.z;
     
-    // Área 1 - posições baseadas nas definições em createArea1
-    // Centro: (-152.25, -131.0), dimensões 125x125
-    // Esquerda: (-210.0, -66.0) com escala (9.5, 6.0)
-    // Direita: (-140.0, -66.0) com escala (100.5, 6.0)
-    
     // Centro da área 1 (maior retângulo)
     const centerMinX = -152.25 - 125.0/2;  // -214.75
     const centerMaxX = -152.25 + 125.0/2;  // -89.75
@@ -1306,7 +1279,6 @@ export function isPlayerInArea1(camera) {
     const rightMinZ = -66.0 - 6.0/2;       // -69.0
     const rightMaxZ = -66.0 + 6.0/2;       // -63.0
     
-    // Verifica se está em alguma das partes da Área 1
     const inCenter = playerX >= centerMinX && playerX <= centerMaxX && 
                      playerZ >= centerMinZ && playerZ <= centerMaxZ;
                      
@@ -1319,17 +1291,11 @@ export function isPlayerInArea1(camera) {
     return inCenter || inLeft || inRight;
 }
 
-// Verifica se o jogador está dentro da Área 2
 export function isPlayerInArea2(camera) {
     if (!camera) return false;
     
     const playerX = camera.position.x;
     const playerZ = camera.position.z;
-    
-    // Área 2 - posições baseadas nas definições em createArea2
-    // Centro: (0.0, -131.0) com escala (125.0, 125.0)
-    // Esquerda: (-10.0, -66.0) com escala (105.0, 6.0)
-    // Direita: (60.0, -66.0) com escala (5.0, 6.0)
     
     // Centro da área 2
     const centerMinX = 0.0 - 125.0/2;     // -62.5
@@ -1349,7 +1315,6 @@ export function isPlayerInArea2(camera) {
     const rightMinZ = -66.0 - 6.0/2;      // -69.0
     const rightMaxZ = -66.0 + 6.0/2;      // -63.0
     
-    // Verifica se está em alguma das partes da Área 2
     const inCenter = playerX >= centerMinX && playerX <= centerMaxX && 
                      playerZ >= centerMinZ && playerZ <= centerMaxZ;
                      
@@ -1362,31 +1327,25 @@ export function isPlayerInArea2(camera) {
     return inCenter || inLeft || inRight;
 }
 
-// Anima a subida suave da plataforma
 function raisePlatform(platformGroup, delta) {
     const platform = platformGroup.userData.platform;
-    const keyInstance = platformGroup.userData.keyInstance; // Agora é uma instância de Key
+    const keyInstance = platformGroup.userData.keyInstance;
     const targetY = platformGroup.userData.targetY;
     
     if (platform.position.y < targetY) {
-        const riseSpeed = 2; // Velocidade de subida
+        const riseSpeed = 2;
         const deltaY = riseSpeed * delta;
         
-        // Mover a plataforma
         platform.position.y += deltaY;
         
-        // Atualizar posição da chave Key instance para acompanhar a plataforma
         if (keyInstance && keyInstance.getMesh()) {
             const keyMesh = keyInstance.getMesh();
             
-            // Manter a chave sempre 1 unidade acima da plataforma
             keyMesh.position.y = platform.position.y + 1.0;
             
-            // Atualizar a posição interna da instância Key também
             keyInstance.position.y = keyMesh.position.y;
-            keyInstance.originalY = keyMesh.position.y; // Atualizar Y base para flutuação
+            keyInstance.originalY = keyMesh.position.y;
             
-            // Tornar a chave visível quando a plataforma começar a subir
             if (!keyMesh.visible) {
                 keyMesh.visible = true;
             }
@@ -1394,7 +1353,6 @@ function raisePlatform(platformGroup, delta) {
         
         if (platform.position.y >= targetY) {
             platform.position.y = targetY;
-            // Position key further above the raised platform
             if (keyInstance && keyInstance.getMesh()) {
                 const finalKeyY = targetY + 1.0;
                 keyInstance.getMesh().position.y = finalKeyY;
@@ -1479,27 +1437,22 @@ function createGradientBlocksWithGap(point1, point2, scene, baseHeight, collidab
             
             const geometry = new THREE.BoxGeometry(blockSize, heightVariation, blockSize);
             
-            // Material temporário que será substituído pela textura de metal
             const tempMaterial = new THREE.MeshStandardMaterial({ 
-                color: 0x8b4513, // Cor marrom temporária para distinguir dos vermelhos
+                color: 0x8b4513,
                 roughness: 0.3,
                 metalness: 0.8
             });
             const block = new THREE.Mesh(geometry, tempMaterial);
             
-            // Marcar como bloco para identificação posterior
             block.userData.isBlock = true;
             block.userData.blockType = 'metal';
             block.userData.needsMetalTexture = true;
             
-            // Posicionar o bloco com a altura modificada pela onda
             block.position.set(x, finalHeight, z);
             
-            // Configurar sombras
             block.castShadow = true;
             block.receiveShadow = true;
             
-            // Armazenar informações do bloco
             blocks.push({
                 mesh: block,
                 x: x,
@@ -1507,12 +1460,10 @@ function createGradientBlocksWithGap(point1, point2, scene, baseHeight, collidab
                 distanceToCenter: Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(z - centerZ, 2))
             });
             
-            // Adicionar ao grupo
             blocksGroup.add(block);
         }
     }
     
-    // Ordenar blocos por proximidade ao centro
     blocks.sort((a, b) => a.distanceToCenter - b.distanceToCenter);
     
     // Determinar quantos blocos remover (1 se ímpar, 4 se par)
@@ -1543,13 +1494,11 @@ function raiseCentralBlock(blockGroup, delta) {
     const targetY = blockGroup.userData.targetY;
     
     if (centralBlock.position.y < targetY) {
-        const riseSpeed = 3; // Velocidade de elevação
+        const riseSpeed = 3;
         const deltaY = riseSpeed * delta;
         
-        // Elevar o bloco central
         centralBlock.position.y += deltaY;
         
-        // Tornar a chave visível quando o bloco começar a se elevar
         if (keyInstance && keyInstance.getMesh()) {
             const keyMesh = keyInstance.getMesh();
             
@@ -1561,11 +1510,9 @@ function raiseCentralBlock(blockGroup, delta) {
         if (centralBlock.position.y >= targetY) {
             centralBlock.position.y = targetY;
             
-            // Quando o bloco atinge a altura final, posicionar a chave na mesma altura da chave vermelha
             if (keyInstance && keyInstance.getMesh()) {
-                // Altura final da chave vermelha = targetY + 1.0 onde targetY = WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT/2 + 0.5
                 const redKeyTargetY = WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT/2 + 0.5;
-                const finalKeyHeight = redKeyTargetY + 1.0; // Mesma altura da chave vermelha após subir
+                const finalKeyHeight = redKeyTargetY + 1.0;
                 keyInstance.getMesh().position.y = finalKeyHeight;
                 keyInstance.position.y = finalKeyHeight;
                 keyInstance.originalY = finalKeyHeight;
@@ -1632,7 +1579,6 @@ export function animateHangarDoors(hangarModel, shouldOpen) {
         if (progress < 1.0) {
             requestAnimationFrame(animateFrame);
         } else {
-            // Animation complete
             hangarModel.userData.animating = false;
             hangarModel.userData.doorsOpen = shouldOpen;
         }
@@ -1641,7 +1587,6 @@ export function animateHangarDoors(hangarModel, shouldOpen) {
     requestAnimationFrame(animateFrame);
 }
 
-// Calculate how each door should move based on its position and orientation
 function calculateDoorMovement(door, hangarModel) {
     const doorBbox = new THREE.Box3().setFromObject(door);
     const hangarBbox = new THREE.Box3().setFromObject(hangarModel);
@@ -1650,39 +1595,33 @@ function calculateDoorMovement(door, hangarModel) {
     const hangarCenter = hangarBbox.getCenter(new THREE.Vector3());
     const doorSize = doorBbox.getSize(new THREE.Vector3());
     
-    // Determine door type based on size and position
     const isWide = doorSize.x > doorSize.z;
     const isTall = doorSize.y > Math.max(doorSize.x, doorSize.z);
     
-    // Check if door is at the front/back of hangar
     const isAtFront = doorCenter.z > hangarCenter.z;
     const isAtSide = Math.abs(doorCenter.x - hangarCenter.x) > Math.abs(doorCenter.z - hangarCenter.z);
     
     if (isTall && isWide && isAtFront) {
-        // Large front doors - slide horizontally
         return {
             type: 'slide',
             direction: new THREE.Vector3(doorCenter.x > hangarCenter.x ? 1 : -1, 0, 0),
-            distance: doorSize.x * 0.8 // Move by 80% of door width
+            distance: doorSize.x * 0.8
         };
     } else if (isTall && !isWide) {
-        // Tall narrow doors - swing open
         return {
             type: 'swing',
-            angle: doorCenter.x > hangarCenter.x ? Math.PI / 2 : -Math.PI / 2 // 90 degrees
+            angle: doorCenter.x > hangarCenter.x ? Math.PI / 2 : -Math.PI / 2
         };
     } else if (!isTall && isWide) {
-        // Wide low doors - fold up/down
         return {
             type: 'fold',
-            distance: doorSize.y * 2 // Move up by twice the door height
+            distance: doorSize.y * 2
         };
     } else {
-        // Default: slide away from center
         const direction = new THREE.Vector3()
             .subVectors(doorCenter, hangarCenter)
             .normalize();
-        direction.y = 0; // Keep movement horizontal
+        direction.y = 0;
         
         return {
             type: 'slide',
@@ -1692,7 +1631,6 @@ function calculateDoorMovement(door, hangarModel) {
     }
 }
 
-// Update function to handle automatic door opening based on player proximity
 export function updateHangarDoors(delta, camera, scene) {
     const area3 = scene.getObjectByName('Area3');
     if (!area3) return;
@@ -1700,13 +1638,12 @@ export function updateHangarDoors(delta, camera, scene) {
     const hangar = area3.getObjectByName('HangarModel');
     if (!hangar || !hangar.userData.doors) return;
     
-    // Auto-open doors when player is near
     const playerPosition = camera.position;
     const hangarPosition = hangar.position;
     const distance = playerPosition.distanceTo(hangarPosition);
     
-    const openDistance = 60; // Distance to open doors
-    const closeDistance = 100; // Distance to close doors
+    const openDistance = 60;
+    const closeDistance = 100;
     
     if (distance < openDistance && !hangar.userData.doorsOpen && !hangar.userData.animating) {
         animateHangarDoors(hangar, true);
