@@ -71,26 +71,16 @@ export class Chaingun extends BaseWeapon {
     }
 
     onStartShooting() {
-    this.isActivating = true;
-    this.activationTimer = 0;
-}
-
-    onStopShooting() {
-    this.isActivating = false;
-    this.activationTimer = 0;
-    this.isShootingAnimationActive = false; // Reseta o estado
-
-    if (this.onLoop) {
-        this.actions.shooting.stop();
-        this.onLoop = false;
+        this.isActivating = true;
+        this.activationTimer = 0;
     }
-    if (this.chaingunSprite) {
-        this.chaingunSprite.setFrame(0);
-    }
-}
 
 startShooting() {
     if (this.isMousePressed) return; // Já está disparando, não faz nada
+    if (!this.isLoaded || !this.actions || !this.actions.shooting) {
+        console.warn('[CHAINGUN] Cannot start shooting - sprite not loaded yet');
+        return;
+    }
 
     this.isMousePressed = true;
     this.onStartShooting();
@@ -103,14 +93,12 @@ startShooting() {
             this.isActivating = false;
 
             // Verifica se a animação de shooting já está rodando
-            
-
             if (this.onLoop) {
                 this.shoot();
                 return;
             }
                         
-            if (!this.onLoop) {
+            if (!this.onLoop && this.actions && this.actions.shooting) {
                 this.actions.shooting.playLoop();
                 this.onLoop = true;
             }
@@ -125,12 +113,22 @@ onStopShooting() {
     this.activationTimer = 0;
     this.isShootingAnimationActive = false;
 
-    if (this.onLoop) {
-        this.actions.shooting.stop();
-        this.onLoop = false;
+    if (this.onLoop && this.actions && this.actions.shooting) {
+        try {
+            this.actions.shooting.stop();
+            this.onLoop = false;
+        } catch (error) {
+            console.warn('[CHAINGUN] Error stopping shooting animation:', error);
+            this.onLoop = false;
+        }
     }
-        if (this.chaingunSprite) {
-        this.chaingunSprite.setFrame(0);
+    
+    if (this.chaingunSprite && typeof this.chaingunSprite.setFrame === 'function') {
+        try {
+            this.chaingunSprite.setFrame(0);
+        } catch (error) {
+            console.warn('[CHAINGUN] Error setting frame:', error);
+        }
     }
 }
     onShoot() {
@@ -302,8 +300,10 @@ export function initGun(scene) {
 }
 
 export function startShooting() {
-    if (gun) {
+    if (gun && gun.isReady()) {
         gun.startShooting();
+    } else if (gun && !gun.isReady()) {
+        console.warn('[CHAINGUN] Cannot start shooting - weapon not ready yet');
     }
 }
 
