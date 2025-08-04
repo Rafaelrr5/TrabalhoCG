@@ -244,28 +244,36 @@ export async function loadOBJModel(objPath, mtlPath = null, options = {}) {
     
     // Load MTL first if provided
     if (mtlPath) {
-      // Set the path for textures (same directory as MTL file)
-      const mtlDirectory = mtlPath.substring(0, mtlPath.lastIndexOf('/') + 1);
-      mtlLoader.setPath(mtlDirectory);
+      // More flexible approach: let the application handle exact paths
+      // If options.mtlBasePath is provided, use it. Otherwise, don't set any base path.
+      if (options.mtlBasePath) {
+        mtlLoader.setPath(options.mtlBasePath);
+      }
       
       mtlLoader.load(
         mtlPath,
         (materials) => {
           try {
             materials.preload();
-            // Reset path after loading
-            mtlLoader.setPath('');
+            // Reset path after loading if we set one
+            if (options.mtlBasePath) {
+              mtlLoader.setPath('');
+            }
             loadOBJ(materials);
           } catch (error) {
             console.warn('MTL preload failed, loading OBJ without materials:', error);
-            mtlLoader.setPath('');
+            if (options.mtlBasePath) {
+              mtlLoader.setPath('');
+            }
             loadOBJ();
           }
         },
         options.onProgress,
         (error) => {
           console.warn('MTL loading failed, loading OBJ without materials:', error);
-          mtlLoader.setPath('');
+          if (options.mtlBasePath) {
+            mtlLoader.setPath('');
+          }
           loadOBJ();
         }
       );

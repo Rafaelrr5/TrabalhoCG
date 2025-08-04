@@ -252,8 +252,7 @@ async function createArea3(scene, materials, collidableObjects) {
         updateProgress(57, 'Carregando modelo do hangar...');
         
         const objPath = 'assets/models/Arched_hangar.obj';
-        const mtlPath = 'assets/textures/Arched_hangar.mtl';
-        
+        const mtlPath = 'assets/textures/hangar/Arched_hangar.mtl';
         
         let hangarModel = null;
         
@@ -265,6 +264,7 @@ async function createArea3(scene, materials, collidableObjects) {
                 rotation: { x: 0, y: 0, z: 0 },
                 castShadow: true,
                 receiveShadow: true,
+                mtlBasePath: 'assets/textures/hangar/', // Explicit base path for textures
                 onProgress: (progress) => {
                     if (progress.total > 0) {
                         const loadPercent = (progress.loaded / progress.total * 100);
@@ -364,10 +364,10 @@ async function createArea3(scene, materials, collidableObjects) {
         try {
             updateProgress(61, 'Carregando avião...');
 
-            const planeModel = await loadOBJModel('../../assets/objects/plane.obj', null, {
+            const planeModel = await loadOBJModel('../assets/objects/plane.obj', null, {
                 scale: 0.5,
-                position: { x: 0, y: 5, z: 0 }, // Position relative to hangar center
-                rotation: { x: 0, y: Math.PI, z: 0 }, // Rotate 180 degrees to face forward
+                position: { x: 0, y: -8, z: -200 },
+                rotation: { x: 0, y: -Math.PI/2, z: 0 },
                 castShadow: true,
                 receiveShadow: true
             });
@@ -1299,40 +1299,6 @@ function createCentralBlockWithKey(scene) {
     blockGroup.userData.targetY = WORLD_CONFIG.AREA_Y_POSITION + 20; // Altura final
     
     return blockGroup;
-}
-
-function createBlueKeyPlatform(scene) {
-    const platformGroup = new THREE.Group();
-    platformGroup.name = "BlueKeyPlatform";
-    
-    const platformMaterial = new THREE.MeshLambertMaterial({ color: 0x4169E1 }); // Azul royal
-    
-    const platformGeometry = new THREE.CylinderGeometry(3, 3, 0.5, 16);
-    const platform = new THREE.Mesh(platformGeometry, platformMaterial);
-    platform.position.set(20.0, WORLD_CONFIG.AREA_Y_POSITION - 2, -131.0); // Movida para X = 20.0
-    platformGroup.add(platform);
-    
-    const keyPosition = new THREE.Vector3(20.0, WORLD_CONFIG.AREA_Y_POSITION - 1.0, -131.0);
-    const blueKeyInstance = new Key('blue', keyPosition);
-    
-    if (keyManager.addKey(blueKeyInstance, scene)) {
-        // Esconder a chave inicialmente (será mostrada quando a plataforma subir)
-        if (blueKeyInstance.getMesh()) {
-            blueKeyInstance.getMesh().visible = false;
-            // Posicionar inicialmente abaixo do chão com a plataforma (posição X atualizada)
-            blueKeyInstance.getMesh().position.set(20.0, WORLD_CONFIG.AREA_Y_POSITION - 1.0, -131.0);
-            blueKeyInstance.position.copy(blueKeyInstance.getMesh().position);
-            blueKeyInstance.originalY = WORLD_CONFIG.AREA_Y_POSITION - 1.0;
-        }
-    }
-    
-    platformGroup.userData.platform = platform;
-    platformGroup.userData.keyInstance = blueKeyInstance;
-    platformGroup.userData.isRaised = false;
-    platformGroup.userData.shouldRaise = false;
-    platformGroup.userData.targetY = WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT/2 + 0.5;
-    
-    return platformGroup;
 }
 
 export function updateArea1(delta) {

@@ -34,9 +34,6 @@ export class Chaingun extends BaseWeapon {
         this.audioLoader = new THREE.AudioLoader();
         this.isAudioInitialized = false;
         
-        if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
-            console.log(`[CHAINGUN] Constructor finished, ID: ${this.id}`);
-        }
     }
 
     // Sobrescreve o método abstrato da BaseWeapon
@@ -60,14 +57,32 @@ export class Chaingun extends BaseWeapon {
         
         this.fireSound = new THREE.Audio(window.listener);
         
-        // Load chaingun fire sound
-        this.audioLoader.load('../../assets/sounds/weapon/chaingun_fire.wav', (buffer) => {
-            this.fireSound.setBuffer(buffer);
-            this.fireSound.setVolume(0.3);
-            this.isAudioInitialized = true;
-        }, undefined, (error) => {
-            console.warn('[CHAINGUN] Failed to load chaingun fire sound:', error);
-        });
+        const possibleAudioPaths = [
+            'assets/sounds/weapon/chaingun_fire.wav',
+            '../assets/sounds/weapon/chaingun_fire.wav',
+            '../../assets/sounds/weapon/chaingun_fire.wav'
+        ];
+        
+        const tryLoadAudio = (pathIndex = 0) => {
+            if (pathIndex >= possibleAudioPaths.length) {
+                console.warn('[CHAINGUN] All audio paths failed, chaingun will be silent');
+                return;
+            }
+            
+            const currentPath = possibleAudioPaths[pathIndex];
+            this.audioLoader.load(currentPath, (buffer) => {
+                this.fireSound.setBuffer(buffer);
+                this.fireSound.setVolume(0.3);
+                this.isAudioInitialized = true;
+                if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
+                    console.log(`[CHAINGUN] Audio loaded from: ${currentPath}`);
+                }
+            }, undefined, (error) => {
+                tryLoadAudio(pathIndex + 1);
+            });
+        };
+        
+        tryLoadAudio();
     }
 
     onStartShooting() {
@@ -184,6 +199,8 @@ onStopShooting() {
             this.loader = new THREE.TextureLoader();
             
             const possiblePaths = [
+                'assets/sprites/ChaingunSpriteAtirando.png',
+                '../assets/sprites/ChaingunSpriteAtirando.png',
                 '../../assets/sprites/ChaingunSpriteAtirando.png'
             ];
             
@@ -195,9 +212,6 @@ onStopShooting() {
                 }
                 
                 const currentPath = possiblePaths[pathIndex];
-                if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
-                    console.log(`[Chaingun] Tentando carregar: ${currentPath}`);
-                }
                 
                 this.loader.load(currentPath, 
                     (texture) => {
@@ -245,7 +259,6 @@ onStopShooting() {
                         }
                     },
                     (error) => {
-                        console.warn(`[Chaingun] Falha ao carregar: ${currentPath}`, error);
                         tryLoadTexture(pathIndex + 1);
                     }
                 );

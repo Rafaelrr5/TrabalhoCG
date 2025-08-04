@@ -42,10 +42,13 @@ class SimpleTextureManager {
     async createMaterial(textureName, materialType = 'standard', properties = {}) {
         const texture = await this.load(textureName, properties.textureOptions);
         
+        // Separate textureOptions from material properties
+        const { textureOptions, ...materialProps } = properties;
+        
         const defaultProps = {
             map: texture,
             color: 0xffffff,
-            ...properties
+            ...materialProps  // Only spread actual material properties
         };
 
         switch (materialType) {
