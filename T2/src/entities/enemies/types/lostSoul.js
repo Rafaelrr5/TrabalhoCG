@@ -14,6 +14,10 @@ export class LostSoul extends Enemy {
 
     super(position, defaultConfig);
     
+    //configurações específicas do Lost Soul
+    this.detection.fovAngle = Math.PI / 2; // 90 graus
+    this.detection.maxDistance = 20;
+
     this.skullModel = null;
     this.loadSkull();
   }
@@ -105,11 +109,44 @@ export class LostSoul extends Enemy {
     this.updateBoundingBox();
   }
 
+  attack(targetPosition) {
+    // Comportamento kamikaze - causa dano mas também se destrói
+    super.attack(targetPosition);
+    
+    // Dano aumentado para compensar a auto-destruição
+    this.dealDamageToPlayer(this.config.kamikazeDamage || 15);
+    
+    // Auto-destruição
+    this.takeDamage(this.currentHealth);
+    
+    // Efeito especial
+    if (this.deathEffects) {
+      this.deathEffects.start();
+    }
+  }
+
   update(delta, camera, targetPosition, collidableObjects = [], otherEnemies = []) {
+    
     super.update(delta, camera, targetPosition, collidableObjects, otherEnemies);
     
     if (!this.isAlive || this.deathEffects.isDying) return;
-    
-    // Minimal update - inherited behaviors handle the rest
+
+    // Comportamento específico durante a perseguição
+    if (this.ai.state === 'CHASE') {
+      // Movimento mais errático com pequenas variações de direção
+      const erraticDirection = new THREE.Vector3(
+        Math.sin(Date.now() * 0.001) * 0.3,
+        0,
+        Math.cos(Date.now() * 0.001) * 0.3
+      );
+      
+      const targetWithOffset = targetPosition.clone().add(erraticDirection);
+      this.movement.moveTowards(targetWithOffset, delta, {
+        speedMultiplier: 1.5,
+        enableCollision: true,
+        collidableObjects: collidableObjects
+      });
+    }
   }
 }
+

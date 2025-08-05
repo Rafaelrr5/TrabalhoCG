@@ -35,7 +35,7 @@ export async function createEnemies(scene) {
   
   lostSoulPositions.forEach(([x, y, z]) => {
     const enemy = new LostSoul([x, y, z]);
-    enemy.area = 'area1';
+    enemy.area = 'area1'; // Defina a área corretamente
     enemy.enemyType = 'LostSoul';
     enemies.push(enemy);
     scene.add(enemy.mesh);
@@ -49,11 +49,36 @@ export async function createEnemies(scene) {
 
   cacodeemonPositions.forEach(([x, y, z]) => {
     const enemy = new Cacodemon([x, y, z]);
-    enemy.area = 'area2';
+    enemy.area = 'area2'; // Defina a área corretamente
     enemy.enemyType = 'Cacodemon';
     enemies.push(enemy);
     scene.add(enemy.mesh);
   });
+}
+
+export function shouldUpdateEnemy(camera, enemy) {
+  // Sempre atualize se já tiver visto o jogador
+  if (enemy.detection?.hasSeenPlayer) {
+    return true;
+  }
+
+  // Verifique a área específica e ative os inimigos
+  const inArea1 = isPlayerInArea1(camera);
+  const inArea2 = isPlayerInArea2(camera);
+  
+  if (enemy.area === 'area1' && inArea1) {
+    activateLostSoulsInArea1();
+    enemy.detection.hasSeenPlayer = true; // Forçar detecção
+    return true;
+  }
+  
+  if (enemy.area === 'area2' && inArea2) {
+    activateCacodemonsInArea2();
+    enemy.detection.hasSeenPlayer = true; // Forçar detecção
+    return true;
+  }
+  
+  return false;
 }
 
 export function updateEnemies(delta, scene, camera, gun = null, collidableObjects = []) {
@@ -64,50 +89,28 @@ export function updateEnemies(delta, scene, camera, gun = null, collidableObject
   );
   
   const aliveEnemies = enemies.filter(e => e.isAlive);
-  
-  // Health bar debugging - periodically check and force visibility
-  healthBarDebugCounter++;
-  if (healthBarDebugCounter >= HEALTH_BAR_DEBUG_INTERVAL) {
-    forceShowAllHealthBars(aliveEnemies);
-    healthBarDebugCounter = 0;
-  }
-  
+  const inArea1 = isPlayerInArea1(camera);
+  const inArea2 = isPlayerInArea2(camera);
+
   enemies.forEach(enemy => {
-    if (shouldUpdateEnemy(camera, enemy)) {
+    const shouldUpdate = enemy.detection?.hasSeenPlayer || 
+                       (enemy.area === 'area1' && inArea1) ||
+                       (enemy.area === 'area2' && inArea2);
+
+    if (shouldUpdate) {
       const otherEnemies = aliveEnemies.filter(e => e !== enemy);
       enemy.update(delta, camera, hitboxTop, collidableObjects, otherEnemies);
+      
+      // Ativa o inimigo se estiver na área correta
+      if (enemy.area === 'area1' && inArea1) {
+        enemy.detection.hasSeenPlayer = true;
+      } else if (enemy.area === 'area2' && inArea2) {
+        enemy.detection.hasSeenPlayer = true;
+      }
     } else if (typeof enemy.idleBehavior === 'function') {
       enemy.idleBehavior(delta);
     }
   });
-}
-
-function shouldUpdateEnemy(camera, enemy) {
-  switch (enemy.area) {
-    case 'area1':
-      const playerInArea1 = isPlayerInArea1(camera);
-      if (playerInArea1) {
-        activateLostSoulsInArea1();
-      }
-      
-      if (enemy.enemyType === 'LostSoul' && enemy.pursuitBehavior && enemy.pursuitBehavior.hasBeenActivated) {
-        return true;
-      }
-      return playerInArea1;
-    case 'area2':
-      const playerInArea2 = isPlayerInArea2(camera);
-      if (playerInArea2) {
-        activateCacodemonsInArea2();
-      }
-      
-      if (enemy.enemyType === 'Cacodemon' && enemy.pursuitBehavior && enemy.pursuitBehavior.hasBeenActivated) {
-        return true;
-      }
-      
-      return playerInArea2;
-    default:
-      return true;
-  }
 }
 
 export function cleanupDeadEnemies(scene) {
@@ -203,6 +206,7 @@ export function activateCacodemonsInArea2() {
   if (area2CacodemonsActivated) return;
   
   const cacodemons = getCacodemons().filter(c => c.area === 'area2' && c.isAlive);
+  console.log(`Activating ${cacodemons.length} Cacodemons in Area 2`);
   
   cacodemons.forEach(cacodemon => {
     if (cacodemon.pursuitBehavior) {
@@ -214,7 +218,6 @@ export function activateCacodemonsInArea2() {
   });
   
   area2CacodemonsActivated = true;
-  console.log(`Activated ${cacodemons.length} Cacodemons in Area 2!`);
 }
 
 export function resetArea2Activation() {
@@ -256,8 +259,10 @@ export function activateLostSoulsInArea1() {
   if (area1LostSoulsActivated) return;
   
   const lostSouls = getLostSouls().filter(ls => ls.area === 'area1' && ls.isAlive);
+  console.log(`Activating ${lostSouls.length} Lost Souls in Area 1`);
   
   lostSouls.forEach(lostSoul => {
+    lostSoul.detection.hasSeenPlayer = true;
     if (lostSoul.pursuitBehavior) {
       lostSoul.pursuitBehavior.activate();
     }
@@ -265,7 +270,6 @@ export function activateLostSoulsInArea1() {
   });
   
   area1LostSoulsActivated = true;
-  console.log(`Activated ${lostSouls.length} Lost Souls in Area 1!`);
 }
 
 export function resetArea1Activation() {

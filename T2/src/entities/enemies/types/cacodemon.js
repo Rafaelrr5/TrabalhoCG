@@ -13,6 +13,10 @@ export class Cacodemon extends Enemy {
     };
 
     super(position, finalConfig);
+
+    //configurações específicas do Cacodemon
+    this.detection.fovAngle = Math.PI / 1.5; // 120 graus
+    this.detection.maxDistance = 25;
     
     this.model = null;
     this.modelLoaded = false;
@@ -116,14 +120,46 @@ export class Cacodemon extends Enemy {
     }
   }
 
-  update(delta, camera, playerHitbox, collidableObjects = [], otherEnemies = []) {
-    // Call base update first (essential!)
-    super.update(delta, camera, playerHitbox, otherEnemies);
+  attack(targetPosition) {
+    super.attack(targetPosition); // Chama o comportamento base
+    
+    // Comportamento específico do Cacodemon
+    if (this.modelLoaded) {
+      // Animação de ataque
+      this.model.rotation.x = Math.PI / 4; // Inclina para frente
+      
+      // Aqui você pode adicionar lógica para disparar projéteis se necessário
+      // this.fireProjectile(targetPosition);
+    }
+    
+    // Som de ataque específico
+    if (this.audio) {
+      this.audio.playAttackSound('cacodemon_attack');
+    }
+  }
+
+  update(delta, camera, targetPosition, collidableObjects = [], otherEnemies = []) {
+    super.update(delta, camera, targetPosition, collidableObjects, otherEnemies);
     
     if (!this.isAlive || this.deathEffects.isDying) return;
 
-    // Minimal update - inherited behaviors handle the rest
+    // Comportamento específico durante o ataque
+    if (this.ai.state === 'ATTACK' && this.modelLoaded) {
+      // Orientar o modelo para o jogador rapidamente
+      this.movement.orientToTarget(this.model, targetPosition, {
+        smoothRotation: true,
+        rotationSpeed: 10.0 // Mais rápido durante o ataque
+      });
+    }
+    
+    // Comportamento durante o afastamento
+    if (this.ai.state === 'DISENGAGE') {
+      // Flutuação mais pronunciada
+      const floatHeight = Math.sin(Date.now() * 0.001 * 2) * 0.3;
+      this.mesh.position.y = this.spawnPosition.y + floatHeight;
+    }
   }
+
 
   dispose() {
     if (this.model) {
