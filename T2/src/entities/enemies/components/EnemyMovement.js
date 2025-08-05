@@ -48,18 +48,17 @@ export class EnemyMovement {
   }
 
   handleCollision(targetPosition, collidableObjects, delta) {
-    const collision = this.enemy.collision.checkEnvironmentCollision(collidableObjects);
-  
-    if (collision.hasCollision) {
-      const escapeDir = this.enemy.collision.getAvoidanceDirection(
-        collidableObjects, 
-        targetPosition
-      );
+    const collision = this.checkEnvironmentCollision(targetPosition, collidableObjects, delta);
     
-      if (escapeDir) {
-        this.enemy.velocity.copy(escapeDir).multiplyScalar(this.enemy.config.speed);
-      } else {
-        this.enemy.velocity.multiplyScalar(0.2); // Reduz velocidade se não houver saída
+    if (collision && collision.hasCollision) {
+      const safeDistance = CONFIG.LOST_SOUL_COLLISION_DISTANCE || 2.0;
+      
+      if (collision.distance < safeDistance) {
+        const corrected = this.applyCollisionCorrection(targetPosition, collidableObjects);
+        
+        if (!corrected) {
+          this.enemy.velocity.multiplyScalar(0.2); // Slow down if can't avoid
+        }
       }
     }
   }

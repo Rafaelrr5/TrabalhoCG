@@ -15,34 +15,6 @@ export class EnemyCollision {
     this.correctionInterval = 50; // 50ms entre correções
     this.lastSeparationTime = 0;
     this.separationInterval = 30; // 30ms entre separações
-
-    //raycaster para o ambiente e inimigos
-    this.raycaster = new THREE.Raycaster();
-    this.raydirections = [];
-    this.raylengh = 1.5;
-    this.initraydirections();//inicializa as direções dos raios
-
-    this.lastRaycastTime = 0;
-    this.lastCollisionResult = { hasCollision: false };
-    this.updateInterval = enemy.config.performance?.raycastUpdateInterval || 100; // ms
-
-  }
-
-  initraydirections() {
-    const baseDirections = [
-      new THREE.Vector3(1, 0, 0),   // Direita
-      new THREE.Vector3(-1, 0, 0),  // Esquerda
-      new THREE.Vector3(0, 0, 1),   // Frente
-      new THREE.Vector3(0, 0, -1),  // Trás
-      new THREE.Vector3(0, -1, 0)   // Baixo
-    ]
-    // Rays diagonais (melhora detecção em cantos)
-    this.rayDirections = [...baseDirections];
-    for (let x = -1; x <= 1; x += 2) {
-      for (let z = -1; z <= 1; z += 2) {
-        this.rayDirections.push(new THREE.Vector3(x, 0, z).normalize());
-      }
-    }
   }
 
   updateBoundingBox(force = false) {
@@ -96,6 +68,7 @@ export class EnemyCollision {
   }
 
   checkEnvironmentCollision(collidableObjects, newPosition = null) {
+<<<<<<< HEAD
   const now = performance.now();
   
   // 1. Throttling - Limita a frequência de verificações pesadas
@@ -193,43 +166,107 @@ _preciseCollisionCheck(obj, position, radius) {
 }
 
   getAvoidanceDirection(collidableObjects, targetPosition) {
+=======
+    if (!collidableObjects || collidableObjects.length === 0) {
+      return { hasCollision: false };
+    }
+    
+    const checkPosition = newPosition || this.enemy.mesh.position;
+    const radius = this.enemy.config.collisionRadius || this.enemy.config.radius || 1.0;
+    
+    // Criar bounding box do inimigo na posição a ser testada
+    const enemyBox = new THREE.Box3().setFromCenterAndSize(
+      checkPosition,
+      new THREE.Vector3(radius * 2, radius * 2, radius * 2)
+    );
+    
+    for (const obj of collidableObjects) {
+      const objectBox = new THREE.Box3().setFromObject(obj);
+      
+      if (enemyBox.intersectsBox(objectBox)) {
+        // Calcular direção de escape
+        const objectCenter = objectBox.getCenter(new THREE.Vector3());
+        const escapeDirection = new THREE.Vector3()
+          .subVectors(checkPosition, objectCenter)
+          .normalize();
+        
+        // Se a direção é zero (posições idênticas), usar direção padrão
+        if (escapeDirection.length() === 0) {
+          escapeDirection.set(1, 0, 0);
+        }
+        
+        return {
+          hasCollision: true,
+          object: obj,
+          normal: escapeDirection,
+          distance: 0,
+          point: checkPosition
+        };
+      }
+    }
+    
+    return { hasCollision: false };
+  }
+
+  getAvoidanceDirection(collidableObjects, targetPosition, lookaheadDistance = 2.0) {
+    if (!collidableObjects || collidableObjects.length === 0) {
+      return null;
+    }
+    
+    const currentPos = this.enemy.mesh.position;
+    const radius = this.enemy.config.collisionRadius || this.enemy.config.radius || 1.0;
+    
+    // Verificar colisão atual
+>>>>>>> parent of d5edef8 (Atualizando o sistema de colisõ dos inimigos para raycasting)
     const collision = this.checkEnvironmentCollision(collidableObjects);
-    if (!collision.hasCollision) return null;
-
-    // Direção atual em direção ao alvo
-    const moveDir = new THREE.Vector3()
-      .subVectors(targetPosition, this.enemy.mesh.position)
-      .normalize();
-
-    // Calcula a direção de escape refletindo a direção de movimento
-    const escapeDir = moveDir.clone().reflect(collision.normal);
-
-    // Adiciona aleatoriedade para evitar movimento robótico
-    escapeDir.add(
-      new THREE.Vector3(
-        (Math.random() - 0.5) * 0.3,
-        0,
-        (Math.random() - 0.5) * 0.3
-      )
-    ).normalize();
-
-    return escapeDir;
+    
+    if (collision.hasCollision) {
+      // Se há colisão, empurrar na direção oposta
+      const pushDirection = collision.normal.clone();
+      pushDirection.y = 0; // Manter no plano horizontal
+      pushDirection.normalize();
+      
+      return pushDirection.multiplyScalar(2.0);
+    }
+    
+    // Verificar colisão futura baseada na direção de movimento
+    if (targetPosition) {
+      const direction = new THREE.Vector3()
+        .subVectors(targetPosition, currentPos)
+        .normalize();
+      
+      const futurePosition = currentPos.clone()
+        .addScaledVector(direction, lookaheadDistance);
+      
+      const futureCollision = this.checkEnvironmentCollision(collidableObjects, futurePosition);
+      
+      if (futureCollision.hasCollision) {
+        // Tentar direções alternativas
+        const testDirections = [
+          direction.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2), // 90° esquerda
+          direction.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2), // 90° direita
+          direction.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 4), // 45° esquerda
+          direction.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 4), // 45° direita
+        ];
+        
+        for (const testDir of testDirections) {
+          const testPos = currentPos.clone().addScaledVector(testDir, lookaheadDistance);
+          const testCollision = this.checkEnvironmentCollision(collidableObjects, testPos);
+          
+          if (!testCollision.hasCollision) {
+            return testDir;
+          }
+        }
+        
+        // Se todas as direções testadas falharam, usar a normal da colisão
+        return futureCollision.normal.clone().multiplyScalar(1.5);
+      }
+    }
+    
+    return null;
   }
 
   checkEnemyCollisions(otherEnemies, separationRadius = null) {
-    const now = performance.now();
-    if (this.enableThrottling && now - this.lastRaycastTime < this.updateInterval) {
-      return this.lastCollisionResult; // Retorna o resultado em cache se estiver em throttling
-    }
-
-    if (!collidableObjects?.length) {
-      this.lastCollisionResult = { hasCollision: false };
-      return this.lastCollisionResult;
-    }
-
-    const position = newPosition || this.enemy.mesh.position;
-    let closestCollision = null;
-
     if (!otherEnemies || otherEnemies.length === 0) {
       return { hasCollision: false, separationForce: new THREE.Vector3() };
     }
@@ -252,13 +289,6 @@ _preciseCollisionCheck(obj, position, radius) {
         separationForce.addScaledVector(pushDirection, pushStrength);
         collisionCount++;
       }
-
-    this.lastCollisionResult = closestCollision 
-    ? { hasCollision: true, ...closestCollision } 
-    : { hasCollision: false };
-    this.lastRaycastTime = now;
-  
-    return this.lastCollisionResult;
     }
     
     if (collisionCount > 0) {
