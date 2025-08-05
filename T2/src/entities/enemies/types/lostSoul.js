@@ -2,6 +2,7 @@ import * as THREE from '../../../../../build/three.module.js';
 import { Enemy } from '../base/enemies.js';
 import { loadSkullModel, preloadSkullModel } from '../../../utils/skullLoader.js';
 import { getLostSoulConfig } from '../config/enemyConfig.js';
+import { EnemyCollision } from '../components/EnemyCollision.js';
 
 export class LostSoul extends Enemy {
   constructor(position = [0, 0, 0], config = {}) {
@@ -17,6 +18,14 @@ export class LostSoul extends Enemy {
     //configurações específicas do Lost Soul
     this.detection.fovAngle = Math.PI / 2; // 90 graus
     this.detection.maxDistance = 20;
+
+    this.collision = new EnemyCollision(this, {
+    performance: {
+      raycastUpdateInterval: 50
+    },
+    collisionRadius: this.config.collisionRadius,
+    enableEnvironmentCollision: true
+    });
 
     this.skullModel = null;
     this.loadSkull();
@@ -126,27 +135,23 @@ export class LostSoul extends Enemy {
   }
 
   update(delta, camera, targetPosition, collidableObjects = [], otherEnemies = []) {
-    
-    super.update(delta, camera, targetPosition, collidableObjects, otherEnemies);
-    
-    if (!this.isAlive || this.deathEffects.isDying) return;
+  super.update(delta, camera, targetPosition, collidableObjects, otherEnemies);
+  
+  if (!this.isAlive || this.deathEffects.isDying) return;
 
-    // Comportamento específico durante a perseguição
-    if (this.ai.state === 'CHASE') {
-      // Movimento mais errático com pequenas variações de direção
-      const erraticDirection = new THREE.Vector3(
-        Math.sin(Date.now() * 0.001) * 0.3,
-        0,
-        Math.cos(Date.now() * 0.001) * 0.3
-      );
-      
-      const targetWithOffset = targetPosition.clone().add(erraticDirection);
-      this.movement.moveTowards(targetWithOffset, delta, {
-        speedMultiplier: 1.5,
-        enableCollision: true,
-        collidableObjects: collidableObjects
-      });
-    }
+  // Garantir que collidableObjects está disponível
+  this.collidableObjects = collidableObjects || [];
+
+  if (this.ai.state === 'CHASE') {
+    const moveOptions = {
+      speedMultiplier: 1.5,
+      enableCollision: true,
+      collidableObjects: this.collidableObjects,
+      use6DOF: true // Para movimento 3D
+    };
+    
+    this.movement.moveTowards(targetPosition, delta, moveOptions);
   }
+}
 }
 

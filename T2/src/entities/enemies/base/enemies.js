@@ -209,12 +209,19 @@ checkPlayerVisibility(playerPosition) {
       this.movement.moveTowards(playerPosition, delta);
     }
 
-    //onPlayerLost() {
-      //comportamento base quando perde o jogador de vista
-
-    //}
-
   }
+
+  OnPlayerLost() {
+  // Comportamento padrão quando o jogador é perdido de vista
+  if (this.ai) {
+    this.ai.state = 'PATROL'; // Ou 'PATROL' dependendo da sua IA
+  }
+  
+  // Opcional: tocar som de perda de visão
+  if (this.audio && this.audio.playLostSound) {
+    this.audio.playLostSound();
+  }
+}
     
   generateId() {
     return `enemy_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -276,25 +283,45 @@ checkPlayerVisibility(playerPosition) {
 
   // Base update method (specific enemies should override this)
   update(delta, camera, targetPosition, collidableObjects = [], otherEnemies = []) {
-    if (this.deathEffects.isDying) {
-      this.deathEffects.update();
-      return;
-    }
-
-    if (!this.isAlive) return;
-
-    // Atualiza a detecção do jogador
-    this.updateDetection(delta, targetPosition, collidableObjects);
-
-    // Sempre atualiza se já viu o jogador ou se está na área correta
-    // (a decisão já foi tomada pelo manager)
-    this.ai.update(delta, targetPosition, collidableObjects);
-
-    // Atualiza componentes
-    this.audio.updateProximity(camera?.position);
-    this.healthBar.update(camera);
-    this.collision.updateBoundingBox();
+  if (this.deathEffects.isDying) {
+    this.deathEffects.update();
+    return;
   }
+
+  if (!this.isAlive) return;
+
+  // DEBUG: Verifique se o update está sendo chamado
+  console.log(`Updating ${this.enemyType} - Alive: ${this.isAlive}`);
+
+  // Atualiza detecção do jogador
+  this.updateDetection(delta, targetPosition, collidableObjects);
+
+  // Comportamento principal
+  if (this.detection.hasSeenPlayer) {
+    // DEBUG: Verifique se está detectando o jogador
+    console.log(`${this.enemyType} detected player`);
+    
+    // Movimento básico em direção ao jogador
+    const direction = new THREE.Vector3().subVectors(
+      targetPosition, 
+      this.mesh.position
+    ).normalize();
+    
+    // Aplica movimento
+    this.velocity.copy(direction).multiplyScalar(this.config.speed);
+    this.mesh.position.addScaledVector(this.velocity, delta);
+    
+    // DEBUG: Verifique a velocidade e posição
+    console.log(`Velocity: ${this.velocity.length()}, Position: ${this.mesh.position.toArray()}`);
+  } else {
+    this.ai.idleBehavior(delta);
+  }
+
+  // Atualiza componentes
+  this.audio.updateProximity(camera?.position);
+  this.healthBar.update(camera);
+  this.collision.updateBoundingBox();
+}
 
   dispose() {
     // Emit dispose event before cleanup
@@ -673,22 +700,21 @@ export class EnemyAI {
   }
 
   chaseBehavior(delta, playerPosition, collidableObjects) {
-    const distanceToPlayer = this.enemy.mesh.position.distanceTo(playerPosition);
-    const attackRange = this.enemy.config.attackRange || 3.0;
-    
-    if (distanceToPlayer <= attackRange) {
-      this.state = 'ATTACK';
-      this.lastAttackTime = Date.now() / 1000;
-      return;
-    }
-    
-    // Persegue com velocidade reduzida para parecer menos agressivo
-    this.enemy.movement.moveTowards(playerPosition, delta, {
-      speedMultiplier: 0.7,
-      enableCollision: true,
-      collidableObjects: collidableObjects
-    });
+  const moveOptions = {
+    speedMultiplier: 0.7,
+    enableCollision: true,
+    collidableObjects: collidableObjects,
+    use6DOF: this.enemy.config.isFlying
+  };
+  
+  this.enemy.movement.moveTowards(playerPosition, delta, moveOptions);
+  
+  // Verificação de alcance de ataque
+  const distance = this.enemy.mesh.position.distanceTo(playerPosition);
+  if (distance <= (this.enemy.config.attackRange || 3.0)) {
+    this.state = 'ATTACK';
   }
+}
 
   attackBehavior(delta, playerPosition) {
     const currentTime = Date.now() / 1000;

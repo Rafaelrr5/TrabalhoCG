@@ -5,11 +5,16 @@ import { CONFIG } from '../../../core/config.js';
 export class EnemyMovement {
   constructor(enemy) {
     this.enemy = enemy;
-    // Use the enemy's velocity instead of creating our own
     this._tempVector3 = new THREE.Vector3();
+    this._lastUpdate = 0;
+    this.updateInterval = 100; // ms entre atualizações pesadas
   }
 
   moveTowards(targetPosition, delta, options = {}) {
+    const now = performance.now();
+    if (now - this._lastUpdate < this.updateInterval && !options.forceUpdate) {
+      return this.enemy.velocity.clone();
+    }
     if (!this.enemy.isAlive) return;
     
     const {
@@ -37,6 +42,7 @@ export class EnemyMovement {
     
     // Apply movement
     this.enemy.mesh.position.addScaledVector(this.enemy.velocity, delta);
+    this._lastUpdate = now;
     
     return this.enemy.velocity.clone();
   }
