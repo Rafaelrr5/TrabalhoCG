@@ -7,6 +7,7 @@ import { EnemyMovement } from '../components/EnemyMovement.js';
 import { EnemyCollision } from '../components/EnemyCollision.js';
 import { EnemyDeathEffects } from '../components/EnemyDeathEffects.js';
 import { EnemyIdleBehaviors } from '../components/EnemyIdleBehaviors.js';
+import { player } from '../../player/player.js';
 //import { EnemyAI } from './components/EnemyAI.js';
 
 export const DEFAULT_ENEMY_CONFIG = {
@@ -173,54 +174,24 @@ checkPlayerVisibility(playerPosition) {
   this.detection.cooldownTimer = Date.now() + this.detection.detectionCooldown;
   return true;
 }
+
+moveTowards(targetPosition, options = {}) {
+  // Delega totalmente para EnemyMovement
+  return this.movement.moveTowards(
+    targetPosition, 
+    options.delta || 0.016, 
+    {
+      use6DOF: this.config.isFlying,
+      enableCollision: options.enableCollision,
+      collidableObjects: options.collidableObjects || [],
+      speedMultiplier: options.speedMultiplier || 1.0
+    }
+  );
+}
   
-  updateDetection(delta, playerPosition, collidableObjects){
-    //guarda os objetos colidiveis
-    this.collidableObjects = collidableObjects;
-
-    //verifica se o jogador está visível
-    const canSeePlayer = this.checkPlayerVisibility(playerPosition);
-    //Atualiza o cooldown de detecção
-    if(!canSeePlayer && this.detection.isPlayerVisible){
-      this.detection.cooldownTimer -= delta;
-      if (this.detection.cooldownTimer <= 0) {
-        this.detection.isPlayerVisible = false;
-        this.detection.lastSeenPosition = null;
-      }
-    }
-
-    //logica adicional de detecção
-    if (this.detection.isPlayerVsible) {
-      this.OnPlayerDetected(playerPosition);
-    }
-    else if (this.detection.lastSeenPosition){
-      this.OnPlayerLost();
-    }    
-  }
-
-  OnPlayerDetected(playerPosition) {
-    //Comportamento base quando o jogador é detectado
-    if (!this.audio.isPlayingAttackSound()) {
-      this.audio.playSightSound();
-    }
-
-    //lógica de perseguição ou ataque base
-    if (this.movement) {
-      this.movement.moveTowards(playerPosition, delta);
-    }
-
-  }
-
-  OnPlayerLost() {
-  // Comportamento padrão quando o jogador é perdido de vista
-  if (this.ai) {
-    this.ai.state = 'PATROL'; // Ou 'PATROL' dependendo da sua IA
-  }
-  
-  // Opcional: tocar som de perda de visão
-  if (this.audio && this.audio.playLostSound) {
-    this.audio.playLostSound();
-  }
+updateDetection(playerPosition, collidableObjects) {
+  this.collidableObjects = collidableObjects;
+  return this.checkPlayerVisibility(playerPosition);
 }
     
   generateId() {
@@ -290,39 +261,18 @@ checkPlayerVisibility(playerPosition) {
 
   if (!this.isAlive) return;
 
-  // DEBUG: Verifique se o update está sendo chamado
-  console.log(`Updating ${this.enemyType} - Alive: ${this.isAlive}`);
+  // Atualiza a IA (que agora gerencia completamente o comportamento)
+  this.ai.update(delta, targetPosition, collidableObjects);
 
-  // Atualiza detecção do jogador
-  this.updateDetection(delta, targetPosition, collidableObjects);
-
-  // Comportamento principal
-  if (this.detection.hasSeenPlayer) {
-    // DEBUG: Verifique se está detectando o jogador
-    console.log(`${this.enemyType} detected player`);
-    
-    // Movimento básico em direção ao jogador
-    const direction = new THREE.Vector3().subVectors(
-      targetPosition, 
-      this.mesh.position
-    ).normalize();
-    
-    // Aplica movimento
-    this.velocity.copy(direction).multiplyScalar(this.config.speed);
-    this.mesh.position.addScaledVector(this.velocity, delta);
-    
-    // DEBUG: Verifique a velocidade e posição
-    console.log(`Velocity: ${this.velocity.length()}, Position: ${this.mesh.position.toArray()}`);
-  } else {
-    this.ai.idleBehavior(delta);
-  }
-
-  // Atualiza componentes
+  // Atualiza componentes visuais/auditivos
   this.audio.updateProximity(camera?.position);
   this.healthBar.update(camera);
   this.collision.updateBoundingBox();
+  
+  // Aplica forças de separação entre inimigos
+  const { separationForce } = this.collision.checkEnemyCollisions(otherEnemies);
+  this.collision.applySeparationForce(separationForce, delta);
 }
-
   dispose() {
     // Emit dispose event before cleanup
     this.emit('disposing', { enemy: this });
@@ -471,33 +421,24 @@ export class EnemyManager extends SimpleEventEmitter {
   }
 
   update(delta, camera, targetPosition, collidableObjects = [], otherEnemies = []) {
-    if (this.deathEffects.isDying) {
-      this.deathEffects.update();
-      return;
-    }
-
-    if (!this.isAlive) return;
-
-    // Atualiza a detecção do jogador
-    this.updateDetection(delta, targetPosition, collidableObjects);
-
-    // Verifica se o jogador está na área correta
-    const isPlayerInArea = this.area === 'area1' ? 
-      window.isPlayerInArea1(camera) : window.isPlayerInArea2(camera);
-
-    // Ativa o inimigo se o jogador estiver na área ou se já tiver visto o jogador
-    if (isPlayerInArea || this.detection.hasSeenPlayer) {
-      this.ai.update(delta, targetPosition, collidableObjects);
-    } else {
-      // Comportamento idle quando fora da área
-      this.ai.idleBehavior(delta);
-    }
-
-    // Atualiza componentes
-    this.audio.updateProximity(camera?.position);
-    this.healthBar.update(camera);
-    this.collision.updateBoundingBox();
+  if (this.deathEffects.isDying) {
+    this.deathEffects.update();
+    return;
   }
+
+  if (!this.isAlive) return;
+
+  // Atualiza detecção do jogador
+  const isPlayerVisible = this.checkPlayerVisibility(targetPosition, collidableObjects);
+  
+  // Atualiza a AI
+  this.ai.update(delta, targetPosition, collidableObjects);
+
+  // Atualiza componentes
+  this.audio.updateProximity(camera?.position);
+  this.healthBar.update(camera);
+  this.collision.updateBoundingBox();
+}
 
 
   getEnemiesInRadius(position, radius) {
@@ -573,224 +514,189 @@ export function debugAllHealthBars(enemies) {
 export class EnemyAI {
   constructor(enemy) {
     this.enemy = enemy;
-    this.state = 'IDLE'; // 'IDLE', 'PATROL', 'CHASE', 'ATTACK', 'DISENGAGE'
-    this.lastStateChange = 0;
-    this.patrolPoints = [];
-    this.currentPatrolIndex = 0;
-    this.idleTime = 0;
-    this.maxIdleTime = 3 + Math.random() * 4;
-    this.patrolRadius = 10;
-    this.hasSeenPlayer = false;
-    this.lastAttackTime = 0;
-    this.attackCooldown = 2.0; // segundos entre ataques
-    this.disengageDirection = null;
-    this.disengageDistance = 5 + Math.random() * 5; // Distância para se afastar
-    this.searchCenter = null; // Centro da nova área de busca
-    
-    this.spawnPosition = enemy.mesh.position.clone();
-    this.generatePatrolPoints(3 + Math.floor(Math.random() * 3));
+  this.state = 'IDLE';
+  this.lastStateChange = 0;
+  this.patrolPoints = [];
+  this.currentPatrolIndex = 0;
+  this.idleTime = 0;
+  this.maxIdleTime = 3 + Math.random() * 4;
+  this.hasSeenPlayer = false;
+  this.lastAttackTime = 0;
+  this.attackCooldown = 2.0;
+  this.disengageTime = 0;
+  this.disengageDuration = 3.0;
+  
+  this.currentDirection = new THREE.Vector3(
+    Math.random() - 0.5,
+    0,
+    Math.random() - 0.5
+  ).normalize();
+  this.changeDirectionTime = 0;
+  this.directionChangeInterval = 2 + Math.random() * 3;
+  this.movementSpeed = this.enemy.config.speed * 0.5;
   }
 
-  generatePatrolPoints(count) {
-    this.patrolPoints = [];
-    for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 2;
-      const distance = 3 + Math.random() * (this.patrolRadius - 3);
-      
-      const point = new THREE.Vector3(
-        this.spawnPosition.x + Math.cos(angle) * distance,
-        this.spawnPosition.y,
-        this.spawnPosition.z + Math.sin(angle) * distance
-      );
-      
-      this.patrolPoints.push(point);
-    }
-    this.currentPatrolIndex = 0;
-  }
-
- update(delta, playerPosition, collidableObjects) {
+  update(delta, playerPosition, collidableObjects) {
     if (!this.enemy.isAlive) return;
 
-  // Reduz a frequência de verificações pesadas
-  const now = performance.now();
-  if (now - this._lastAIUpdate < 200) { // Atualiza a cada 200ms
-    return;
-  }
-  this._lastAIUpdate = now;
-
-  // Verificação de visão otimizada
-  const simpleDistanceCheck = this.enemy.mesh.position.distanceTo(playerPosition) < 20;
-  if (!simpleDistanceCheck) return;
-    
-    // Verifica visibilidade do jogador
     const canSeePlayer = this.enemy.checkPlayerVisibility(playerPosition, collidableObjects);
-    
-    // Atualiza o status de detecção
-    if (canSeePlayer) {
-      this.hasSeenPlayer = true;
-      this.enemy.detection.hasSeenPlayer = true;
-    }
+    const distanceToPlayer = this.enemy.mesh.position.distanceTo(playerPosition);
 
-    // State transitions
+    // Transições de estado
     if (canSeePlayer) {
-      if (this.state !== 'ATTACK' && this.state !== 'DISENGAGE') {
-        this.state = 'CHASE';
+      if (distanceToPlayer > this.enemy.config.attackRange && this.state !== 'CHASE') {
+        this.changeState('CHASE');
+      } else if (distanceToPlayer <= this.enemy.config.attackRange && this.state !== 'ATTACK') {
+        this.changeState('ATTACK');
       }
     } else if (this.state === 'CHASE' || this.state === 'ATTACK') {
-      this.state = 'DISENGAGE';
-      this.searchCenter = this.enemy.mesh.position.clone();
-      this.generatePatrolPoints(3);
+      this.changeState('DISENGAGE');
     }
-    
-    // State behaviors
+
+    // Comportamentos
     switch (this.state) {
       case 'IDLE':
         this.idleBehavior(delta);
-        this.idleTime += delta;
-        if (this.idleTime >= this.maxIdleTime) {
-          this.state = 'PATROL';
-          this.idleTime = 0;
-        }
         break;
-        
       case 'PATROL':
-        this.patrolBehavior(delta);
+        this.movingBehavior(delta, playerPosition, canSeePlayer);
         break;
-        
       case 'CHASE':
         this.chaseBehavior(delta, playerPosition, collidableObjects);
         break;
-        
       case 'ATTACK':
         this.attackBehavior(delta, playerPosition);
         break;
-        
       case 'DISENGAGE':
-        this.disengageBehavior(delta, collidableObjects);
+        this.disengageBehavior(delta);
         break;
     }
   }
 
-  idleBehavior(delta) {
-    // Use the existing idle behaviors
-    EnemyIdleBehaviors.combinedIdleBehavior(this.enemy, delta, {
-      movement: this.enemy.config.isFlying ? '6dof' : 'ground',
-      enableModelRotation: true,
-      model: this.enemy.skullModel || this.enemy.model,
-      pulse: {
-        baseScale: 1.0,
-        amplitude: 0.05,
-        speed: 1.5
-      }
-    });
+  changeState(newState) {
+  if (this.state === newState) return;
+  
+  console.log(`Enemy ${this.enemy.id} changing state from ${this.state} to ${newState}`);
+  this.state = newState;
+  this.lastStateChange = Date.now() / 1000;
+  
+  // Resetar tempos quando necessário
+  if (newState === 'DISENGAGE') {
+    this.disengageTime = this.lastStateChange;
   }
-
-  patrolBehavior(delta) {
-    const targetPoint = this.patrolPoints[this.currentPatrolIndex];
-    this.enemy.movement.moveTowards(targetPoint, delta, {
-      speedMultiplier: 0.5,
-      enableCollision: true,
-      collidableObjects: this.enemy.collidableObjects
-    });
-    
-    // Randomly change direction sometimes
-    if (Math.random() < 0.01) {
-      this.currentPatrolIndex = (this.currentPatrolIndex + 1) % this.patrolPoints.length;
-    }
-  }
+}
 
   chaseBehavior(delta, playerPosition, collidableObjects) {
-  const moveOptions = {
-    speedMultiplier: 0.7,
-    enableCollision: true,
-    collidableObjects: collidableObjects,
-    use6DOF: this.enemy.config.isFlying
-  };
-  
-  this.enemy.movement.moveTowards(playerPosition, delta, moveOptions);
-  
-  // Verificação de alcance de ataque
-  const distance = this.enemy.mesh.position.distanceTo(playerPosition);
-  if (distance <= (this.enemy.config.attackRange || 3.0)) {
-    this.state = 'ATTACK';
+    const moveOptions = {
+      speedMultiplier: 1.0,
+      enableCollision: true,
+      collidableObjects: collidableObjects,
+      use6DOF: this.enemy.config.isFlying
+    };
+    
+    this.enemy.movement.moveTowards(playerPosition, delta, moveOptions);
+  }
+
+
+  idleBehavior(delta) {
+    // Comportamento quando não está ativado
+    EnemyIdleBehaviors.combinedIdleBehavior(this.enemy, delta, {
+      movement: this.enemy.config.isFlying ? '6dof' : 'ground'
+    });
+  }
+
+  movingBehavior(delta, playerPosition, isPlayerVisible) {
+  // Garante que temos uma direção válida
+  if (!this.currentDirection || this.currentDirection.length() === 0) {
+    this.changeRandomDirection();
+  }
+
+  try {
+    // Muda de direção periodicamente
+    this.changeDirectionTime += delta;
+    if (this.changeDirectionTime >= this.directionChangeInterval) {
+      this.changeDirectionTime = 0;
+      this.directionChangeInterval = 2 + Math.random() * 3;
+      this.changeRandomDirection();
+    }
+
+    // Movimento seguro com verificação de direção
+    if (this.currentDirection && this.currentDirection.length() > 0) {
+      const moveAmount = this.movementSpeed * delta;
+      this.enemy.mesh.position.addScaledVector(this.currentDirection, moveAmount);
+
+      // Rotação suave
+      const forward = new THREE.Vector3(0, 0, 1);
+      const targetQuat = new THREE.Quaternion().setFromUnitVectors(
+        forward, 
+        this.currentDirection.clone().normalize()
+      );
+      this.enemy.mesh.quaternion.slerp(targetQuat, 0.1);
+    }
+
+    // Verifica se detectou o jogador
+    if (isPlayerVisible) {
+      this.changeState('CHASE');
+    }
+  } catch (error) {
+    console.error('Error in movingBehavior:', error);
+    this.changeRandomDirection();
+  }
+}
+
+  changeRandomDirection() {
+  // Cria uma nova direção aleatória com verificação de segurança
+  try {
+    this.currentDirection = new THREE.Vector3(
+      Math.random() - 0.5,
+      this.enemy.config.isFlying ? (Math.random() - 0.5) * 0.5 : 0,
+      Math.random() - 0.5
+    ).normalize();
+    
+    // Garante que a direção seja válida
+    if (isNaN(this.currentDirection.x)) {
+      this.currentDirection.set(1, 0, 0);
+    }
+  } catch (error) {
+    console.error('Error generating random direction:', error);
+    this.currentDirection = new THREE.Vector3(1, 0, 0);
   }
 }
 
   attackBehavior(delta, playerPosition) {
-    const currentTime = Date.now() / 1000;
-    
-    // Executa o ataque uma vez e depois se prepara para se afastar
-    if (currentTime - this.lastAttackTime > this.attackCooldown) {
-      if (this.enemy.attack) {
-        this.enemy.attack(playerPosition);
-      }
-      
-      // Define uma direção aleatória para se afastar
-      const angle = Math.random() * Math.PI * 2;
-      this.disengageDirection = new THREE.Vector3(
-        Math.cos(angle),
-        0,
-        Math.sin(angle)
-      ).normalize();
-      
-      this.state = 'DISENGAGE';
-      this.searchCenter = this.enemy.mesh.position.clone(); // Define novo centro
-      this.generatePatrolPoints(3); // Gera novos pontos em torno da posição atual
+    // Executa o ataque uma vez
+    if (this.enemy.attack) {
+      this.enemy.attack(playerPosition);
     }
+
+    // Muda para estado de desengajamento após o ataque
+    this.state = 'DISENGAGE';
+    this.disengageTime = Date.now() / 1000;
+
+    // Define uma nova direção aleatória para desengajar
+    this.changeRandomDirection();
   }
 
-  disengageBehavior(delta, collidableObjects) {
-    // Se ainda não se afastou o suficiente, continua se movendo
-    if (this.disengageDirection && 
-        this.enemy.mesh.position.distanceTo(this.searchCenter) < this.disengageDistance) {
-      const targetPosition = this.enemy.mesh.position.clone()
-        .addScaledVector(this.disengageDirection, this.disengageDistance);
-      
-      this.enemy.movement.moveTowards(targetPosition, delta, {
-        speedMultiplier: 0.5,
-        enableCollision: true,
-        collidableObjects: collidableObjects
-      });
-    } else {
-      // Volta a patrulhar na nova área
-      this.state = 'PATROL';
-      this.disengageDirection = null;
-    }
+  disengageBehavior(delta) {
+  const currentTime = Date.now() / 1000;
+  
+  // Verifica se currentDirection existe antes de usar
+  if (this.currentDirection && this.currentDirection.length() > 0) {
+    this.enemy.mesh.position.addScaledVector(
+      this.currentDirection, 
+      this.movementSpeed * 0.7 * delta
+    );
   }
 
-  searchBehavior(delta, playerPosition, collidableObjects) {
-    // If we have a last known position, go there
-    if (this.enemy.detection.lastSeenPosition) {
-      const reachedLastPosition = this.enemy.mesh.position.distanceTo(
-        this.enemy.detection.lastSeenPosition
-      ) < 2.0;
-      
-      if (reachedLastPosition) {
-        // Look around for a bit then return to patrol
-        if (this.idleTime < 3.0) {
-          this.idleBehavior(delta);
-          this.idleTime += delta;
-        } else {
-          this.state = 'PATROL';
-          this.idleTime = 0;
-        }
-      } else {
-        this.enemy.movement.moveTowards(this.enemy.detection.lastSeenPosition, delta, {
-          speedMultiplier: 0.7,
-          enableCollision: true,
-          collidableObjects: collidableObjects
-        });
-      }
-    } else {
-      // No last known position, return to patrol
-      this.state = 'PATROL';
-    }
+  if (currentTime - this.disengageTime >= this.disengageDuration) {
+    this.changeState('IDLE');
   }
+}
 
   reset() {
     this.state = 'IDLE';
     this.hasSeenPlayer = false;
-    this.idleTime = 0;
-    this.generatePatrolPoints(3 + Math.floor(Math.random() * 3));
+    this.changeDirectionTime = 0;
+    this.currentDirection.set(0, 0, 0);
   }
 }

@@ -2,39 +2,26 @@ import * as THREE from '../../../../../build/three.module.js';
 import { Enemy } from '../base/enemies.js';
 import { loadSkullModel, preloadSkullModel } from '../../../utils/skullLoader.js';
 import { getLostSoulConfig } from '../config/enemyConfig.js';
-import { EnemyCollision } from '../components/EnemyCollision.js';
 
 export class LostSoul extends Enemy {
   constructor(position = [0, 0, 0], config = {}) {
-    // Use the centralized enemy config as base
-    const baseConfig = getLostSoulConfig();
-    const defaultConfig = {
-      ...baseConfig,
-      ...config // Allow override with custom config
+    const baseConfig = {
+      ...getLostSoulConfig(),
+      // Configurações específicas que não afetam comportamento
+      skullScale: 1.2,
+      ...config
     };
-
-    super(position, defaultConfig);
     
-    //configurações específicas do Lost Soul
-    this.detection.fovAngle = Math.PI / 2; // 90 graus
-    this.detection.maxDistance = 20;
-
-    this.collision = new EnemyCollision(this, {
-    performance: {
-      raycastUpdateInterval: 50
-    },
-    collisionRadius: this.config.collisionRadius,
-    enableEnvironmentCollision: true
-    });
-
+    super(position, baseConfig);
     this.skullModel = null;
     this.loadSkull();
   }
 
+
   async loadSkull() {
     try {
       await preloadSkullModel();
-      const loadedModel = await loadSkullModel()
+      const loadedModel = await loadSkullModel();
       const skullWrapper = new THREE.Group();
       
       const clonedModel = loadedModel.clone();
@@ -67,12 +54,13 @@ export class LostSoul extends Enemy {
       
       this.setupSkullModel(skullWrapper);
       
-      // Ensure health bar is visible after model setup
+      // Garante que a barra de vida está visível após configurar o modelo
       if (this.healthBar && this.healthBar.healthBarGroup) {
         this.healthBar.show();
       }
     } catch (error) {
       console.warn('Failed to load Lost Soul skull model:', error);
+      // Se falhar, o inimigo usará o comportamento base com a geometria padrão
     }
   }
 
@@ -83,7 +71,7 @@ export class LostSoul extends Enemy {
     const oldPosition = this.mesh.position.clone();
     const oldRotation = this.mesh.rotation.clone();
     
-    // Preserve the health bar before removing the mesh
+    // Preserva a barra de vida antes de remover a mesh
     let preservedHealthBar = null;
     if (this.healthBar && this.healthBar.healthBarGroup) {
       preservedHealthBar = this.healthBar.healthBarGroup;
@@ -99,11 +87,11 @@ export class LostSoul extends Enemy {
     
     this.skullModel = model;
     
-    // Re-add the preserved health bar
+    // Re-adiciona a barra de vida preservada
     if (preservedHealthBar) {
       group.add(preservedHealthBar);
     } else if (this.healthBar) {
-      // If no health bar group exists, try to recreate it
+      // Se não existir grupo de barra de vida, tenta recriá-lo
       this.healthBar.initialize();
       if (this.healthBar.healthBarGroup) {
         group.add(this.healthBar.healthBarGroup);
@@ -118,40 +106,17 @@ export class LostSoul extends Enemy {
     this.updateBoundingBox();
   }
 
-  attack(targetPosition) {
-    // Comportamento kamikaze - causa dano mas também se destrói
-    super.attack(targetPosition);
+  update(delta, camera, targetPosition, collidableObjects = [], otherEnemies = []) {
+    super.update(delta, camera, targetPosition, collidableObjects, otherEnemies);
     
-    // Dano aumentado para compensar a auto-destruição
-    this.dealDamageToPlayer(this.config.kamikazeDamage || 15);
-    
-    // Auto-destruição
-    this.takeDamage(this.currentHealth);
-    
-    // Efeito especial
-    if (this.deathEffects) {
-      this.deathEffects.start();
+    if (!this.isAlive || this.deathEffects.isDying) return;
+
+    // Orientação visual apenas
+    if (this.skullModel) {
+      this.movement.orientToTarget(this.skullModel, targetPosition, {
+        smoothRotation: true,
+        rotationSpeed: 5.0
+      });
     }
   }
-
-  update(delta, camera, targetPosition, collidableObjects = [], otherEnemies = []) {
-  super.update(delta, camera, targetPosition, collidableObjects, otherEnemies);
-  
-  if (!this.isAlive || this.deathEffects.isDying) return;
-
-  // Garantir que collidableObjects está disponível
-  this.collidableObjects = collidableObjects || [];
-
-  if (this.ai.state === 'CHASE') {
-    const moveOptions = {
-      speedMultiplier: 1.5,
-      enableCollision: true,
-      collidableObjects: this.collidableObjects,
-      use6DOF: true // Para movimento 3D
-    };
-    
-    this.movement.moveTowards(targetPosition, delta, moveOptions);
-  }
 }
-}
-

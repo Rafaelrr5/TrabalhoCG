@@ -5,7 +5,6 @@ import { preloadSkullModel } from '../../utils/skullLoader.js';
 import { CONFIG } from '../../core/config.js';
 import { isPlayerInArea1, isPlayerInArea2 } from '../../systems/environment.js';
 import { cleanupAllProjectiles } from './systems/cacodeemonProjectile.js';
-import { EnemyPersistentPursuitManager } from './components/EnemyPersistentPursuitBehavior.js';
 import { forceShowAllHealthBars, debugAllHealthBars } from './base/enemies.js';
 
 export const enemies = [];
@@ -35,10 +34,11 @@ export async function createEnemies(scene) {
   
   lostSoulPositions.forEach(([x, y, z]) => {
     const enemy = new LostSoul([x, y, z]);
-    enemy.area = 'area1'; // Defina a área corretamente
+    enemy.area = 'area1'; // Certifique-se que está definido
     enemy.enemyType = 'LostSoul';
     enemies.push(enemy);
     scene.add(enemy.mesh);
+    console.log(`Created LostSoul at ${x}, ${y}, ${z}`);
   });
 
   const cacodeemonPositions = [
@@ -49,10 +49,11 @@ export async function createEnemies(scene) {
 
   cacodeemonPositions.forEach(([x, y, z]) => {
     const enemy = new Cacodemon([x, y, z]);
-    enemy.area = 'area2'; // Defina a área corretamente
+    enemy.area = 'area2'; // Certifique-se que está definido
     enemy.enemyType = 'Cacodemon';
     enemies.push(enemy);
     scene.add(enemy.mesh);
+    console.log(`Created Cacodemon at ${x}, ${y}, ${z}`);
   });
 }
 
@@ -67,14 +68,12 @@ export function shouldUpdateEnemy(camera, enemy) {
   const inArea2 = isPlayerInArea2(camera);
   
   if (enemy.area === 'area1' && inArea1) {
-    activateLostSoulsInArea1();
-    enemy.detection.hasSeenPlayer = true; // Forçar detecção
+    enemy.ai.changeState('PATROL'); 
     return true;
   }
   
   if (enemy.area === 'area2' && inArea2) {
-    activateCacodemonsInArea2();
-    enemy.detection.hasSeenPlayer = true; // Forçar detecção
+    enemy.ai.changeState('PATROL'); 
     return true;
   }
   
@@ -92,21 +91,17 @@ export function updateEnemies(delta, scene, camera, gun = null, collidableObject
   const inArea1 = isPlayerInArea1(camera);
   const inArea2 = isPlayerInArea2(camera);
 
-  enemies.forEach(enemy => {
-    const shouldUpdate = enemy.detection?.hasSeenPlayer || 
-                       (enemy.area === 'area1' && inArea1) ||
-                       (enemy.area === 'area2' && inArea2);
+  // Debug logs
+  console.log(`Area1: ${inArea1}, Area2: ${inArea2}`);
+  console.log(`Total enemies: ${enemies.length}, Alive: ${aliveEnemies.length}`);
 
+  enemies.forEach(enemy => {
+    const shouldUpdate = shouldUpdateEnemy(camera, enemy);
+    
     if (shouldUpdate) {
+      console.log(`Updating enemy ${enemy.enemyType} in area ${enemy.area}`);
       const otherEnemies = aliveEnemies.filter(e => e !== enemy);
       enemy.update(delta, camera, hitboxTop, collidableObjects, otherEnemies);
-      
-      // Ativa o inimigo se estiver na área correta
-      if (enemy.area === 'area1' && inArea1) {
-        enemy.detection.hasSeenPlayer = true;
-      } else if (enemy.area === 'area2' && inArea2) {
-        enemy.detection.hasSeenPlayer = true;
-      }
     } else if (typeof enemy.idleBehavior === 'function') {
       enemy.idleBehavior(delta);
     }
@@ -209,12 +204,9 @@ export function activateCacodemonsInArea2() {
   console.log(`Activating ${cacodemons.length} Cacodemons in Area 2`);
   
   cacodemons.forEach(cacodemon => {
-    if (cacodemon.pursuitBehavior) {
-      cacodemon.pursuitBehavior.activate();
-    }
-    if (cacodemon.aiState === 'IDLE') {
-      cacodemon.changeState('ACTIVATED');
-    }
+    cacodemon.ai.changeState('PATROL');
+    cacodemon.playSightSound();
+    console.log(`Activated Cacodemon at ${cacodemon.mesh.position.toArray()}`);
   });
   
   area2CacodemonsActivated = true;
@@ -222,7 +214,6 @@ export function activateCacodemonsInArea2() {
 
 export function resetArea2Activation() {
   area2CacodemonsActivated = false;
-  EnemyPersistentPursuitManager.resetAllPursuitBehaviors(getCacodemons());
 }
 
 // ============================================================================
@@ -262,19 +253,17 @@ export function activateLostSoulsInArea1() {
   console.log(`Activating ${lostSouls.length} Lost Souls in Area 1`);
   
   lostSouls.forEach(lostSoul => {
-    lostSoul.detection.hasSeenPlayer = true;
-    if (lostSoul.pursuitBehavior) {
-      lostSoul.pursuitBehavior.activate();
-    }
+    lostSoul.ai.changeState('PATROL'); 
     lostSoul.playSightSound();
+    console.log(`Activated LostSoul at ${lostSoul.mesh.position.toArray()}`);
   });
   
   area1LostSoulsActivated = true;
 }
 
+
 export function resetArea1Activation() {
   area1LostSoulsActivated = false;
-  EnemyPersistentPursuitManager.resetAllPursuitBehaviors(getLostSouls());
 }
 
 // Debug functions for development
@@ -296,11 +285,6 @@ if (typeof window !== 'undefined') {
       enemy.aiState = 'IDLE';
       if (enemy.stateChangeTime !== undefined) {
         enemy.stateChangeTime = 0;
-      }
-      
-      // Reset pursuit behavior if available
-      if (enemy.pursuitBehavior) {
-        enemy.pursuitBehavior.reset();
       }
     });
   };

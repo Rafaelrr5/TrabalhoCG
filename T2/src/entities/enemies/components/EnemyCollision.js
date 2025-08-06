@@ -68,105 +68,6 @@ export class EnemyCollision {
   }
 
   checkEnvironmentCollision(collidableObjects, newPosition = null) {
-<<<<<<< HEAD
-  const now = performance.now();
-  
-  // 1. Throttling - Limita a frequência de verificações pesadas
-  if (this.enableThrottling && now - this.lastCollisionCheck < this.updateInterval) {
-    return this.lastCollisionResult;
-  }
-
-  // 2. Filtragem preliminar - verifica se há objetos para testar
-  if (!collidableObjects?.length) {
-    this.lastCollisionResult = { hasCollision: false };
-    return this.lastCollisionResult;
-  }
-
-  // 3. Otimização espacial - pega apenas objetos próximos
-  const position = newPosition || this.enemy.mesh.position;
-  const nearbyObjects = this._getNearbyObjects(collidableObjects, position);
-  
-  if (nearbyObjects.length === 0) {
-    this.lastCollisionResult = { hasCollision: false };
-    return this.lastCollisionResult;
-  }
-
-  // 4. Cálculo otimizado de colisão
-  let closestCollision = null;
-  const radius = this.enemy.config.collisionRadius || this.enemy.config.radius || 1.0;
-  
-  // 5. Verificação simplificada para objetos distantes
-  for (const obj of nearbyObjects) {
-    const objBox = obj.geometry.boundingBox || this._computeBoundingBox(obj);
-    const distance = position.distanceTo(objBox.getCenter(new THREE.Vector3()));
-    
-    // Descarta objetos claramente distantes
-    if (distance > radius + objBox.getSize(new THREE.Vector3()).length() * 0.5) {
-      continue;
-    }
-
-    // 6. Verificação precisa apenas para objetos próximos
-    const collision = this._preciseCollisionCheck(obj, position, radius);
-    if (collision && (!closestCollision || collision.distance < closestCollision.distance)) {
-      closestCollision = collision;
-    }
-  }
-
-  // 7. Cache do resultado
-  this.lastCollisionResult = closestCollision 
-    ? { hasCollision: true, ...closestCollision } 
-    : { hasCollision: false };
-    
-  this.lastCollisionCheck = now;
-  return this.lastCollisionResult;
-}
-
-_getNearbyObjects(objects, position, threshold = 10) {
-  // Usa um octree ou grid espacial se disponível
-  if (this.spatialGrid) {
-    return this.spatialGrid.queryRadius(position, threshold);
-  }
-
-  // Fallback para filtro simples
-  return objects.filter(obj => {
-    // Verificação rápida de distância aproximada
-    return position.distanceTo(obj.position) < threshold;
-  });
-}
-
-_computeBoundingBox(object) {
-  const box = new THREE.Box3().setFromObject(object);
-  object.geometry.boundingBox = box; // Cache para próxima verificação
-  return box;
-}
-
-_preciseCollisionCheck(obj, position, radius) {
-  // 1. Verificação rápida com bounding box
-  const objBox = obj.geometry.boundingBox || this._computeBoundingBox(obj);
-  if (!objBox.containsPoint(position)) {
-    return null;
-  }
-
-  // 2. Verificação com raycaster (apenas se necessário)
-  for (const dir of this.rayDirections) {
-    this.raycaster.set(position, dir);
-    const intersects = this.raycaster.intersectObject(obj, true);
-    
-    if (intersects.length > 0 && intersects[0].distance < radius) {
-      return {
-        point: intersects[0].point,
-        normal: intersects[0].face.normal.clone(),
-        distance: intersects[0].distance,
-        object: intersects[0].object
-      };
-    }
-  }
-  
-  return null;
-}
-
-  getAvoidanceDirection(collidableObjects, targetPosition) {
-=======
     if (!collidableObjects || collidableObjects.length === 0) {
       return { hasCollision: false };
     }
@@ -217,7 +118,6 @@ _preciseCollisionCheck(obj, position, radius) {
     const radius = this.enemy.config.collisionRadius || this.enemy.config.radius || 1.0;
     
     // Verificar colisão atual
->>>>>>> parent of d5edef8 (Atualizando o sistema de colisõ dos inimigos para raycasting)
     const collision = this.checkEnvironmentCollision(collidableObjects);
     
     if (collision.hasCollision) {
@@ -425,4 +325,18 @@ _preciseCollisionCheck(obj, position, radius) {
     this.boundingBox = null;
     this.enemy = null;
   }
+
+  getValidMovementDirection(targetPosition, collidableObjects, lookahead = 2.0) {
+  this.updateBoundingBox();
+  
+  // 1. Verifica colisão direta
+  const directCollision = this.checkEnvironmentCollision(collidableObjects, targetPosition);
+  if (!directCollision.hasCollision) {
+    return new THREE.Vector3().subVectors(targetPosition, this.enemy.mesh.position).normalize();
+  }
+
+  // 2. Calcula direção de evasão
+  const avoidance = this.getAvoidanceDirection(collidableObjects, targetPosition, lookahead);
+  return avoidance || directCollision.normal;
+}
 }
