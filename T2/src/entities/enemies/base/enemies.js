@@ -172,6 +172,10 @@ checkPlayerVisibility(playerPosition) {
   this.detection.isPlayerVisible = true;
   this.detection.lastSeenPosition = playerPosition.clone();
   this.detection.cooldownTimer = Date.now() + this.detection.detectionCooldown;
+  console.log(`Player visible: ${this.detection.isPlayerVisible}`);
+  console.log(`Distance to player: ${distance}`);
+  console.log(`FOV angle: ${angleToPlayer} (max: ${this.detection.fovAngle / 2})`);
+  console.log(`Player visible: ${this.detection.isPlayerVisible}`);
   return true;
 }
 
@@ -571,6 +575,9 @@ export class EnemyAI {
         this.disengageBehavior(delta);
         break;
     }
+    console.log(`Current state: ${this.state}`);
+    console.log(`Can see player: ${canSeePlayer}`);
+    console.log(`Distance to player: ${distanceToPlayer}`);
   }
 
   changeState(newState) {

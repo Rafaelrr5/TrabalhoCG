@@ -25,7 +25,7 @@ export async function createEnemies(scene) {
   
   const lostSoulY = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT / 2 + 8.0;
   const lostSoulPositions = [
-    [-170, lostSoulY, -140],
+    [-170, 6.0, -140],
     [-160, lostSoulY, -130],
     [-150, lostSoulY, -135],
     [-155, lostSoulY, -120],

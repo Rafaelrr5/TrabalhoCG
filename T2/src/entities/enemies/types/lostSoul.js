@@ -13,6 +13,8 @@ export class LostSoul extends Enemy {
     };
     
     super(position, baseConfig);
+    this.detection.fovAngle = Math.PI / 2; // 180 graus
+    this.detection.maxDistance = 30.0;
     this.skullModel = null;
     this.loadSkull();
   }
@@ -38,9 +40,11 @@ export class LostSoul extends Enemy {
       
       const box = new THREE.Box3().setFromObject(clonedModel);
       const center = box.getCenter(new THREE.Vector3());
-      
+
+      clonedModel.rotation.set(0, 0, 0);
       clonedModel.position.sub(center);
       
+    
       skullWrapper.add(clonedModel);
       
       skullWrapper.scale.setScalar(this.config.skullScale);
@@ -106,17 +110,22 @@ export class LostSoul extends Enemy {
     this.updateBoundingBox();
   }
 
-  update(delta, camera, targetPosition, collidableObjects = [], otherEnemies = []) {
-    super.update(delta, camera, targetPosition, collidableObjects, otherEnemies);
-    
-    if (!this.isAlive || this.deathEffects.isDying) return;
+  update(delta, camera, targetPosition, collidableObjects) {
+  super.update(delta, camera, targetPosition, collidableObjects);
+  
+  // Debug: Mostra a direção do Raycaster
+  const raycaster = new THREE.Raycaster(
+    this.mesh.position,
+    new THREE.Vector3().subVectors(targetPosition, this.mesh.position).normalize()
+  );
+  const intersects = raycaster.intersectObjects(collidableObjects);
+  console.log("Obstáculos no caminho:", intersects.length);
 
-    // Orientação visual apenas
-    if (this.skullModel) {
-      this.movement.orientToTarget(this.skullModel, targetPosition, {
-        smoothRotation: true,
-        rotationSpeed: 5.0
-      });
-    }
+  // Força detecção se o jogador está perto (opcional)
+  if (this.mesh.position.distanceTo(targetPosition) < 20) {
+    this.detection.isPlayerVisible = true;
+    this.detection.hasSeenPlayer = true;
+    this.ai.changeState('CHASE');
   }
+}
 }
