@@ -8,12 +8,16 @@ export class LostSoul extends Enemy {
     const baseConfig = {
       ...getLostSoulConfig(),
       // Configurações específicas
-      chargeSpeed: 15.0,
-      chargeDuration: 1.5,
-      cooldownDuration: 2.0,
-      wanderSpeed: 3.0,
-      detectionRange: 20.0,
-      isFlying: true,
+      heightAdjustSpeed: 2.0,     // Velocidade de ajuste de altura
+      minHeightAboveGround: 1.0,  // Altura mínima sobre o chão
+      maxHeightAboveGround: 5.0,  // Altura máxima sobre o chão
+      preferredHeightOffset: 0.5, // Offset em relação à altura do jogador
+      chargeSpeed: 15.0, //velocidade durante a carga
+      chargeDuration: 2.0, //duração da carga em segundos
+      cooldownDuration: 2.0, //tempo de recarga após a carga
+      wanderSpeed: 3.0, //velocidade ao vagar
+      detectionRange: 20.0, //distância para detectar o jogador
+      isFlying: true, //indica que voa
       skullScale: 1.2,
       ...config
     };
@@ -23,6 +27,8 @@ export class LostSoul extends Enemy {
     this.detection.maxDistance = baseConfig.detectionRange;
 
     //estado específico
+    this.targetHeight = position[1]; // Altura inicial
+    this.lastHeightAdjustTime = 0;
     this.chargeTime = 0.0;
     this.isCharging = false;
     this.cooldownTime = 0.0;
@@ -127,6 +133,9 @@ export class LostSoul extends Enemy {
 
   update(delta, camera, targetPosition, collidableObjects) {
     if (!this.isAlive || this.isDying) return;
+
+    // Atualiza a altura alvo baseado na posição do jogador
+    this.updateTargetHeight(targetPosition);
     
     // Atualiza temporizadores
     if (this.isCharging) {
@@ -163,6 +172,27 @@ export class LostSoul extends Enemy {
     this.collision.updateBoundingBox();
   }
 
+   updateTargetHeight(targetPosition) {
+  const now = Date.now();
+  // Atualiza mais frequentemente para resposta mais imediata
+  if (now - this.lastHeightAdjustTime > 300) { // A cada 300ms
+    this.lastHeightAdjustTime = now;
+    
+    // Usa a altura do alvo diretamente (jogador/câmera)
+    this.targetHeight = targetPosition.y;
+    
+    // Aplica um pequeno offset aleatório para parecer mais natural
+    const randomOffset = (Math.random() - 0.5) * 0.5; // Entre -0.25 e +0.25
+    this.targetHeight += randomOffset;
+    
+    // Limita a altura dentro dos limites configurados
+    this.targetHeight = Math.max(
+      this.config.minHeightAboveGround,
+      Math.min(this.config.maxHeightAboveGround, this.targetHeight)
+    );
+  }
+}
+
  startCharge(targetPosition) {
     if (this.isCharging || this.isOnCooldown) return;
     
@@ -177,24 +207,46 @@ export class LostSoul extends Enemy {
   }
 
   executeCharge(delta, targetPosition, collidableObjects) {
-    // Usa o sistema de movimento existente com alta velocidade
-    const moveOptions = {
-      delta: delta,
-      speedMultiplier: this.config.chargeSpeed / this.config.speed, // Fator de multiplicação
-      collidableObjects: collidableObjects,
-      use6DOF: true // Movimento em 3D
-    };
-    
-    // Move usando o sistema padrão (que já cuida de colisões)
-    this.moveTowards(targetPosition, moveOptions);
-    
-    // Rotação para parecer que está "mirando" no jogador
-    const targetQuat = new THREE.Quaternion().setFromUnitVectors(
-      new THREE.Vector3(0, 0, 1),
-      this.chargeDirection.clone().normalize()
-    );
-    this.mesh.quaternion.slerp(targetQuat, 0.2);
-  }
+  // Direção completa (incluindo vertical)
+  this.chargeDirection = new THREE.Vector3()
+    .subVectors(targetPosition, this.mesh.position)
+    .normalize();
+  
+  // Ajuste de altura mais agressivo durante o ataque
+  const heightDifference = this.targetHeight - this.mesh.position.y;
+  const verticalAdjustment = heightDifference * this.config.heightAdjustSpeed * delta;
+  
+  // Combina movimento de carga com ajuste vertical
+  const moveDirection = new THREE.Vector3(
+    this.chargeDirection.x,
+    this.chargeDirection.y + verticalAdjustment,
+    this.chargeDirection.z
+  ).normalize();
+  
+  const moveOptions = {
+    delta: delta,
+    speedMultiplier: this.config.chargeSpeed / this.config.speed,
+    collidableObjects: collidableObjects,
+    use6DOF: true // Importante para movimento 3D
+  };
+  
+  // Cria um ponto à frente na direção do movimento
+  const chargeTarget = new THREE.Vector3(
+    this.mesh.position.x + moveDirection.x * 10,
+    this.mesh.position.y + moveDirection.y * 10,
+    this.mesh.position.z + moveDirection.z * 10
+  );
+  
+  this.moveTowards(chargeTarget, moveOptions);
+  
+  // Rotação mais dinâmica incluindo componente vertical
+  const targetQuat = new THREE.Quaternion().setFromUnitVectors(
+    new THREE.Vector3(0, 0, 1),
+    moveDirection.clone().normalize()
+  );
+  this.mesh.quaternion.slerp(targetQuat, 0.3); // Mais rápido durante o ataque
+}
+
 
   endCharge() {
     this.isCharging = false;
@@ -203,39 +255,51 @@ export class LostSoul extends Enemy {
     this.chargeTime = 0;
   }
 
-  wander(delta, collidableObjects) {
-    // Muda de direção periodicamente
-    if (Math.random() < 0.01 * delta * 60) {
-      this.wanderDirection = new THREE.Vector3(
-        Math.random() - 0.5,
-        Math.random() - 0.5,
-        Math.random() - 0.5
-      ).normalize();
-    }
-    
-    // Calcula posição alvo para o movimento errático
-    const targetPosition = this.mesh.position.clone()
-      .addScaledVector(this.wanderDirection, 5); // 5 unidades à frente
-    
-    // Usa o sistema de movimento existente
-    const moveOptions = {
-      delta: delta,
-      speedMultiplier: this.config.wanderSpeed / this.config.speed,
-      collidableObjects: collidableObjects,
-      use6DOF: true
-    };
-    
-    this.moveTowards(targetPosition, moveOptions);
-    
-    // Rotação suave para a direção do movimento
-    if (this.wanderDirection.length() > 0.1) {
-      const targetQuat = new THREE.Quaternion().setFromUnitVectors(
-        new THREE.Vector3(0, 0, 1),
-        this.wanderDirection.clone().normalize()
-      );
-      this.mesh.quaternion.slerp(targetQuat, 0.05);
-    }
+   wander(delta, collidableObjects) {
+  // Muda de direção periodicamente com mais variação vertical
+  if (Math.random() < 0.02 * delta * 60) {
+    this.wanderDirection = new THREE.Vector3(
+      Math.random() - 0.5,
+      (Math.random() - 0.5) * 0.7, // Mais variação vertical
+      Math.random() - 0.5
+    ).normalize();
   }
+  
+  // Ajuste de altura suave durante o wander
+  const heightDifference = this.targetHeight - this.mesh.position.y;
+  const verticalAdjustment = heightDifference * this.config.heightAdjustSpeed * delta * 0.3;
+  
+  // Combina movimento errático com ajuste de altura
+  const targetPosition = new THREE.Vector3(
+    this.mesh.position.x + this.wanderDirection.x * 3,
+    this.mesh.position.y + this.wanderDirection.y + verticalAdjustment,
+    this.mesh.position.z + this.wanderDirection.z * 3
+  );
+  
+  const moveOptions = {
+    delta: delta,
+    speedMultiplier: this.config.wanderSpeed / this.config.speed,
+    collidableObjects: collidableObjects,
+    use6DOF: true
+  };
+  
+  this.moveTowards(targetPosition, moveOptions);
+  
+  // Rotação suave incluindo componente vertical reduzida
+  if (this.wanderDirection.length() > 0.1) {
+    const smoothedDirection = new THREE.Vector3(
+      this.wanderDirection.x,
+      this.wanderDirection.y * 0.3, // Reduz influência vertical na rotação
+      this.wanderDirection.z
+    ).normalize();
+    
+    const targetQuat = new THREE.Quaternion().setFromUnitVectors(
+      new THREE.Vector3(0, 0, 1),
+      smoothedDirection
+    );
+    this.mesh.quaternion.slerp(targetQuat, 0.1);
+  }
+}
 
   attack(targetPosition) {
     // Sobrescreve o método de ataque padrão para usar o comportamento de carga
