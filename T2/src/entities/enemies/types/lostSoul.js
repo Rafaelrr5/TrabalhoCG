@@ -9,10 +9,11 @@ export class LostSoul extends Enemy {
       ...getLostSoulConfig(),
       // Configurações específicas
       chargeSpeed: 15.0,
-      chargeDuration: 0.5,
+      chargeDuration: 1.5,
       cooldownDuration: 2.0,
       wanderSpeed: 3.0,
       detectionRange: 20.0,
+      isFlying: true,
       skullScale: 1.2,
       ...config
     };
@@ -149,11 +150,11 @@ export class LostSoul extends Enemy {
     
     // Comportamento baseado no estado
     if (this.isCharging) {
-      this.executeCharge(delta);
+      this.executeCharge(delta, targetPosition, collidableObjects);
     } else if (!this.isOnCooldown && canSeePlayer && distanceToPlayer < this.config.detectionRange) {
       this.startCharge(targetPosition);
     } else {
-      this.wander(delta);
+      this.wander(delta, collidableObjects);
     }
     
     // Atualiza componentes visuais/auditivos
@@ -162,7 +163,7 @@ export class LostSoul extends Enemy {
     this.collision.updateBoundingBox();
   }
 
-  startCharge(targetPosition) {
+ startCharge(targetPosition) {
     if (this.isCharging || this.isOnCooldown) return;
     
     // Calcula direção do ataque
@@ -173,18 +174,19 @@ export class LostSoul extends Enemy {
     this.isCharging = true;
     this.chargeTime = 0;
     this.playAttackSound();
-    
-    // Emite evento de ataque
-    this.emit('charging', {
-      enemy: this,
-      direction: this.chargeDirection.clone()
-    });
   }
 
-  executeCharge(delta) {
-    // Move rapidamente na direção do ataque
-    const moveAmount = this.config.chargeSpeed * delta;
-    this.mesh.position.addScaledVector(this.chargeDirection, moveAmount);
+  executeCharge(delta, targetPosition, collidableObjects) {
+    // Usa o sistema de movimento existente com alta velocidade
+    const moveOptions = {
+      delta: delta,
+      speedMultiplier: this.config.chargeSpeed / this.config.speed, // Fator de multiplicação
+      collidableObjects: collidableObjects,
+      use6DOF: true // Movimento em 3D
+    };
+    
+    // Move usando o sistema padrão (que já cuida de colisões)
+    this.moveTowards(targetPosition, moveOptions);
     
     // Rotação para parecer que está "mirando" no jogador
     const targetQuat = new THREE.Quaternion().setFromUnitVectors(
@@ -199,14 +201,11 @@ export class LostSoul extends Enemy {
     this.isOnCooldown = true;
     this.cooldownTime = 0;
     this.chargeTime = 0;
-    
-    // Pequeno recuo após o ataque
-    this.chargeDirection.multiplyScalar(-0.3);
   }
 
-  wander(delta) {
+  wander(delta, collidableObjects) {
     // Muda de direção periodicamente
-    if (Math.random() < 0.01 * delta * 60) { // ~1% chance por frame (ajustado para delta time)
+    if (Math.random() < 0.01 * delta * 60) {
       this.wanderDirection = new THREE.Vector3(
         Math.random() - 0.5,
         Math.random() - 0.5,
@@ -214,9 +213,19 @@ export class LostSoul extends Enemy {
       ).normalize();
     }
     
-    // Movimento errático
-    const moveAmount = this.config.wanderSpeed * delta;
-    this.mesh.position.addScaledVector(this.wanderDirection, moveAmount);
+    // Calcula posição alvo para o movimento errático
+    const targetPosition = this.mesh.position.clone()
+      .addScaledVector(this.wanderDirection, 5); // 5 unidades à frente
+    
+    // Usa o sistema de movimento existente
+    const moveOptions = {
+      delta: delta,
+      speedMultiplier: this.config.wanderSpeed / this.config.speed,
+      collidableObjects: collidableObjects,
+      use6DOF: true
+    };
+    
+    this.moveTowards(targetPosition, moveOptions);
     
     // Rotação suave para a direção do movimento
     if (this.wanderDirection.length() > 0.1) {
