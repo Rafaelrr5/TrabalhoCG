@@ -128,6 +128,31 @@ export class Enemy extends SimpleEventEmitter {
     this.collision.updateBoundingBox();
   }
 
+  takeDamage(damage) {
+    if (!this.isAlive || this.isDying) return false;
+
+    this.currentHealth -= damage;
+    this.emit('damaged', { enemy: this, damage: damage });
+
+    if (this.currentHealth <= 0) {
+        this.currentHealth = 0;
+        this.isAlive = false;
+        this.isDying = true;
+        this.deathEffects.start(); // Inicia a animação de morte
+        this.emit('death', { enemy: this });
+        return true; // Inimigo morreu
+    }
+
+    return false; // Inimigo ainda está vivo
+}
+
+removeFromScene() {
+    if (this.mesh && this.mesh.parent) {
+        this.mesh.parent.remove(this.mesh);
+    }
+    this.dispose(); // Limpa recursos
+}
+
 checkPlayerVisibility(playerPosition) {
   const enemyPos = this.mesh.position;
   const toPlayer = new THREE.Vector3().subVectors(playerPosition, enemyPos);
@@ -258,12 +283,12 @@ updateDetection(playerPosition, collidableObjects) {
 
   // Base update method (specific enemies should override this)
   update(delta, camera, targetPosition, collidableObjects = [], otherEnemies = []) {
-  if (this.deathEffects.isDying) {
-    this.deathEffects.update();
-    return;
-  }
+    if (this.deathEffects.isDying) {
+        this.deathEffects.update();
+        return;
+    }
 
-  if (!this.isAlive) return;
+    if (!this.isAlive) return;
 
   // Atualiza a IA (que agora gerencia completamente o comportamento)
   this.ai.update(delta, targetPosition, collidableObjects);
@@ -486,6 +511,13 @@ export class EnemyManager extends SimpleEventEmitter {
     // Clear all event listeners
     this.removeAllListeners();
   }
+
+  removeFromScene() {
+    if (this.mesh && this.mesh.parent) {
+        this.mesh.parent.remove(this.mesh);
+    }
+    this.dispose(); // Limpa recursos
+}
 }
 
 // ============================================================================
