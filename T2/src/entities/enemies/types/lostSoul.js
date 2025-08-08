@@ -128,4 +128,18 @@ export class LostSoul extends Enemy {
     this.ai.changeState('CHASE');
   }
 }
+
+  attack(targetPosition){
+    const moveOptions ={
+      use6DOF: true,
+      speedMultiplier: 10.0,
+    }
+
+    let pointLockOn = new THREE.Vector3();
+
+    const direction = THREE.Vector3().subVectors(targetPosition, this.mesh.position).normalize();
+    pointLockOn.copy(targetPosition).add(direction.multiplyScalar(10));
+    
+    this.LostSoul.movement.moveTowards(pointLockOn, delta, moveOptions);
+  }
 }

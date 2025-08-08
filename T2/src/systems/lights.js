@@ -8,7 +8,7 @@ const LIGHTING_CONFIG = {
     directional: {
         color: 0xffffff,
         intensity: 5.0,
-        position: { x: 300.00, y: 450, z: -300.00 },
+        position: { x: 350.00, y: 450, z: -350.00 },
         castShadow: true,
         shadow: {
             mapSize: { width: 4096, height: 4096 },
@@ -29,8 +29,8 @@ const LIGHTING_CONFIG = {
     },
     oposeLight: {
         color: "rgb(150,150,150)",
-        intensity: 2.0,
-        position: {x: -300.00, y:450, z:300.00},
+        intensity: 4.0,
+        position: {x: -400.00, y:440, z:400.00},
         castShadow: false,
     }
 };

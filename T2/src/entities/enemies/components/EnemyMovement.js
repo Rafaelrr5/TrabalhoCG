@@ -13,7 +13,7 @@ export class EnemyMovement {
   moveTowards(targetPosition, delta, options = {}) {
     const {
       use6DOF = false,
-      enableCollision = false,
+      enableCollision = true,
       collidableObjects = [],
       speedMultiplier = 1.0
     } = options;
