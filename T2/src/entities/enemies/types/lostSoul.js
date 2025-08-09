@@ -36,6 +36,7 @@ export class LostSoul extends Enemy {
     //estado específico
     this.targetHeight = position[1]; // Altura inicial
     this.lastHeightAdjustTime = 0;
+    this.lastPlayerHitTime = 0; // Para controlar o cooldown de dano ao jogador
     this.chargeTime = 0.0;
     this.isCharging = false;
     this.cooldownTime = 0.0;
@@ -257,6 +258,22 @@ export class LostSoul extends Enemy {
     moveDirection.clone().normalize()
   );
   this.mesh.quaternion.slerp(targetQuat, 0.3); // Mais rápido durante o ataque
+
+  // Verifica colisão com o jogador durante o ataque
+  const distanceToPlayer = this.mesh.position.distanceTo(targetPosition);
+  const now = performance.now();
+  
+  if (distanceToPlayer <= this.config.radius * 1.5 && 
+      (!this.lastPlayerHitTime || now - this.lastPlayerHitTime > 1000)) { // 1 segundo de cooldown
+    this.dealDamageToPlayer(5); // Causa 5 de dano ao jogador
+    this.lastPlayerHitTime = now;
+  }
+}
+
+dealDamageToPlayer(damage) {
+  if (typeof window.playerTakeDamage === 'function') {
+    window.playerTakeDamage(damage);
+  }
 }
 
 
