@@ -153,56 +153,60 @@ removeFromScene() {
     this.dispose(); // Limpa recursos
 }
 
-checkPlayerVisibility(playerPosition) {
+checkPlayerVisibility(playerPosition, collidableObjects = []) {
   const enemyPos = this.mesh.position;
   const toPlayer = new THREE.Vector3().subVectors(playerPosition, enemyPos);
   const distance = toPlayer.length();
 
-  // Verifica a distancia máxima
+  // Verificação de distância mais rápida
   if (distance > this.detection.maxDistance) {
     this.detection.isPlayerVisible = false;
     return false;
   }
 
-  // Verifica o ângulo de visão
-  const direction = toPlayer.clone().normalize();
-  
-  // Corrigido: usar this.mesh.forward ou this.mesh.getWorldDirection()
+  // Verificação de ângulo mais eficiente
   const forward = new THREE.Vector3();
-  this.mesh.getWorldDirection(forward); // Obtém a direção frontal do inimigo
+  this.mesh.getWorldDirection(forward);
+  const direction = toPlayer.normalize();
   
-  const angleToPlayer = forward.angleTo(direction); // Corrigido de foward para forward
+  const angleToPlayer = forward.angleTo(direction);
+  const halfFOV = this.detection.fovAngle / 2;
 
-  if (angleToPlayer > this.detection.fovAngle / 2) {
+  if (angleToPlayer > halfFOV) {
     this.detection.isPlayerVisible = false;
     return false;
   }
 
-  // Verifica se há obstáculos entre o inimigo e o jogador
-  const raycaster = new THREE.Raycaster(
-    enemyPos,
-    direction,
-    0.1, // Pequeno deslocamento para evitar colisões com o próprio inimigo
-    distance
-  );
+  // Verificação de obstáculos otimizada
+  if (collidableObjects.length > 0) {
+    const raycaster = new THREE.Raycaster(
+      enemyPos,
+      direction,
+      0.5, // Aumentamos o offset inicial
+      distance
+    );
 
-  const intersects = raycaster.intersectObjects(this.collidableObjects || []);
+    // Filtra objetos colidíveis relevantes
+    const relevantObjects = collidableObjects.filter(obj => {
+      const objPos = obj.position || (obj.geometry ? obj.geometry.boundingSphere.center : null);
+      return objPos && enemyPos.distanceTo(objPos) <= distance;
+    });
 
-  if(intersects.length > 0){
-    this.detection.isPlayerVisible = false;
-    return false;
+    const intersects = raycaster.intersectObjects(relevantObjects, true);
+    
+    if (intersects.length > 0 && intersects[0].distance < distance) {
+      this.detection.isPlayerVisible = false;
+      return false;
+    }
   }
 
-  // jogador visivel
+  // Jogador visível
   this.detection.isPlayerVisible = true;
   this.detection.lastSeenPosition = playerPosition.clone();
-  this.detection.cooldownTimer = Date.now() + this.detection.detectionCooldown;
-  console.log(`Player visible: ${this.detection.isPlayerVisible}`);
-  console.log(`Distance to player: ${distance}`);
-  console.log(`FOV angle: ${angleToPlayer} (max: ${this.detection.fovAngle / 2})`);
-  console.log(`Player visible: ${this.detection.isPlayerVisible}`);
   return true;
 }
+
+
 
 moveTowards(targetPosition, options = {}) {
   // Delega totalmente para EnemyMovement

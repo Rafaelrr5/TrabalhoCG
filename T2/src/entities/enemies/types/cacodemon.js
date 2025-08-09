@@ -27,8 +27,9 @@ export class Cacodemon extends Enemy {
     super(position, doom2Config);
 
     // Configurações de detecção
-    this.detection.fovAngle = Math.PI / 1.5;
-    this.detection.maxDistance = 25;
+    this.detection.fovAngle = Math.PI; // 180 graus (anterior era 270)
+    this.detection.maxDistance = 30.0; // Reduzido de 40 para melhor performance
+    this.detection.detectionCooldown = 500; // Mais reativo
     
     // Projéteis
     this.activeProjectiles = [];
@@ -173,11 +174,13 @@ export class Cacodemon extends Enemy {
     }
   }
 
-  applyRandomAttackMovement() {
-    // Gera uma direção aleatória (com pequeno componente vertical)
+ applyRandomAttackMovement() {
+    // Gera uma direção aleatória com componente Y limitado
+    const randomY = Math.min((Math.random() - 0.5) * 0.5, 0.3); // Limita o valor máximo do Y
+    
     this.attackMovementDirection.set(
       (Math.random() - 0.5) * 2,
-      (Math.random() - 0.5) * 0.5,
+      randomY, // Usa o valor limitado aqui
       (Math.random() - 0.5) * 2
     ).normalize();
     
@@ -186,9 +189,14 @@ export class Cacodemon extends Enemy {
       this.attackMovementDirection.clone().multiplyScalar(10)
     );
     
+    // Garante que o alvo não ultrapasse Y = 20.0
+    if (this.attackMovementTarget.y > 20.0) {
+      this.attackMovementTarget.y = 20.0;
+    }
+    
     // Reinicia o temporizador do movimento
     this.attackMovementTime = this.attackMovementDuration;
-  }
+}
 
   fireProjectile(targetPosition) {
     if (!this.mesh.parent) return; // Precisa estar na cena
@@ -238,7 +246,7 @@ export class Cacodemon extends Enemy {
 
     // Movimento de ataque
     if (this.attackMovementTime > 0) {
-      moveOptions.speedMultiplier = 2.0; // Velocidade aumentada durante ataque
+      moveOptions.speedMultiplier = 2.0;
       this.moveTowards(this.attackMovementTarget, moveOptions);
       this.attackMovementTime -= delta;
       
@@ -256,17 +264,19 @@ export class Cacodemon extends Enemy {
       this.ai.update(delta, targetPosition, collidableObjects);
     }
     
-    // Flutuação suave (ajuste vertical independente)
-    const currentPosition = this.mesh.position;
-    const baseHeight = this.spawnPosition?.y ?? currentPosition.y;
-    const floatHeight = Math.sin(Date.now() * 0.001 * 0.5) * 0.1;
-    currentPosition.y = baseHeight + floatHeight;
+    // Flutuação suave reduzida (apenas lateral)
+   const floatAmount = Math.sin(Date.now() * 0.001) * 0.05; // Reduzida a intensidade
+  this.mesh.position.x += floatAmount;
+  this.mesh.position.z += floatAmount * 0.5; // Movimento mais sutil no eixo Z
     
     // Correção final de colisão
     if (collidableObjects.length > 0) {
       this.collision.preventOverlap(collidableObjects, delta);
     }
-  }
+
+    // Limite de altura
+    this.mesh.position.y = Math.min(this.mesh.position.y, 20.0);
+}
 
   updateProjectiles(delta, collidableObjects, camera) {
     for (let i = this.activeProjectiles.length - 1; i >= 0; i--) {
