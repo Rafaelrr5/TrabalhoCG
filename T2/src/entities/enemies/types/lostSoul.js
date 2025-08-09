@@ -23,6 +23,13 @@ export class LostSoul extends Enemy {
     };
     
     super(position, baseConfig);
+
+    this.mesh.traverse(child => {
+        if (child.isMesh && child.material) {
+            child.material.transparent = true;
+        }
+    });
+
     this.detection.fovAngle = Math.PI / 2; // 180 graus
     this.detection.maxDistance = baseConfig.detectionRange;
 
@@ -132,7 +139,12 @@ export class LostSoul extends Enemy {
   }
 
   update(delta, camera, targetPosition, collidableObjects) {
-    if (!this.isAlive || this.isDying) return;
+    if (this.isDying) {
+            this.deathEffects.update();
+            return;
+        }
+
+    if (!this.isAlive) return;
 
     // Atualiza a altura alvo baseado na posição do jogador
     this.updateTargetHeight(targetPosition);

@@ -128,7 +128,7 @@ export class Enemy extends SimpleEventEmitter {
     this.collision.updateBoundingBox();
   }
 
-  takeDamage(damage) {
+ takeDamage(damage) {
     if (!this.isAlive || this.isDying) return false;
 
     this.currentHealth -= damage;
@@ -282,11 +282,13 @@ updateDetection(playerPosition, collidableObjects) {
   }
 
   // Base update method (specific enemies should override this)
-  update(delta, camera, targetPosition, collidableObjects = [], otherEnemies = []) {
-    if (this.deathEffects.isDying) {
-        this.deathEffects.update();
+  update(delta, camera, targetPosition, collidableObjects) {
+    if (this.isDying) {
+        this.deathEffects.update(); // Garante que o fade-out continue
         return;
     }
+    
+    if (!this.isAlive) return;
 
     if (!this.isAlive) return;
 
@@ -449,24 +451,27 @@ export class EnemyManager extends SimpleEventEmitter {
     }
   }
 
-  update(delta, camera, targetPosition, collidableObjects = [], otherEnemies = []) {
-  if (this.deathEffects.isDying) {
-    this.deathEffects.update();
-    return;
-  }
+ update(delta, camera, targetPosition, collidableObjects = [], otherEnemies = []) {
+    if (this.isDying || !this.isAlive) {
+        if (this.deathEffects.isDying) {
+            this.deathEffects.update();
+        } else {
+            this.deathEffects.start();
+        }
+        return;
+    }
 
-  if (!this.isAlive) return;
+    // Atualiza a IA (que agora gerencia completamente o comportamento)
+    this.ai.update(delta, targetPosition, collidableObjects);
 
-  // Atualiza detecção do jogador
-  const isPlayerVisible = this.checkPlayerVisibility(targetPosition, collidableObjects);
-  
-  // Atualiza a AI
-  this.ai.update(delta, targetPosition, collidableObjects);
-
-  // Atualiza componentes
-  this.audio.updateProximity(camera?.position);
-  this.healthBar.update(camera);
-  this.collision.updateBoundingBox();
+    // Atualiza componentes visuais/auditivos
+    this.audio.updateProximity(camera?.position);
+    this.healthBar.update(camera);
+    this.collision.updateBoundingBox();
+    
+    // Aplica forças de separação entre inimigos
+    const { separationForce } = this.collision.checkEnemyCollisions(otherEnemies);
+    this.collision.applySeparationForce(separationForce, delta);
 }
 
 
