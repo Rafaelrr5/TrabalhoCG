@@ -10,14 +10,16 @@ export class Cacodemon extends Enemy {
     
     // Configurações específicas do DOOM2
     const doom2Config = {
-      maxHealth: 50,               // 50 HP como no DOOM2
-      damage: 8,                   // Dano do projétil
-      projectileSpeed: 15,         // Velocidade do projétil
-      attackRange: 20,             // Alcance de ataque
-      attackCooldown: 2.0,         // Tempo entre ataques
-      isFlying: true,              // Flutua como no DOOM
-      radius: 1.2,                 // Tamanho do hitbox
-      color: 0xcc0000,             // Vermelho mais escuro
+      maxHealth: 50,
+      damage: 8,
+      projectileSpeed: 15,
+      attackRange: 20,
+      attackCooldown: 2.0,
+      isFlying: true,
+      radius: 1.2,
+      collisionRadius: 1.5,
+      speed: 3.0, // Velocidade base para todos os movimentos
+      color: 0xcc0000,
       ...defaultConfig,
       ...config
     };
@@ -25,16 +27,18 @@ export class Cacodemon extends Enemy {
     super(position, doom2Config);
 
     // Configurações de detecção
-    this.detection.fovAngle = Math.PI / 1.5; // 120 graus
+    this.detection.fovAngle = Math.PI / 1.5;
     this.detection.maxDistance = 25;
     
     // Projéteis
     this.activeProjectiles = [];
     this.lastAttackTime = 0;
-     // Adicione estas propriedades:
+    
+    // Movimento de ataque
     this.attackMovementDirection = new THREE.Vector3();
+    this.attackMovementTarget = null;
     this.attackMovementTime = 0;
-    this.attackMovementDuration = 2.0; // Duração do movimento em segundos
+    this.attackMovementDuration = 2.0;
     
     // Modelo e placeholder
     this.model = null;
@@ -42,7 +46,6 @@ export class Cacodemon extends Enemy {
     this.placeholderMesh = null;
 
     this.attack = this.attack.bind(this);
-
     this.loadModel();
   }
 
@@ -143,48 +146,49 @@ export class Cacodemon extends Enemy {
   }
 
  attack(targetPosition) {
-  if (!this.isAlive || this.isDying) return;
-  
-  const now = Date.now() / 1000;
-  if (now - this.lastAttackTime < this.config.attackCooldown) return;
+    if (!this.isAlive || this.isDying) return;
+    
+    const now = Date.now() / 1000;
+    if (now - this.lastAttackTime < this.config.attackCooldown) return;
 
-  try {
-    // Call base class attack if it exists
-    if (super.attack) {
-      super.attack(targetPosition);
-    }
+    try {
+      if (super.attack) {
+        super.attack(targetPosition);
+      }
 
-    // Cacodemon-specific behavior
-    if (this.modelLoaded) {
-      this.model.rotation.x = Math.PI / 4; // Inclina para frente ao atacar
+      if (this.modelLoaded) {
+        this.model.rotation.x = Math.PI / 4;
+      }
+      
+      this.fireProjectile(targetPosition);
+      this.applyRandomAttackMovement();
+      
+      if (this.audio) {
+        this.audio.playAttackSound('cacodemon_attack');
+      }
+      
+      this.lastAttackTime = now;
+    } catch (error) {
+      console.error('Cacodemon attack error:', error);
     }
-    
-    this.fireProjectile(targetPosition);
-    
-    // Movimento aleatório ao atacar (como no DOOM)
-    this.applyRandomAttackMovement();
-    
-    if (this.audio) {
-      this.audio.playAttackSound('cacodemon_attack');
-    }
-    
-    this.lastAttackTime = now;
-  } catch (error) {
-    console.error('Cacodemon attack error:', error);
   }
-}
 
-applyRandomAttackMovement() {
-  // Gera uma direção aleatória (com pequeno componente vertical)
-  this.attackMovementDirection.set(
-    (Math.random() - 0.5) * 2,
-    (Math.random() - 0.5) * 0.5,
-    (Math.random() - 0.5) * 2
-  ).normalize();
-  
-  // Reinicia o temporizador do movimento
-  this.attackMovementTime = this.attackMovementDuration;
-}
+  applyRandomAttackMovement() {
+    // Gera uma direção aleatória (com pequeno componente vertical)
+    this.attackMovementDirection.set(
+      (Math.random() - 0.5) * 2,
+      (Math.random() - 0.5) * 0.5,
+      (Math.random() - 0.5) * 2
+    ).normalize();
+    
+    // Define um alvo temporário na direção do movimento
+    this.attackMovementTarget = this.mesh.position.clone().add(
+      this.attackMovementDirection.clone().multiplyScalar(10)
+    );
+    
+    // Reinicia o temporizador do movimento
+    this.attackMovementTime = this.attackMovementDuration;
+  }
 
   fireProjectile(targetPosition) {
     if (!this.mesh.parent) return; // Precisa estar na cena
@@ -208,56 +212,61 @@ applyRandomAttackMovement() {
     this.activeProjectiles.push(projectile);
   }
 
-  update(delta, camera, targetPosition, collidableObjects = []) {
-  if (this.isDying) {
-    this.deathEffects.update();
-    return;
-  }
+ update(delta, camera, targetPosition, collidableObjects = []) {
+    if (this.isDying) {
+      this.deathEffects.update();
+      return;
+    }
 
-  if (!this.isAlive) return;
+    if (!this.isAlive) return;
 
-  // 1. Atualiza componentes básicos
-  this.audio.updateProximity(camera?.position);
-  this.healthBar.update(camera);
-  this.collision.updateBoundingBox();
+    // Atualiza componentes básicos
+    this.audio.updateProximity(camera?.position);
+    this.healthBar.update(camera);
+    this.collision.updateBoundingBox();
 
-  // 2. Atualiza projéteis
-  this.updateProjectiles(delta, collidableObjects, camera);
-  
-  // 3. Comportamento de IA (exceto durante movimento de ataque)
-  if (this.attackMovementTime <= 0) {
-    this.ai.update(delta, targetPosition, collidableObjects);
-  }
-  
-  // 4. Movimento de ataque
-  if (this.attackMovementTime > 0) {
-    const moveIntensity = 5 * delta; // Velocidade do movimento
+    // Atualiza projéteis
+    this.updateProjectiles(delta, collidableObjects, camera);
     
-    // Aplica o movimento
-    this.mesh.position.addScaledVector(
-      this.attackMovementDirection, 
-      moveIntensity
-    );
+    // Configurações comuns para todos os movimentos
+    const moveOptions = {
+      delta: delta,
+      enableCollision: true,
+      collidableObjects: collidableObjects,
+      use6DOF: this.config.isFlying
+    };
+
+    // Movimento de ataque
+    if (this.attackMovementTime > 0) {
+      moveOptions.speedMultiplier = 2.0; // Velocidade aumentada durante ataque
+      this.moveTowards(this.attackMovementTarget, moveOptions);
+      this.attackMovementTime -= delta;
+      
+      // Rotação suave durante ataque
+      if (this.attackMovementDirection.length() > 0.1) {
+        const targetQuat = new THREE.Quaternion().setFromUnitVectors(
+          new THREE.Vector3(0, 0, 1),
+          this.attackMovementDirection.clone().normalize()
+        );
+        this.mesh.quaternion.slerp(targetQuat, 0.2);
+      }
+    } 
+    // Movimento normal (IA)
+    else {
+      this.ai.update(delta, targetPosition, collidableObjects);
+    }
     
-    // Atualiza o temporizador
-    this.attackMovementTime -= delta;
+    // Flutuação suave (ajuste vertical independente)
+    const currentPosition = this.mesh.position;
+    const baseHeight = this.spawnPosition?.y ?? currentPosition.y;
+    const floatHeight = Math.sin(Date.now() * 0.001 * 0.5) * 0.1;
+    currentPosition.y = baseHeight + floatHeight;
     
-    // Rotação suave na direção do movimento
-    if (this.attackMovementDirection.length() > 0.1) {
-      const targetQuat = new THREE.Quaternion().setFromUnitVectors(
-        new THREE.Vector3(0, 0, 1),
-        this.attackMovementDirection.clone().normalize()
-      );
-      this.mesh.quaternion.slerp(targetQuat, 0.2);
+    // Correção final de colisão
+    if (collidableObjects.length > 0) {
+      this.collision.preventOverlap(collidableObjects, delta);
     }
   }
-  
-  // 5. Flutuação suave
-  const currentPosition = this.mesh.position;
-  const baseHeight = this.spawnPosition?.y ?? currentPosition.y;
-  const floatHeight = Math.sin(Date.now() * 0.001 * 0.5) * 0.1;
-  currentPosition.y = baseHeight + floatHeight;
-}
 
   updateProjectiles(delta, collidableObjects, camera) {
     for (let i = this.activeProjectiles.length - 1; i >= 0; i--) {
