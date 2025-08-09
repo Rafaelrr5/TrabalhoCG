@@ -31,6 +31,10 @@ export class Cacodemon extends Enemy {
     // Projéteis
     this.activeProjectiles = [];
     this.lastAttackTime = 0;
+     // Adicione estas propriedades:
+    this.attackMovementDirection = new THREE.Vector3();
+    this.attackMovementTime = 0;
+    this.attackMovementDuration = 2.0; // Duração do movimento em segundos
     
     // Modelo e placeholder
     this.model = null;
@@ -138,7 +142,7 @@ export class Cacodemon extends Enemy {
     }
   }
 
-  attack(targetPosition) {
+ attack(targetPosition) {
   if (!this.isAlive || this.isDying) return;
   
   const now = Date.now() / 1000;
@@ -152,10 +156,13 @@ export class Cacodemon extends Enemy {
 
     // Cacodemon-specific behavior
     if (this.modelLoaded) {
-      this.model.rotation.x = Math.PI / 4;
+      this.model.rotation.x = Math.PI / 4; // Inclina para frente ao atacar
     }
     
     this.fireProjectile(targetPosition);
+    
+    // Movimento aleatório ao atacar (como no DOOM)
+    this.applyRandomAttackMovement();
     
     if (this.audio) {
       this.audio.playAttackSound('cacodemon_attack');
@@ -165,6 +172,18 @@ export class Cacodemon extends Enemy {
   } catch (error) {
     console.error('Cacodemon attack error:', error);
   }
+}
+
+applyRandomAttackMovement() {
+  // Gera uma direção aleatória (com pequeno componente vertical)
+  this.attackMovementDirection.set(
+    (Math.random() - 0.5) * 2,
+    (Math.random() - 0.5) * 0.5,
+    (Math.random() - 0.5) * 2
+  ).normalize();
+  
+  // Reinicia o temporizador do movimento
+  this.attackMovementTime = this.attackMovementDuration;
 }
 
   fireProjectile(targetPosition) {
@@ -205,32 +224,39 @@ export class Cacodemon extends Enemy {
   // 2. Atualiza projéteis
   this.updateProjectiles(delta, collidableObjects, camera);
   
-  // 3. Comportamento de IA
-  this.ai.update(delta, targetPosition, collidableObjects);
-  
-  // 4. Orientação durante o ataque
-  if (this.ai.state === 'ATTACK' && this.modelLoaded) {
-    this.movement.orientToTarget(this.model, targetPosition, {
-      smoothRotation: true,
-      rotationSpeed: 10.0
-    });
+  // 3. Comportamento de IA (exceto durante movimento de ataque)
+  if (this.attackMovementTime <= 0) {
+    this.ai.update(delta, targetPosition, collidableObjects);
   }
   
-  // 5. Flutuação suave ajustada (alterações aqui)
+  // 4. Movimento de ataque
+  if (this.attackMovementTime > 0) {
+    const moveIntensity = 5 * delta; // Velocidade do movimento
+    
+    // Aplica o movimento
+    this.mesh.position.addScaledVector(
+      this.attackMovementDirection, 
+      moveIntensity
+    );
+    
+    // Atualiza o temporizador
+    this.attackMovementTime -= delta;
+    
+    // Rotação suave na direção do movimento
+    if (this.attackMovementDirection.length() > 0.1) {
+      const targetQuat = new THREE.Quaternion().setFromUnitVectors(
+        new THREE.Vector3(0, 0, 1),
+        this.attackMovementDirection.clone().normalize()
+      );
+      this.mesh.quaternion.slerp(targetQuat, 0.2);
+    }
+  }
+  
+  // 5. Flutuação suave
   const currentPosition = this.mesh.position;
   const baseHeight = this.spawnPosition?.y ?? currentPosition.y;
-  
-  // Parâmetros ajustáveis para a flutuação
-  const floatSpeed = 0.5;    // Reduz a velocidade da oscilação
-  const floatAmount = 0.1;   // Reduz a amplitude do movimento
-  const smoothFactor = 0.1;  // Adiciona suavização
-  
-  // Cálculo da flutuação suavizada
-  const targetFloat = Math.sin(Date.now() * 0.001 * floatSpeed) * floatAmount;
-  const currentFloat = currentPosition.y - baseHeight;
-  const newFloat = currentFloat + (targetFloat - currentFloat) * smoothFactor;
-  
-  currentPosition.y = baseHeight + newFloat;
+  const floatHeight = Math.sin(Date.now() * 0.001 * 0.5) * 0.1;
+  currentPosition.y = baseHeight + floatHeight;
 }
 
   updateProjectiles(delta, collidableObjects, camera) {
