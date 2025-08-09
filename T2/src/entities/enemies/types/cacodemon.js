@@ -39,7 +39,7 @@ export class Cacodemon extends Enemy {
     this.attackMovementDirection = new THREE.Vector3();
     this.attackMovementTarget = null;
     this.attackMovementTime = 0;
-    this.attackMovementDuration = 2.0;
+    this.attackMovementDuration = 0.5;
     
     // Modelo e placeholder
     this.model = null;
@@ -175,26 +175,22 @@ export class Cacodemon extends Enemy {
   }
 
  applyRandomAttackMovement() {
-    // Gera uma direção aleatória com componente Y limitado
-    const randomY = Math.min((Math.random() - 0.5) * 0.5, 0.3); // Limita o valor máximo do Y
+    // Movimento mais suave e menos extremo
+    const randomY = Math.min((Math.random() - 0.5) * 0.3, 0.2);
     
     this.attackMovementDirection.set(
-      (Math.random() - 0.5) * 2,
-      randomY, // Usa o valor limitado aqui
-      (Math.random() - 0.5) * 2
+        (Math.random() - 0.5) * 1.5, // Reduzido de 2 para 1.5
+        randomY,
+        (Math.random() - 0.5) * 1.5
     ).normalize();
     
-    // Define um alvo temporário na direção do movimento
+    // Distância menor para o alvo
     this.attackMovementTarget = this.mesh.position.clone().add(
-      this.attackMovementDirection.clone().multiplyScalar(10)
+        this.attackMovementDirection.clone().multiplyScalar(5) // Reduzido de 10 para 5
     );
     
-    // Garante que o alvo não ultrapasse Y = 20.0
-    if (this.attackMovementTarget.y > 20.0) {
-      this.attackMovementTarget.y = 20.0;
-    }
-    
-    // Reinicia o temporizador do movimento
+    // Duração menor do movimento
+    this.attackMovementDuration = 1.0; // Reduzido de 2.0
     this.attackMovementTime = this.attackMovementDuration;
 }
 
@@ -222,8 +218,8 @@ export class Cacodemon extends Enemy {
 
  update(delta, camera, targetPosition, collidableObjects = []) {
     if (this.isDying) {
-      this.deathEffects.update();
-      return;
+        this.deathEffects.update();
+        return;
     }
 
     if (!this.isAlive) return;
@@ -236,42 +232,46 @@ export class Cacodemon extends Enemy {
     // Atualiza projéteis
     this.updateProjectiles(delta, collidableObjects, camera);
     
-    // Configurações comuns para todos os movimentos
+    // Configurações comuns para movimentos
     const moveOptions = {
-      delta: delta,
-      enableCollision: true,
-      collidableObjects: collidableObjects,
-      use6DOF: this.config.isFlying
+        delta: delta,
+        enableCollision: true,
+        collidableObjects: collidableObjects,
+        use6DOF: this.config.isFlying
     };
 
-    // Movimento de ataque
+    // Movimento de ataque com transição suave
     if (this.attackMovementTime > 0) {
-      moveOptions.speedMultiplier = 2.0;
-      this.moveTowards(this.attackMovementTarget, moveOptions);
-      this.attackMovementTime -= delta;
-      
-      // Rotação suave durante ataque
-      if (this.attackMovementDirection.length() > 0.1) {
-        const targetQuat = new THREE.Quaternion().setFromUnitVectors(
-          new THREE.Vector3(0, 0, 1),
-          this.attackMovementDirection.clone().normalize()
-        );
-        this.mesh.quaternion.slerp(targetQuat, 0.2);
-      }
+        moveOptions.speedMultiplier = 2.0;
+        this.moveTowards(this.attackMovementTarget, moveOptions);
+        this.attackMovementTime -= delta;
+        
+        // Reduz gradualmente a influência do movimento de ataque
+        const attackBlend = this.attackMovementTime / this.attackMovementDuration;
+        
+        // Rotação suave durante ataque
+        if (this.attackMovementDirection.length() > 0.1) {
+            const targetQuat = new THREE.Quaternion().setFromUnitVectors(
+                new THREE.Vector3(0, 0, 1),
+                this.attackMovementDirection.clone().normalize()
+            );
+            this.mesh.quaternion.slerp(targetQuat, 0.2 * attackBlend);
+        }
     } 
-    // Movimento normal (IA)
-    else {
-      this.ai.update(delta, targetPosition, collidableObjects);
+    
+    // Comportamento normal com transição suave
+    if (this.attackMovementTime <= 0 || Math.random() < 0.3) {
+        this.ai.update(delta, targetPosition, collidableObjects);
     }
     
-    // Flutuação suave reduzida (apenas lateral)
-   const floatAmount = Math.sin(Date.now() * 0.001) * 0.05; // Reduzida a intensidade
-  this.mesh.position.x += floatAmount;
-  this.mesh.position.z += floatAmount * 0.5; // Movimento mais sutil no eixo Z
+    // Flutuação suave reduzida
+    const floatAmount = Math.sin(Date.now() * 0.001) * 0.05;
+    this.mesh.position.x += floatAmount;
+    this.mesh.position.z += floatAmount * 0.5;
     
     // Correção final de colisão
     if (collidableObjects.length > 0) {
-      this.collision.preventOverlap(collidableObjects, delta);
+        this.collision.preventOverlap(collidableObjects, delta);
     }
 
     // Limite de altura

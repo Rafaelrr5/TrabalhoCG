@@ -16,7 +16,7 @@ export class LostSoul extends Enemy {
       chargeDuration: 2.0, //duração da carga em segundos
       cooldownDuration: 2.0, //tempo de recarga após a carga
       wanderSpeed: 3.0, //velocidade ao vagar
-      detectionRange: 20.0, //distância para detectar o jogador
+      detectionRange: 40.0, //distância para detectar o jogador
       isFlying: true, //indica que voa
       skullScale: 1.2,
       ...config
