@@ -58,8 +58,8 @@ export async function createEnemies(scene) {
 }
 
 export function shouldUpdateEnemy(camera, enemy) {
-  // Sempre atualize se o inimigo já foi ativado
-  if (enemy.isActivated) {
+  // Sempre atualize se já tiver visto o jogador
+  if (enemy.detection?.hasSeenPlayer) {
     return true;
   }
 
@@ -68,13 +68,11 @@ export function shouldUpdateEnemy(camera, enemy) {
   const inArea2 = isPlayerInArea2(camera);
   
   if (enemy.area === 'area1' && inArea1) {
-    enemy.isActivated = true; // Marca como ativado
     enemy.ai.changeState('PATROL'); 
     return true;
   }
   
   if (enemy.area === 'area2' && inArea2) {
-    enemy.isActivated = true; // Marca como ativado
     enemy.ai.changeState('PATROL'); 
     return true;
   }
@@ -206,7 +204,6 @@ export function activateCacodemonsInArea2() {
   console.log(`Activating ${cacodemons.length} Cacodemons in Area 2`);
   
   cacodemons.forEach(cacodemon => {
-    cacodemon.isActivated = true; // Marca como ativado
     cacodemon.ai.changeState('PATROL');
     cacodemon.playSightSound();
     console.log(`Activated Cacodemon at ${cacodemon.mesh.position.toArray()}`);
@@ -256,7 +253,6 @@ export function activateLostSoulsInArea1() {
   console.log(`Activating ${lostSouls.length} Lost Souls in Area 1`);
   
   lostSouls.forEach(lostSoul => {
-    lostSoul.isActivated = true; // Marca como ativado
     lostSoul.ai.changeState('PATROL'); 
     lostSoul.playSightSound();
     console.log(`Activated LostSoul at ${lostSoul.mesh.position.toArray()}`);

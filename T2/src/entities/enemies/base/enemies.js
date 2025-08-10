@@ -95,8 +95,7 @@ export class Enemy extends SimpleEventEmitter {
     this.currentHealth = this.maxHealth;
     this.isAlive = true;
     this.isDying = false;
-    this.isActivated = false;
-
+    
     // Velocity for backward compatibility with custom enemy types
     this.velocity = new THREE.Vector3();
     
