@@ -153,26 +153,22 @@ export class Cacodemon extends Enemy {
     if (now - this.lastAttackTime < this.config.attackCooldown) return;
 
     try {
-      if (super.attack) {
-        super.attack(targetPosition);
-      }
-
-      if (this.modelLoaded) {
-        this.model.rotation.x = Math.PI / 4;
-      }
-      
-      this.fireProjectile(targetPosition);
-      this.applyRandomAttackMovement();
-      
-      if (this.audio) {
-        this.audio.playAttackSound('cacodemon_attack');
-      }
-      
-      this.lastAttackTime = now;
+        if (super.attack) {
+            super.attack(targetPosition);
+        }
+        
+        this.fireProjectile(targetPosition);
+        this.applyRandomAttackMovement();
+        
+        if (this.audio) {
+            this.audio.playAttackSound('cacodemon_attack');
+        }
+        
+        this.lastAttackTime = now;
     } catch (error) {
-      console.error('Cacodemon attack error:', error);
+        console.error('Cacodemon attack error:', error);
     }
-  }
+}
 
  applyRandomAttackMovement() {
     // Movimento mais suave e menos extremo
@@ -245,23 +241,18 @@ export class Cacodemon extends Enemy {
         moveOptions.speedMultiplier = 2.0;
         this.moveTowards(this.attackMovementTarget, moveOptions);
         this.attackMovementTime -= delta;
-        
-        // Reduz gradualmente a influência do movimento de ataque
-        const attackBlend = this.attackMovementTime / this.attackMovementDuration;
-        
-        // Rotação suave durante ataque
-        if (this.attackMovementDirection.length() > 0.1) {
-            const targetQuat = new THREE.Quaternion().setFromUnitVectors(
-                new THREE.Vector3(0, 0, 1),
-                this.attackMovementDirection.clone().normalize()
-            );
-            this.mesh.quaternion.slerp(targetQuat, 0.2 * attackBlend);
-        }
     } 
     
     // Comportamento normal com transição suave
     if (this.attackMovementTime <= 0 || Math.random() < 0.3) {
         this.ai.update(delta, targetPosition, collidableObjects);
+    }
+
+    // Rotação apenas no eixo Y para olhar para o alvo (sem inclinar para cima ou baixo)
+    if (targetPosition) {
+        const direction = new THREE.Vector3().subVectors(targetPosition, this.mesh.position).normalize();
+        const targetAngle = Math.atan2(direction.x, direction.z); // Calcula o ângulo no plano XZ
+        this.mesh.rotation.set(0, targetAngle, 0); // Apenas rotaciona no eixo Y
     }
     
     // Flutuação suave reduzida
