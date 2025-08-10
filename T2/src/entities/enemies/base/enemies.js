@@ -581,45 +581,56 @@ export class EnemyAI {
   this.movementSpeed = this.enemy.config.speed * 0.5;
   }
 
-  update(delta, playerPosition, collidableObjects) {
+ update(delta, playerPosition, collidableObjects) {
     if (!this.enemy.isAlive) return;
 
+    // Verifica visibilidade com obstáculos
     const canSeePlayer = this.enemy.checkPlayerVisibility(playerPosition, collidableObjects);
     const distanceToPlayer = this.enemy.mesh.position.distanceTo(playerPosition);
 
-    // Transições de estado
+    // Atualiza o estado apenas se realmente puder ver o jogador
     if (canSeePlayer) {
-      if (distanceToPlayer > this.enemy.config.attackRange && this.state !== 'CHASE') {
-        this.changeState('CHASE');
-      } else if (distanceToPlayer <= this.enemy.config.attackRange && this.state !== 'ATTACK') {
-        this.changeState('ATTACK');
-      }
-    } else if (this.state === 'CHASE' || this.state === 'ATTACK') {
-      this.changeState('DISENGAGE');
+        this.hasSeenPlayer = true;
+        
+        if (distanceToPlayer > this.enemy.config.attackRange) {
+            if (this.state !== 'CHASE') {
+                this.changeState('CHASE');
+            }
+        } else if (distanceToPlayer <= this.enemy.config.attackRange) {
+            if (this.state !== 'ATTACK') {
+                this.changeState('ATTACK');
+            }
+        }
+    } 
+    // Só entra em DISENGAGE se já tiver visto o jogador antes
+    else if (this.hasSeenPlayer && (this.state === 'CHASE' || this.state === 'ATTACK')) {
+        this.changeState('DISENGAGE');
+    }
+    // Volta para IDLE após desengajar
+    else if (this.state === 'DISENGAGE' && (Date.now()/1000 - this.lastStateChange) > this.disengageDuration) {
+        this.changeState('IDLE');
+        this.hasSeenPlayer = false; // Reseta após desengajar completamente
     }
 
     // Comportamentos
     switch (this.state) {
-      case 'IDLE':
-        this.idleBehavior(delta);
-        break;
-      case 'PATROL':
-        this.movingBehavior(delta, playerPosition, canSeePlayer);
-        break;
-      case 'CHASE':
-        this.chaseBehavior(delta, playerPosition, collidableObjects);
-        break;
-      case 'ATTACK':
-        this.attackBehavior(delta, playerPosition);
-        break;
-      case 'DISENGAGE':
-        this.disengageBehavior(delta);
-        break;
+        case 'IDLE':
+            this.idleBehavior(delta);
+            break;
+        case 'PATROL':
+            this.movingBehavior(delta, playerPosition, canSeePlayer);
+            break;
+        case 'CHASE':
+            this.chaseBehavior(delta, playerPosition, collidableObjects);
+            break;
+        case 'ATTACK':
+            this.attackBehavior(delta, playerPosition);
+            break;
+        case 'DISENGAGE':
+            this.disengageBehavior(delta);
+            break;
     }
-    console.log(`Current state: ${this.state}`);
-    console.log(`Can see player: ${canSeePlayer}`);
-    console.log(`Distance to player: ${distanceToPlayer}`);
-  }
+}
 
   changeState(newState) {
   if (this.state === newState) return;

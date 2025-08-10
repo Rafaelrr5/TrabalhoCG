@@ -220,6 +220,9 @@ export class Cacodemon extends Enemy {
 
     if (!this.isAlive) return;
 
+    // Atualiza detecção - só considera visível se passar por todos os checks
+    const isPlayerVisible = this.checkPlayerVisibility(targetPosition, collidableObjects);
+    
     // Atualiza componentes básicos
     this.audio.updateProximity(camera?.position);
     this.healthBar.update(camera);
@@ -228,7 +231,7 @@ export class Cacodemon extends Enemy {
     // Atualiza projéteis
     this.updateProjectiles(delta, collidableObjects, camera);
     
-    // Configurações comuns para movimentos
+    // Configurações de movimento
     const moveOptions = {
         delta: delta,
         enableCollision: true,
@@ -236,31 +239,35 @@ export class Cacodemon extends Enemy {
         use6DOF: this.config.isFlying
     };
 
-    // Movimento de ataque com transição suave
-    if (this.attackMovementTime > 0) {
-        moveOptions.speedMultiplier = 2.0;
-        this.moveTowards(this.attackMovementTarget, moveOptions);
-        this.attackMovementTime -= delta;
-    } 
-    
-    // Comportamento normal com transição suave
-    if (this.attackMovementTime <= 0 || Math.random() < 0.3) {
+    // Só ataca se o jogador estiver visível
+    if (isPlayerVisible) {
+        // Movimento de ataque
+        if (this.attackMovementTime > 0) {
+            moveOptions.speedMultiplier = 2.0;
+            this.moveTowards(this.attackMovementTarget, moveOptions);
+            this.attackMovementTime -= delta;
+        } 
+        
+        // Ataque normal
+        if (this.attackMovementTime <= 0 || Math.random() < 0.3) {
+            this.ai.update(delta, targetPosition, collidableObjects);
+        }
+
+        // Rotação para olhar para o alvo
+        const direction = new THREE.Vector3().subVectors(targetPosition, this.mesh.position).normalize();
+        const targetAngle = Math.atan2(direction.x, direction.z);
+        this.mesh.rotation.set(0, targetAngle, 0);
+    } else {
+        // Comportamento quando não vê o jogador
         this.ai.update(delta, targetPosition, collidableObjects);
     }
-
-    // Rotação apenas no eixo Y para olhar para o alvo (sem inclinar para cima ou baixo)
-    if (targetPosition) {
-        const direction = new THREE.Vector3().subVectors(targetPosition, this.mesh.position).normalize();
-        const targetAngle = Math.atan2(direction.x, direction.z); // Calcula o ângulo no plano XZ
-        this.mesh.rotation.set(0, targetAngle, 0); // Apenas rotaciona no eixo Y
-    }
     
-    // Flutuação suave reduzida
+    // Flutuação suave
     const floatAmount = Math.sin(Date.now() * 0.001) * 0.05;
     this.mesh.position.x += floatAmount;
     this.mesh.position.z += floatAmount * 0.5;
     
-    // Correção final de colisão
+    // Correção de colisão
     if (collidableObjects.length > 0) {
         this.collision.preventOverlap(collidableObjects, delta);
     }
