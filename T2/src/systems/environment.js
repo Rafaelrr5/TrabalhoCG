@@ -12,6 +12,7 @@ import { loadOBJModel } from '../utils/modelLoader.js';
 import { applyTexture, QuickTexture } from '../utils/textureUtils.js';
 import { CSG } from '../../../libs/other/CSGMesh.js';
 import { createArea3, animateHangarDoors, updateHangarDoors, isPlayerInsideHangar } from '../components/hangar.js';
+import { createArea4Maze } from '../components/labirinth.js';
 
 export let area1KeyPlatform = null;
 export let area2KeyPlatform = null;
@@ -116,6 +117,23 @@ async function applyEnvironmentTextures(scene) {
         }
     }
     
+    // Aplicar texturas aos muros da área 4
+    const area4Group = scene.getObjectByName("Area4");
+    if (area4Group) {
+        const wallsGroup = area4Group.getObjectByName("Area4Walls");
+        if (wallsGroup && wallsGroup.children.length > 0) {
+            // Aplicar textura neutra e discreta aos muros
+            QuickTexture.stone(wallsGroup);
+        }
+        
+        // Aplicar texturas ao labirinto
+        const mazeGroup = area4Group.getObjectByName("Area4Maze");
+        if (mazeGroup && mazeGroup.children.length > 0) {
+            // Aplicar textura de pedra ao labirinto
+            QuickTexture.stone(mazeGroup);
+        }
+    }
+    
     console.log('[ENVIRONMENT] ✅ Texturas do ambiente processadas');
 }
 
@@ -203,34 +221,233 @@ function createArea2(scene, materials, collidableObjects) {
 }
 
 function createArea4(scene, materials, collidableObjects) {
-    let areaGeometry = new THREE.BoxGeometry(1, 1, 1);
-    
-    let area4_center = new THREE.Mesh(areaGeometry, materials.area4);
-    let area4_left = new THREE.Mesh(areaGeometry, materials.area4);
-    let area4_right = new THREE.Mesh(areaGeometry, materials.area4);
+    // Criar apenas o grupo principal, o labirinto interno e os muros
     const area4 = new THREE.Group();
     area4.name = "Area4";
-    const stair4 = new THREE.Group();
     
-    area4_center.position.set(0.0, WORLD_CONFIG.AREA_Y_POSITION, 131.0);
-    area4_center.scale.set(375.0, WORLD_CONFIG.AREA_HEIGHT, 125.0);
-    area4_left.position.set(-97.5, WORLD_CONFIG.AREA_Y_POSITION, 66.0);
-    area4_left.scale.set(180.0, WORLD_CONFIG.AREA_HEIGHT, 6.0);
-    area4_right.position.set(97.5, WORLD_CONFIG.AREA_Y_POSITION, 66.0);
-    area4_right.scale.set(180.0, WORLD_CONFIG.AREA_HEIGHT, 6.0);
-
-    area4.add(area4_center);
-    area4.add(area4_left);
-    area4.add(area4_right);
+    // Criar o labirinto dentro da área 4
+    const mazeGroup = createArea4Maze(scene, collidableObjects, WORLD_CONFIG);
+    area4.add(mazeGroup);
+    
+    // Criar muros altos ao redor da área 4 para ocultá-la completamente
+    const area4Walls = createArea4Walls(materials);
+    area4.add(area4Walls);
+    
     scene.add(area4);
-    stair4.add(createStair(0.0, WORLD_CONFIG.STAIR_HEIGHT_OFFSET, 62.8, WORLD_CONFIG.AREA_HEIGHT, false, materials.stair));
-    scene.add(stair4);
-    markCollisionObject(area4, collidableObjects);
-    markCollisionObject(stair4, collidableObjects);
-    area4.castShadow = true; // Ativa sombras na área 4
-    stair4.castShadow = true; // Ativa sombras na escada
-    enableShadowsForAll(area4); // Ativa sombras na área 4
-    enableShadowsForAll(stair4); // Ativa sombras na escada
+    
+    // Criar porta e totem para acesso à área 4
+    // Posicionados na frente dos muros (lado sul da área 4)
+    // Área 4 está centrada em (0, Y, 131) com profundidade de ~125, então frente fica em Z ≈ 68
+    // NOTA: Sistema atual de door.js só suporta uma porta/totem. Implementação pendente para múltiplos sistemas.
+    // createDoor(scene, collidableObjects, 0.0, 68.0, 15.0, 4.0, 'green'); // Porta verde para combinar com a área
+    // createtotem(scene, collidableObjects, 0.0, 64.0, 'green'); // Totem verde na frente da porta
+    
+    console.log('[ENVIRONMENT] ⚠️ Área 4 criada sem porta/totem - sistema de múltiplas portas pendente');
+    console.log('[ENVIRONMENT] 💡 Chave verde disponível na área 3 para futura implementação');
+    
+    markCollisionObject(area4Walls, collidableObjects);
+    enableShadowsForAll(area4Walls); // Ativa sombras apenas nos muros
+    enableShadowsForAll(mazeGroup); // Ativa sombras no labirinto
+}
+
+function createArea4Walls(materials) {
+    const wallsGroup = new THREE.Group();
+    wallsGroup.name = "Area4Walls";
+    
+    // Altura dos muros (do chão até bem alto para ocultar completamente a área)
+    const wallHeight = 30;
+    const wallThickness = 5; // Muros mais espessos para melhor ocultação
+    
+    // Dimensões da área 4 para calcular posições dos muros
+    const area4CenterWidth = 375.0;
+    const area4CenterDepth = 125.0;
+    const area4CenterX = 0.0;
+    const area4CenterZ = 131.0;
+    
+    // Material para os muros (cor neutra para não chamar atenção)
+    const wallMaterial = new THREE.MeshLambertMaterial({ 
+        color: 0x404040, // Cinza escuro para discrição
+        transparent: false
+    });
+    
+    // Calcular posições dos muros com base na área central
+    const halfWidth = area4CenterWidth / 2;
+    const halfDepth = area4CenterDepth / 2;
+    
+    // Posição Y: do chão base até o topo
+    const wallYPosition = WORLD_CONFIG.GROUND_HEIGHT + wallHeight / 2;
+    
+    // Expandir um pouco os muros para garantir ocultação completa
+    const expansionFactor = 10; // Margem extra para garantir que nada seja visível
+    const expandedWidth = area4CenterWidth + expansionFactor;
+    const expandedDepth = area4CenterDepth + expansionFactor;
+    const expandedHalfWidth = expandedWidth / 2;
+    const expandedHalfDepth = expandedDepth / 2;
+    
+    // Muro Norte (trás) - COMPLETAMENTE FECHADO
+    const northWallGeometry = new THREE.BoxGeometry(expandedWidth + wallThickness * 2, wallHeight, wallThickness);
+    const northWall = new THREE.Mesh(northWallGeometry, wallMaterial);
+    northWall.position.set(area4CenterX, wallYPosition, area4CenterZ + expandedHalfDepth + wallThickness / 2);
+    northWall.castShadow = true;
+    northWall.receiveShadow = true;
+    wallsGroup.add(northWall);
+    
+    // Muro Sul (frente)
+    const southWallGeometry = new THREE.BoxGeometry(expandedWidth + wallThickness * 2, wallHeight, wallThickness);
+    const southWall = new THREE.Mesh(southWallGeometry, wallMaterial);
+    southWall.position.set(area4CenterX, wallYPosition, area4CenterZ - expandedHalfDepth - wallThickness / 2);
+    southWall.castShadow = true;
+    southWall.receiveShadow = true;
+    wallsGroup.add(southWall);
+    
+    const westWallGeometry = new THREE.BoxGeometry(wallThickness, wallHeight, expandedDepth + wallThickness * 2);
+    const westWall = new THREE.Mesh(westWallGeometry, wallMaterial);
+    westWall.position.set(area4CenterX - expandedHalfWidth - wallThickness / 2, wallYPosition, area4CenterZ);
+    westWall.castShadow = true;
+    westWall.receiveShadow = true;
+    wallsGroup.add(westWall);
+    
+    // Muro Leste (direita)
+    const eastWallGeometry = new THREE.BoxGeometry(wallThickness, wallHeight, expandedDepth + wallThickness * 2);
+    const eastWall = new THREE.Mesh(eastWallGeometry, wallMaterial);
+    eastWall.position.set(area4CenterX + expandedHalfWidth + wallThickness / 2, wallYPosition, area4CenterZ);
+    eastWall.castShadow = true;
+    eastWall.receiveShadow = true;
+    wallsGroup.add(eastWall);
+    
+    
+    // Adicionar detalhes decorativos aos muros (sem torres, para manter discreto)
+    addWallDetails(wallsGroup, wallMaterial, wallHeight, true); // true = modo oculto
+    
+    return wallsGroup;
+}
+
+// Função para adicionar detalhes decorativos aos muros
+function addWallDetails(wallsGroup, wallMaterial, wallHeight, hiddenMode = false) {
+    // Se estiver em modo oculto, adicionar apenas detalhes mínimos e discretos
+    if (hiddenMode) {
+        // Adicionar apenas algumas vigas de reforço discretas
+        const reinforcementCount = 3;
+        
+        wallsGroup.children.forEach((wall, index) => {
+            if (wall.isMesh && wall.geometry.parameters) {
+                const wallBox = new THREE.Box3().setFromObject(wall);
+                const wallSize = wallBox.getSize(new THREE.Vector3());
+                const wallCenter = wallBox.getCenter(new THREE.Vector3());
+                
+                // Adicionar vigas de reforço horizontais discretas
+                for (let i = 0; i < reinforcementCount; i++) {
+                    const beamHeight = 0.3;
+                    const beamWidth = Math.min(wallSize.x, wallSize.z) * 0.8;
+                    const beamDepth = 0.2;
+                    
+                    const beamGeometry = new THREE.BoxGeometry(
+                        wallSize.x > wallSize.z ? beamWidth : beamDepth,
+                        beamHeight,
+                        wallSize.x > wallSize.z ? beamDepth : beamWidth
+                    );
+                    const beam = new THREE.Mesh(beamGeometry, wallMaterial);
+                    
+                    beam.position.set(
+                        wallCenter.x,
+                        wallCenter.y - wallHeight/2 + (i + 1) * (wallHeight / (reinforcementCount + 1)),
+                        wallCenter.z
+                    );
+                    
+                    beam.castShadow = true;
+                    beam.receiveShadow = true;
+                    wallsGroup.add(beam);
+                }
+            }
+        });
+        
+        return; // Não adicionar torres ou merlões em modo oculto
+    }
+    
+    // Código original para modo decorativo (não usado em modo oculto)
+    // Adicionar merlões (ameias) no topo dos muros
+    const merlonHeight = 2;
+    const merlonWidth = 3;
+    const merlonDepth = 2;
+    
+    // Obter as dimensões dos muros para posicionar os merlões
+    wallsGroup.children.forEach((wall, index) => {
+        if (wall.isMesh) {
+            const wallBox = new THREE.Box3().setFromObject(wall);
+            const wallSize = wallBox.getSize(new THREE.Vector3());
+            const wallCenter = wallBox.getCenter(new THREE.Vector3());
+            
+            // Determinar quantos merlões adicionar com base no tamanho do muro
+            const longestSide = Math.max(wallSize.x, wallSize.z);
+            const merlonCount = Math.floor(longestSide / (merlonWidth * 2));
+            
+            for (let i = 0; i < merlonCount; i++) {
+                const merlonGeometry = new THREE.BoxGeometry(merlonWidth, merlonHeight, merlonDepth);
+                const merlon = new THREE.Mesh(merlonGeometry, wallMaterial);
+                
+                // Posicionar merlões ao longo do topo do muro
+                let offsetX = 0;
+                let offsetZ = 0;
+                
+                if (wallSize.x > wallSize.z) { // Muro horizontal
+                    offsetX = (i - (merlonCount - 1) / 2) * (merlonWidth * 2);
+                } else { // Muro vertical
+                    offsetZ = (i - (merlonCount - 1) / 2) * (merlonWidth * 2);
+                }
+                
+                merlon.position.set(
+                    wallCenter.x + offsetX,
+                    wallCenter.y + wallHeight/2 + merlonHeight/2,
+                    wallCenter.z + offsetZ
+                );
+                
+                merlon.castShadow = true;
+                merlon.receiveShadow = true;
+                wallsGroup.add(merlon);
+            }
+        }
+    });
+    
+    // Adicionar torres nas esquinas
+    const towerRadius = 4;
+    const towerHeight = wallHeight + 5;
+    const towerMaterial = new THREE.MeshLambertMaterial({ 
+        color: 0x1a4a1a // Verde ainda mais escuro para as torres
+    });
+    
+    // Calcular posições das torres baseadas nas dimensões da área 4
+    const area4CenterWidth = 375.0;
+    const area4CenterDepth = 125.0;
+    const area4CenterX = 0.0;
+    const area4CenterZ = 131.0;
+    const halfWidth = area4CenterWidth / 2;
+    const halfDepth = area4CenterDepth / 2;
+    const wallThickness = 3;
+    
+    const cornerPositions = [
+        { x: area4CenterX - halfWidth - wallThickness, z: area4CenterZ - halfDepth - wallThickness },   // Esquina sudoeste
+        { x: area4CenterX + halfWidth + wallThickness, z: area4CenterZ - halfDepth - wallThickness },   // Esquina sudeste
+        { x: area4CenterX - halfWidth - wallThickness, z: area4CenterZ + halfDepth + wallThickness },   // Esquina noroeste
+        { x: area4CenterX + halfWidth + wallThickness, z: area4CenterZ + halfDepth + wallThickness }    // Esquina nordeste
+    ];
+    
+    cornerPositions.forEach((pos, index) => {
+        const towerGeometry = new THREE.CylinderGeometry(towerRadius, towerRadius * 1.2, towerHeight, 12);
+        const tower = new THREE.Mesh(towerGeometry, towerMaterial);
+        tower.position.set(pos.x, WORLD_CONFIG.AREA_Y_POSITION + towerHeight / 2, pos.z);
+        tower.castShadow = true;
+        tower.receiveShadow = true;
+        
+        // Adicionar um topo cônico à torre
+        const roofGeometry = new THREE.ConeGeometry(towerRadius * 1.1, 3, 12);
+        const roof = new THREE.Mesh(roofGeometry, towerMaterial);
+        roof.position.set(pos.x, WORLD_CONFIG.AREA_Y_POSITION + towerHeight + 1.5, pos.z);
+        roof.castShadow = true;
+        roof.receiveShadow = true;
+        
+        wallsGroup.add(tower);
+        wallsGroup.add(roof);
+    });
 }
 
 // Cria colunas romanas ao redor da Área 1

@@ -671,7 +671,8 @@ function animate() {
     updateArea1(delta);
     updateArea2(delta);
     updateElevator(delta);
-    updateTotem(delta, scene, hitbox, 'red', collidableObjects);
+    updateTotem(delta, scene, hitbox, 'red', collidableObjects); // Totem da área 2 (chave amarela)
+    // TODO: Implementar sistema de múltiplos totems para área 4 (chave verde)
     updateKeyAnimation(delta, scene); // Atualiza animação da chave
     updateDoorAnimation(delta, scene); // Atualiza animação da porta
     

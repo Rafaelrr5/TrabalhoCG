@@ -3,6 +3,7 @@ import { WORLD_CONFIG } from '../core/config/worldConfig.js';
 import { loadOBJModel } from '../utils/modelLoader.js';
 import { enableShadowsForAll } from '../systems/lights.js';
 import { CSG } from '../../../../libs/other/CSGMesh.js';
+import { keyManager, Key } from '../entities/items/key.js';
 
 // Funções de easing para animações
 function easeOutCubic(t) {
@@ -395,6 +396,20 @@ export async function createArea3(scene, materials, collidableObjects) {
     hangarModel.userData.collidableObjectsRef = collidableObjects;
     
     enableShadowsForAll(area3);
+    
+    // Criar chave verde para acesso à área 4 (labirinto)
+    // Posicionada dentro do hangar para ser encontrada pelo jogador
+    const greenKeyPosition = new THREE.Vector3(156.25, WORLD_CONFIG.AREA_Y_POSITION + 2, -80.0); // Dentro do hangar
+    const greenKeyInstance = new Key('green', greenKeyPosition);
+    
+    if (keyManager.addKey(greenKeyInstance, scene)) {
+        if (greenKeyInstance.getMesh()) {
+            greenKeyInstance.getMesh().position.copy(greenKeyPosition);
+            greenKeyInstance.position.copy(greenKeyPosition);
+            greenKeyInstance.originalY = greenKeyPosition.y;
+            console.log('[HANGAR] ✅ Chave verde criada para acesso à área 4');
+        }
+    }
     
     // Funções de debug/teste
     setupHangarDebugFunctions(hangarModel);
