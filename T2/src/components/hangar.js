@@ -47,10 +47,10 @@ export function createHangar(opts = {}) {
         const outerMesh = new THREE.Mesh(outerGeometry, hangarMaterial);
         outerMesh.position.set(0, height / 2, 0);
 
-        // Caixa interna (para criar o oco)
+        // Caixa interna (para criar o oco) - aumentada para remover também o chão
         const innerGeometry = new THREE.BoxGeometry(
             width - wallThickness * 2,
-            height - wallThickness * 2,
+            height, // Mesma altura para remover o chão também
             depth - wallThickness * 2
         );
         const innerMesh = new THREE.Mesh(innerGeometry, hangarMaterial);
@@ -312,19 +312,19 @@ export async function createArea3(scene, materials, collidableObjects) {
     
     // Criar hangar usando objetos básicos e CSG
     const hangarModel = createHangar({
-        width: 120,        // Muito mais largo
-        height: 35,        // Mais alto
-        depth: 80,         // Mais profundo
+        width: 160,        // Muito mais largo (era 120)
+        height: 35,        // Mantém a altura
+        depth: 120,        // Muito mais profundo para trás (era 80)
         wallThickness: 1.5,
         roofOverhang: 4,
-        doorWidth: 80,     // Porta muito mais larga
-        doorHeight: 28,    // Porta mais alta
+        doorWidth: 100,    // Porta ainda mais larga para proporcionalidade (era 80)
+        doorHeight: 28,    // Mantém altura da porta
         color: 0xaaaaaa,   // Cor mais clara
         metalness: 0.4,
         roughness: 0.6
     });
     
-    hangarModel.position.set(156.25, WORLD_CONFIG.AREA_Y_POSITION - 2, -50.0);
+    hangarModel.position.set(156.25, 0, -130.0); // Ajustado para ficar no nível do chão
     hangarModel.name = "HangarModel";
     
     // Configurar portas do hangar para animação
@@ -371,7 +371,7 @@ export async function createArea3(scene, materials, collidableObjects) {
         });
         
         planeModel.name = "PlaneModel";
-        planeModel.position.set(156.25, WORLD_CONFIG.AREA_Y_POSITION + 3, -50.0);
+        planeModel.position.set(156.25, 5, -50.0); // Ajustado para acompanhar o hangar
         
         area3.add(planeModel);
         
@@ -585,8 +585,8 @@ export function animateHangarDoors(hangarModel, shouldOpen, collidableObjects = 
     requestAnimationFrame(animateFrame);
 }
 
-// Função para atualizar as portas do hangar baseado na proximidade do jogador
-export function updateHangarDoors(delta, camera, scene, collidableObjects) {
+// Função para atualizar as portas do hangar baseado na proximidade do jogador e se tem a chave
+export function updateHangarDoors(delta, camera, scene, collidableObjects, keyManager = null) {
     const area3 = scene.getObjectByName('Area3');
     if (!area3) return;
     
@@ -595,14 +595,25 @@ export function updateHangarDoors(delta, camera, scene, collidableObjects) {
     
     const playerPosition = camera.position;
     const hangarPosition = hangar.position;
-    const distance = playerPosition.distanceTo(hangarPosition);
+    const distance = Math.sqrt(
+        Math.pow(playerPosition.x - hangarPosition.x, 2) + 
+        Math.pow(playerPosition.z - hangarPosition.z, 2)
+    ); // Calcular distância apenas no plano horizontal (X, Z)
     
-    const openDistance = 60;
-    const closeDistance = 100;
+    const openDistance = 80; // Aumentar distância para abrir
+    const closeDistance = 120; // Aumentar distância para fechar
     
+    // Verificar se o jogador tem a chave da área 2 (chave vermelha)
+    const hasHangarKey = keyManager ? keyManager.hasKey('red') : false;
+    
+    // Só abrir as portas se estiver perto E tiver a chave
     if (distance < openDistance && !hangar.userData.doorsOpen && !hangar.userData.animating) {
-        animateHangarDoors(hangar, true, collidableObjects);
-    } else if (distance > closeDistance && hangar.userData.doorsOpen && !hangar.userData.animating) {
+        if (hasHangarKey) {
+            animateHangarDoors(hangar, true, collidableObjects);
+        }
+    } 
+    // Fechar as portas se o jogador se afastar (independente da chave)
+    else if (distance > closeDistance && hangar.userData.doorsOpen && !hangar.userData.animating) {
         animateHangarDoors(hangar, false, collidableObjects);
     }
 }
@@ -619,8 +630,8 @@ export function isPlayerInsideHangar(camera, scene) {
     const hangarPos = hangar.position;
     
     // Dimensões do hangar (baseadas nos parâmetros usados na criação)
-    const hangarWidth = 120;
-    const hangarDepth = 80;
+    const hangarWidth = 160;  // Atualizado para nova largura
+    const hangarDepth = 120;  // Atualizado para nova profundidade
     const hangarHeight = 35;
     
     // Calcular limites do hangar
@@ -645,13 +656,13 @@ function isPlayerInHangarEntranceZone(camera, hangarModel) {
     const hangarPos = hangarModel.position;
     
     // Zona de entrada na frente do hangar
-    const entranceWidth = 90; // Ligeiramente maior que a porta
-    const entranceDepth = 20; // Profundidade da zona de entrada
+    const entranceWidth = 110; // Ligeiramente maior que a nova porta (era 90)
+    const entranceDepth = 25;  // Profundidade da zona de entrada aumentada
     
     const minX = hangarPos.x - entranceWidth / 2;
     const maxX = hangarPos.x + entranceWidth / 2;
-    const minZ = hangarPos.z + 40; // Na frente do hangar
-    const maxZ = hangarPos.z + 40 + entranceDepth;
+    const minZ = hangarPos.z + 60; // Ajustado para a nova posição do hangar
+    const maxZ = hangarPos.z + 60 + entranceDepth;
     
     const inEntranceX = playerPos.x >= minX && playerPos.x <= maxX;
     const inEntranceZ = playerPos.z >= minZ && playerPos.z <= maxZ;
@@ -671,9 +682,49 @@ function setupHangarDebugFunctions(hangarModel) {
     };
     
     window.toggleHangarDoors = function() {
-        console.log('[DEBUG] Toggling hangar doors...');
+        console.log('[DEBUG] Toggling hangar doors (bypass key check)...');
         const collidableObjects = hangarModel.userData.collidableObjectsRef;
         animateHangarDoors(hangarModel, !hangarModel.userData.doorsOpen, collidableObjects);
+    };
+    
+    // Função para testar o sistema de chaves
+    window.testHangarWithKey = function(hasKey = true) {
+        console.log(`[DEBUG] Testando hangar com chave vermelha: ${hasKey}`);
+        
+        // Simular keyManager com ou sem chave
+        const mockKeyManager = { 
+            hasKey: (keyType) => hasKey && keyType === 'red' 
+        };
+        
+        const collidableObjects = hangarModel.userData.collidableObjectsRef;
+        
+        // Simular proximidade
+        const mockCamera = { position: hangarModel.position.clone() };
+        const mockScene = { getObjectByName: (name) => name === 'Area3' ? { getObjectByName: () => hangarModel } : null };
+        
+        updateHangarDoors(0, mockCamera, mockScene, collidableObjects, mockKeyManager);
+    };
+    
+    // Função para dar a chave vermelha ao jogador (debug)
+    window.giveRedKey = function() {
+        if (typeof window.keyManager !== 'undefined') {
+            window.keyManager.addKeyToInventory('red');
+            console.log('[DEBUG] Chave vermelha adicionada ao inventário!');
+            console.log('[DEBUG] Chaves no inventário:', window.keyManager.getCollectedKeys());
+        } else {
+            console.log('[DEBUG] KeyManager não disponível no escopo global');
+        }
+    };
+    
+    // Função para testar se tem chave
+    window.checkHangarKey = function() {
+        if (typeof window.keyManager !== 'undefined') {
+            const hasKey = window.keyManager.hasKey('red');
+            console.log(`[DEBUG] Jogador tem chave vermelha: ${hasKey}`);
+            console.log('[DEBUG] Chaves no inventário:', window.keyManager.getCollectedKeys());
+        } else {
+            console.log('[DEBUG] KeyManager não disponível');
+        }
     };
     
     // Função de debug para mostrar informações do hangar

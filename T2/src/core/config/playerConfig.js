@@ -1,6 +1,6 @@
 export const PLAYER_CONFIG = {
     MOVE_SPEED: 20,
-    SPRINT_MULTIPLIER: 3,
+    SPRINT_MULTIPLIER: 2,
     GRAVITY: -20,
     
     CAMERA_HEIGHT: 1.8,

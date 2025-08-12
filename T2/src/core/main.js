@@ -17,6 +17,9 @@ import { ambientAudioManager, playerAudioManager, gameAudioManager, audioManager
 import { updateTotem, updateDoorAnimation, updateKeyAnimation, totem } from '../systems/door.js';
 import { loadSky } from '../systems/sky.js';
 
+// Expor keyManager globalmente para debug
+window.keyManager = keyManager;
+
 window.playerTakeDamage = function(damage) {
   const isAlive = player.takeDamage(damage);
   
@@ -660,7 +663,7 @@ function animate() {
             console.log(`[KEYS] Available key types:`, keyManager.getCollectedKeys());
         }
         
-        updateHangarDoors(delta, camera, scene, collidableObjects); // Atualiza animação das portas do hangar
+        updateHangarDoors(delta, camera, scene, collidableObjects, keyManager); // Atualiza animação das portas do hangar com sistema de chaves
     }
     
     // These updates don't require camera/controls, so they can run always
