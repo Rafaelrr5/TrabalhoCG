@@ -660,7 +660,7 @@ function animate() {
             console.log(`[KEYS] Available key types:`, keyManager.getCollectedKeys());
         }
         
-        updateHangarDoors(delta, camera, scene); // Atualiza animação das portas do hangar
+        updateHangarDoors(delta, camera, scene, collidableObjects); // Atualiza animação das portas do hangar
     }
     
     // These updates don't require camera/controls, so they can run always
