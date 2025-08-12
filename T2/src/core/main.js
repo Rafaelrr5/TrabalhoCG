@@ -15,6 +15,7 @@ import { updateElevator } from '../systems/elevator.js';
 import { keyManager } from '../entities/items/key.js';
 import { ambientAudioManager, playerAudioManager, gameAudioManager, audioManager } from '../systems/index.js';
 import { updateTotem, updateDoorAnimation, updateKeyAnimation, totem } from '../systems/door.js';
+import { updateArea4Totem, updateArea4KeyAnimation, updateArea4WallsAnimation } from '../systems/area4Access.js';
 import { loadSky } from '../systems/sky.js';
 
 // Expor keyManager globalmente para debug
@@ -672,9 +673,11 @@ function animate() {
     updateArea2(delta);
     updateElevator(delta);
     updateTotem(delta, scene, hitbox, 'red', collidableObjects); // Totem da área 2 (chave amarela)
-    // TODO: Implementar sistema de múltiplos totems para área 4 (chave verde)
-    updateKeyAnimation(delta, scene); // Atualiza animação da chave
-    updateDoorAnimation(delta, scene); // Atualiza animação da porta
+    updateArea4Totem(delta, scene, hitbox, collidableObjects); // Totem da área 4 (chave verde)
+    updateKeyAnimation(delta, scene); // Atualiza animação da chave (área 2)
+    updateDoorAnimation(delta, scene); // Atualiza animação da porta (área 2)
+    updateArea4KeyAnimation(delta, scene); // Atualiza animação da chave (área 4)
+    updateArea4WallsAnimation(delta, scene); // Atualiza animação dos muros (área 4)
     
     // Ensure ambient music keeps playing
     ambientAudioManager.ensureAmbientMusicPlaying();

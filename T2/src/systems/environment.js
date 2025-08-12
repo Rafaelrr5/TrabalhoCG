@@ -13,6 +13,7 @@ import { applyTexture, QuickTexture } from '../utils/textureUtils.js';
 import { CSG } from '../../../libs/other/CSGMesh.js';
 import { createArea3, animateHangarDoors, updateHangarDoors, isPlayerInsideHangar } from '../components/hangar.js';
 import { createArea4Maze } from '../components/labirinth.js';
+import { createArea4Totem, setArea4Walls } from './area4Access.js';
 
 export let area1KeyPlatform = null;
 export let area2KeyPlatform = null;
@@ -235,19 +236,21 @@ function createArea4(scene, materials, collidableObjects) {
     
     scene.add(area4);
     
-    // Criar porta e totem para acesso à área 4
-    // Posicionados na frente dos muros (lado sul da área 4)
-    // Área 4 está centrada em (0, Y, 131) com profundidade de ~125, então frente fica em Z ≈ 68
-    // NOTA: Sistema atual de door.js só suporta uma porta/totem. Implementação pendente para múltiplos sistemas.
-    // createDoor(scene, collidableObjects, 0.0, 68.0, 15.0, 4.0, 'green'); // Porta verde para combinar com a área
-    // createtotem(scene, collidableObjects, 0.0, 64.0, 'green'); // Totem verde na frente da porta
+    // Criar totem para acesso à área 4 (usa sistema específico)
+    // Posicionado na frente do muro sul da área 4
+    // Cálculo: area4CenterZ (131) - expandedHalfDepth (67.5) - wallThickness/2 (2.5) - distância segura (5)
+    const totemX = 0.0; // Centralizado
+    const totemZ = 54.0; // Na frente do muro sul (61.0 - 7.0 de distância)
+    createArea4Totem(scene, collidableObjects, totemX, totemZ, 'blue');
     
-    console.log('[ENVIRONMENT] ⚠️ Área 4 criada sem porta/totem - sistema de múltiplas portas pendente');
-    console.log('[ENVIRONMENT] 💡 Chave verde disponível na área 3 para futura implementação');
+    // Configurar os muros para o sistema de animação
+    setArea4Walls(area4Walls);
     
     markCollisionObject(area4Walls, collidableObjects);
     enableShadowsForAll(area4Walls); // Ativa sombras apenas nos muros
     enableShadowsForAll(mazeGroup); // Ativa sombras no labirinto
+    
+    console.log('[ENVIRONMENT] ✅ Área 4 criada com totem de acesso funcional');
 }
 
 function createArea4Walls(materials) {

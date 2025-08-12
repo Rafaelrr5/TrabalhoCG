@@ -397,17 +397,17 @@ export async function createArea3(scene, materials, collidableObjects) {
     
     enableShadowsForAll(area3);
     
-    // Criar chave verde para acesso à área 4 (labirinto)
+    // Criar chave azul para acesso à área 4 (labirinto)
     // Posicionada dentro do hangar para ser encontrada pelo jogador
-    const greenKeyPosition = new THREE.Vector3(156.25, WORLD_CONFIG.AREA_Y_POSITION + 2, -80.0); // Dentro do hangar
-    const greenKeyInstance = new Key('green', greenKeyPosition);
+    const blueKeyPosition = new THREE.Vector3(156.25, WORLD_CONFIG.AREA_Y_POSITION + 2, -80.0); // Dentro do hangar
+    const blueKeyInstance = new Key('blue', blueKeyPosition);
     
-    if (keyManager.addKey(greenKeyInstance, scene)) {
-        if (greenKeyInstance.getMesh()) {
-            greenKeyInstance.getMesh().position.copy(greenKeyPosition);
-            greenKeyInstance.position.copy(greenKeyPosition);
-            greenKeyInstance.originalY = greenKeyPosition.y;
-            console.log('[HANGAR] ✅ Chave verde criada para acesso à área 4');
+    if (keyManager.addKey(blueKeyInstance, scene)) {
+        if (blueKeyInstance.getMesh()) {
+            blueKeyInstance.getMesh().position.copy(blueKeyPosition);
+            blueKeyInstance.position.copy(blueKeyPosition);
+            blueKeyInstance.originalY = blueKeyPosition.y;
+            console.log('[HANGAR] ✅ Chave azul criada para acesso à área 4');
         }
     }
     
