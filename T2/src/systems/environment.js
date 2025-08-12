@@ -10,6 +10,7 @@ import { keyManager, Key } from '../entities/items/key.js';
 import { createDoor, createtotem } from './door.js';
 import { loadOBJModel } from '../utils/modelLoader.js';
 import { applyTexture, QuickTexture } from '../utils/textureUtils.js';
+import { CSG } from '../../../libs/other/CSGMesh.js';
 
 export let area1KeyPlatform = null;
 export let area2KeyPlatform = null;
@@ -222,192 +223,319 @@ function createArea2(scene, materials, collidableObjects) {
     createtotem(scene, collidableObjects, 60.0, -59.05, 'red');
 }
 
+function createHangar(opts = {}) {
+    const {
+        width = 20,
+        height = 10,
+        depth = 15,
+        wallThickness = 0.5,
+        roofOverhang = 1,
+        doorWidth = 14,
+        doorHeight = 8,
+        color = 0xcccccc,
+        metalness = 0.25,
+        roughness = 0.8,
+    } = opts;
+
+    const hangarGroup = new THREE.Group();
+    hangarGroup.name = "CustomHangar";
+
+    // Material do hangar
+    const hangarMaterial = new THREE.MeshStandardMaterial({
+        color: color,
+        metalness: metalness,
+        roughness: roughness,
+        side: THREE.DoubleSide,
+    });
+
+    try {
+        // === CORPO DO HANGAR COM PAREDES OCAS ===
+        
+        // Caixa externa (corpo principal)
+        const outerGeometry = new THREE.BoxGeometry(width, height, depth);
+        const outerMesh = new THREE.Mesh(outerGeometry, hangarMaterial);
+        outerMesh.position.set(0, height / 2, 0);
+
+        // Caixa interna (para criar o oco)
+        const innerGeometry = new THREE.BoxGeometry(
+            width - wallThickness * 2,
+            height - wallThickness * 2,
+            depth - wallThickness * 2
+        );
+        const innerMesh = new THREE.Mesh(innerGeometry, hangarMaterial);
+        innerMesh.position.set(0, height / 2, 0);
+
+        // Aplicar CSG para criar paredes ocas
+        let hangarBody;
+        if (typeof CSG !== 'undefined') {
+            try {
+                // Atualizar matrizes antes da operação CSG
+                outerMesh.updateMatrix();
+                innerMesh.updateMatrix();
+                
+                // Criar BSP e subtrair
+                const outerBSP = CSG.fromMesh(outerMesh);
+                const innerBSP = CSG.fromMesh(innerMesh);
+                const hollowBSP = outerBSP.subtract(innerBSP);
+                
+                hangarBody = CSG.toMesh(hollowBSP, new THREE.Matrix4());
+                hangarBody.material = hangarMaterial;
+            } catch (csgError) {
+                console.warn('[HANGAR] CSG subtract failed, using solid body:', csgError);
+                hangarBody = outerMesh;
+            }
+        } else {
+            console.warn('[HANGAR] CSG not available, using solid body');
+            hangarBody = outerMesh;
+        }
+
+        // === ABERTURA DA PORTA ===
+        
+        // Criar geometria da abertura da porta
+        const doorGeometry = new THREE.BoxGeometry(doorWidth, doorHeight, depth + 2);
+        const doorMesh = new THREE.Mesh(doorGeometry, hangarMaterial);
+        doorMesh.position.set(0, doorHeight / 2, depth / 2);
+
+        // Subtrair a abertura da porta do corpo do hangar
+        let hangarWithDoor;
+        if (typeof CSG !== 'undefined' && hangarBody.geometry) {
+            try {
+                hangarBody.updateMatrix();
+                doorMesh.updateMatrix();
+                
+                const bodyBSP = CSG.fromMesh(hangarBody);
+                const doorBSP = CSG.fromMesh(doorMesh);
+                const finalBSP = bodyBSP.subtract(doorBSP);
+                
+                hangarWithDoor = CSG.toMesh(finalBSP, new THREE.Matrix4());
+                hangarWithDoor.material = hangarMaterial;
+            } catch (csgError) {
+                console.warn('[HANGAR] CSG door subtract failed:', csgError);
+                hangarWithDoor = hangarBody;
+            }
+        } else {
+            hangarWithDoor = hangarBody;
+        }
+
+        hangarGroup.add(hangarWithDoor);
+
+        // === TELHADO INCLINADO ===
+        
+        const roofHeight = height * 0.6;
+        const roofWidthHalf = width / 2 + roofOverhang;
+
+        // Peça esquerda do telhado
+        const roofLeftGeometry = new THREE.BoxGeometry(roofWidthHalf, wallThickness + roofHeight, depth + 2 * roofOverhang);
+        const roofLeft = new THREE.Mesh(roofLeftGeometry, hangarMaterial);
+        roofLeft.position.set(-roofWidthHalf / 2, height + (roofHeight / 2) - wallThickness / 2, 0);
+        roofLeft.rotation.z = THREE.MathUtils.degToRad(15); // Inclina para cima
+
+        // Peça direita do telhado
+        const roofRightGeometry = roofLeftGeometry.clone();
+        const roofRight = new THREE.Mesh(roofRightGeometry, hangarMaterial);
+        roofRight.position.set(roofWidthHalf / 2, height + (roofHeight / 2) - wallThickness / 2, 0);
+        roofRight.rotation.z = THREE.MathUtils.degToRad(-15);
+
+        // Tentar unir as peças do telhado com CSG
+        let roofMesh;
+        if (typeof CSG !== 'undefined') {
+            try {
+                roofLeft.updateMatrix();
+                roofRight.updateMatrix();
+                
+                const leftBSP = CSG.fromMesh(roofLeft);
+                const rightBSP = CSG.fromMesh(roofRight);
+                const roofBSP = leftBSP.union(rightBSP);
+                
+                roofMesh = CSG.toMesh(roofBSP, new THREE.Matrix4());
+                roofMesh.material = hangarMaterial;
+            } catch (csgError) {
+                console.warn('[HANGAR] CSG roof union failed, using separate pieces:', csgError);
+                roofMesh = new THREE.Group();
+                roofMesh.add(roofLeft, roofRight);
+            }
+        } else {
+            roofMesh = new THREE.Group();
+            roofMesh.add(roofLeft, roofRight);
+        }
+
+        hangarGroup.add(roofMesh);
+
+        // === COLUNAS DE REFORÇO FRONTAL ===
+        
+        const columnGeometry = new THREE.BoxGeometry(wallThickness, height, wallThickness);
+        const columnMaterial = hangarMaterial.clone();
+        
+        const colLeft = new THREE.Mesh(columnGeometry, columnMaterial);
+        const colRight = new THREE.Mesh(columnGeometry, columnMaterial);
+        
+        const halfDoor = doorWidth / 2 + wallThickness;
+        colLeft.position.set(-halfDoor - wallThickness, height / 2, depth / 2 - wallThickness / 2);
+        colRight.position.set(halfDoor + wallThickness, height / 2, depth / 2 - wallThickness / 2);
+        
+        hangarGroup.add(colLeft, colRight);
+
+        // === PORTAS DESLIZANTES (para animação) ===
+        
+        const doorPanelWidth = doorWidth / 2 - 1; // Duas portas que se abrem para os lados
+        const doorPanelGeometry = new THREE.BoxGeometry(doorPanelWidth, doorHeight, wallThickness);
+        const doorPanelMaterial = new THREE.MeshStandardMaterial({
+            color: color * 0.8, // Cor ligeiramente mais escura para as portas
+            metalness: metalness * 1.2,
+            roughness: roughness * 0.8,
+        });
+
+        const leftDoor = new THREE.Mesh(doorPanelGeometry, doorPanelMaterial);
+        leftDoor.position.set(-doorPanelWidth / 2 - 0.5, doorHeight / 2, depth / 2 + wallThickness / 2);
+        leftDoor.userData.isDoor = true;
+        leftDoor.userData.isLeftDoor = true;
+        leftDoor.userData.originalX = leftDoor.position.x;
+        leftDoor.name = "HangarLeftDoor";
+
+        const rightDoor = new THREE.Mesh(doorPanelGeometry, doorPanelMaterial);
+        rightDoor.position.set(doorPanelWidth / 2 + 0.5, doorHeight / 2, depth / 2 + wallThickness / 2);
+        rightDoor.userData.isDoor = true;
+        rightDoor.userData.isRightDoor = true;
+        rightDoor.userData.originalX = rightDoor.position.x;
+        rightDoor.name = "HangarRightDoor";
+
+        hangarGroup.add(leftDoor, rightDoor);
+
+        // === DETALHES ESTRUTURAIS ===
+        
+        // Vigas horizontais
+        const beamGeometry = new THREE.BoxGeometry(width + roofOverhang * 2, wallThickness * 0.7, wallThickness);
+        const frontBeam = new THREE.Mesh(beamGeometry, hangarMaterial);
+        frontBeam.position.set(0, height - wallThickness, depth / 2 - wallThickness);
+        
+        const backBeam = new THREE.Mesh(beamGeometry, hangarMaterial);
+        backBeam.position.set(0, height - wallThickness, -depth / 2 + wallThickness);
+        
+        hangarGroup.add(frontBeam, backBeam);
+
+    } catch (error) {
+        console.error('[HANGAR] Error creating hangar with CSG:', error);
+        
+        // Fallback: criar hangar simples sem CSG
+        const fallbackGeometry = new THREE.BoxGeometry(width, height, depth);
+        const fallbackMesh = new THREE.Mesh(fallbackGeometry, hangarMaterial);
+        fallbackMesh.position.set(0, height / 2, 0);
+        hangarGroup.add(fallbackMesh);
+    }
+
+    // Configurar sombras para todos os objetos
+    hangarGroup.traverse((child) => {
+        if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+        }
+    });
+
+    // Centralizar o grupo no chão (y=0)
+    hangarGroup.position.y = 0;
+
+    return hangarGroup;
+}
+
 async function createArea3(scene, materials, collidableObjects) {
     const updateProgress = window.updateLoadingProgress || function() {};
     
-    try {
-        updateProgress(57, 'Carregando modelo do hangar...');
-        
-        const objPath = 'assets/models/Arched_hangar.obj';
-        const mtlPath = 'assets/textures/hangar/Arched_hangar.mtl';
-        
-        let hangarModel = null;
-        
-        try {
-            updateProgress(58, 'Carregando texturas do hangar...');
-            hangarModel = await loadOBJModel(objPath, mtlPath, {
-                scale: 5,
-                position: { x: 0, y: 0, z: 0 },
-                rotation: { x: 0, y: 0, z: 0 },
-                castShadow: true,
-                receiveShadow: true,
-                mtlBasePath: 'assets/textures/hangar/',
-                onProgress: (progress) => {
-                    if (progress.total > 0) {
-                        const loadPercent = (progress.loaded / progress.total * 100);
-                        updateProgress(58 + (loadPercent * 0.02), `Carregando hangar: ${loadPercent.toFixed(1)}%`);
-                    }
-                }
-            });
-            updateProgress(60, 'Hangar carregado com materiais!');
-        } catch (mtlError) {
-            updateProgress(59, 'Carregando hangar sem texturas...');
-            hangarModel = await loadOBJModel(objPath, null, {
-                scale: 8.0,
-                position: { x: 0, y: 0, z: 0 },
-                rotation: { x: 0, y: 0, z: 0 },
-                castShadow: true,
-                receiveShadow: true,
-                onProgress: (progress) => {
-                    if (progress.total > 0) {
-                        const loadPercent = (progress.loaded / progress.total * 100);
-                        updateProgress(59 + (loadPercent * 0.01), `Carregando hangar: ${loadPercent.toFixed(1)}%`);
-                    }
-                }
-            });
-            updateProgress(60, 'Hangar carregado!');
+    updateProgress(57, 'Criando hangar com objetos básicos...');
+    
+    const area3 = new THREE.Group();
+    area3.name = "Area3";
+    
+    // Criar hangar usando objetos básicos e CSG
+    const hangarModel = createHangar({
+        width: 120,        // Muito mais largo
+        height: 35,        // Mais alto
+        depth: 80,         // Mais profundo
+        wallThickness: 1.5,
+        roofOverhang: 4,
+        doorWidth: 80,     // Porta muito mais larga
+        doorHeight: 28,    // Porta mais alta
+        color: 0xaaaaaa,   // Cor mais clara
+        metalness: 0.4,
+        roughness: 0.6
+    });
+    
+    hangarModel.position.set(156.25, WORLD_CONFIG.AREA_Y_POSITION - 2, -50.0);
+    hangarModel.name = "HangarModel";
+    
+    // Configurar portas do hangar para animação
+    const hangarDoors = [];
+    hangarModel.traverse((child) => {
+        if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+            
+            // Identificar portas por posição (objetos na frente do hangar)
+            if (child.userData && child.userData.isDoor) {
+                hangarDoors.push(child);
+            }
         }
-        
-        const area3 = new THREE.Group();
-        area3.name = "Area3";
-        
-        hangarModel.position.set(156.25, WORLD_CONFIG.AREA_Y_POSITION -2, -50.0);
-        hangarModel.name = "HangarModel";
-        
-        hangarModel.visible = true;
-        let hangarDoors = [];
-        
-        hangarModel.traverse((child) => {
-            if (child.isMesh) {
-                child.visible = true;
-                child.castShadow = true;
-                child.receiveShadow = true;
-                
-                const childName = (child.name || '').toLowerCase();
-                if (childName.includes('door') || childName.includes('gate') || childName.includes('portal') ||
-                    childName.includes('entrance') || childName.includes('opening')) {
-                    hangarDoors.push(child);
-                } else {
-                    const bbox = new THREE.Box3().setFromObject(child);
-                    const size = bbox.getSize(new THREE.Vector3());
-                    const center = bbox.getCenter(new THREE.Vector3());
-                    
-                    const isVertical = size.y > size.x && size.y > size.z;
-                    const isThin = (size.x < 5 || size.z < 5);
-                    const isAtFront = Math.abs(center.z + 131.0) < 80;
-                    
-                    if (isVertical && isThin && isAtFront && size.y > 10) {
-                        hangarDoors.push(child);
-                    }
-                }
-                
-                if (!child.material || 
-                    (child.material.type === 'MeshBasicMaterial' && !child.material.name && !child.material.map)) {
-                    child.material = new THREE.MeshLambertMaterial({
-                        color: 0x888888,
-                        side: THREE.DoubleSide
-                    });
-                }
-                
-                if (child.material) {
-                    child.material.needsUpdate = true;
-                    if (child.material.transparent && child.material.opacity === 1.0) {
-                        child.material.transparent = false;
-                    }
+    });
+    
+    hangarModel.userData.doors = hangarDoors;
+    hangarModel.userData.doorsOpen = false;
+    hangarModel.userData.animating = false;
+    
+    console.log(`[ENVIRONMENT] Created hangar with ${hangarDoors.length} door element(s)`);
+    
+    area3.add(hangarModel);
+    
+    updateProgress(60, 'Hangar criado!');
+    
+    // Tentar carregar avião (opcional)
+    try {
+        updateProgress(61, 'Carregando avião...');
+
+        const planeModel = await loadOBJModel('../assets/objects/plane.obj', '../assets/objects/plane.mtl', {
+            scale: 0.5,
+            position: { x: 0, y: -8, z: -200 },
+            rotation: { x: 0, y: -Math.PI/2, z: 0 },
+            castShadow: true,
+            receiveShadow: true,
+            mtlBasePath: '../assets/objects/',
+            onProgress: (progress) => {
+                if (progress.total > 0) {
+                    const loadPercent = (progress.loaded / progress.total * 100);
+                    updateProgress(61 + (loadPercent * 0.01), `Carregando avião: ${loadPercent.toFixed(1)}%`);
                 }
             }
         });
-        hangarModel.userData.doors = hangarDoors;
-        hangarModel.userData.doorsOpen = false;
-        hangarModel.userData.animating = false;
         
-        console.log(`[ENVIRONMENT] Found ${hangarDoors.length} door mesh(es) for animation`);
+        planeModel.name = "PlaneModel";
+        planeModel.position.set(156.25, WORLD_CONFIG.AREA_Y_POSITION + 3, -50.0);
         
-        area3.add(hangarModel);
+        area3.add(planeModel);
         
-        scene.add(area3);
+        updateProgress(62, 'Avião carregado!');
         
-        markCollisionObject(area3, collidableObjects);
-        
-        enableShadowsForAll(area3);
-                        
-        try {
-            updateProgress(61, 'Carregando avião...');
-
-            const planeModel = await loadOBJModel('../assets/objects/plane.obj', '../assets/objects/plane.mtl', {
-                scale: 0.5,
-                position: { x: 0, y: -8, z: -200 },
-                rotation: { x: 0, y: -Math.PI/2, z: 0 },
-                castShadow: true,
-                receiveShadow: true,
-                mtlBasePath: '../assets/objects/',
-                onProgress: (progress) => {
-                    if (progress.total > 0) {
-                        const loadPercent = (progress.loaded / progress.total * 100);
-                        updateProgress(61 + (loadPercent * 0.01), `Carregando avião: ${loadPercent.toFixed(1)}%`);
-                    }
-                }
-            });
-            
-            planeModel.name = "PlaneModel";
-            planeModel.position.set(156.25, WORLD_CONFIG.AREA_Y_POSITION + 3, -50.0);
-            
-            area3.add(planeModel);
-            
-            updateProgress(62, 'Avião carregado!');
-            
-        } catch (planeError) {
-            console.error('[ENVIRONMENT] Error loading plane model:', planeError);
-            console.log('[ENVIRONMENT] Continuing without plane...');
-        }
-        
-        window.testHangarVisibility = function() {            
-            hangarModel.visible = true;
-            hangarModel.traverse((child) => {
-                if (child.isMesh) {
-                    child.visible = true;
-                }
-            });
-        };
-        
-        window.toggleHangarDoors = function() {
-            console.log('[DEBUG] Toggling hangar doors...');
-            animateHangarDoors(hangarModel, !hangarModel.userData.doorsOpen);
-        };
-        
-    } catch (error) {
-        console.error('[ENVIRONMENT] Error loading hangar OBJ model:', error);
-        console.error('[ENVIRONMENT] Error details:', error.message);
-        console.error('[ENVIRONMENT] Stack trace:', error.stack);
-                
-        const area3 = new THREE.Group();
-        area3.name = "Area3";
-        
-        const hangarMaterial = new THREE.MeshLambertMaterial({ color: 0x666666 }); // Dark gray
-        
-        const hangarBody = new THREE.BoxGeometry(100, 20, 80);
-        const hangarMesh = new THREE.Mesh(hangarBody, hangarMaterial);
-        hangarMesh.position.set(156.25, WORLD_CONFIG.AREA_Y_POSITION + 12, -131.0); // Slightly above base plane
-        hangarMesh.castShadow = true;
-        hangarMesh.receiveShadow = true;
-        area3.add(hangarMesh);
-        
-        for (let i = 0; i < 5; i++) {
-            const roofGeometry = new THREE.BoxGeometry(100, 5, 10);
-            const roofMesh = new THREE.Mesh(roofGeometry, hangarMaterial);
-            const angle = (i - 2) * 0.3; // Create slight arch
-            roofMesh.position.set(156.25, WORLD_CONFIG.AREA_Y_POSITION + 22 + Math.cos(angle) * 5, -131.0 + (i - 2) * 15);
-            roofMesh.rotation.x = angle;
-            roofMesh.castShadow = true;
-            roofMesh.receiveShadow = true;
-            area3.add(roofMesh);
-        }
-        
-        scene.add(area3);
-                
-        markCollisionObject(area3, collidableObjects);
-        enableShadowsForAll(area3);
+    } catch (planeError) {
+        console.error('[ENVIRONMENT] Error loading plane model:', planeError);
+        console.log('[ENVIRONMENT] Continuing without plane...');
     }
+    
+    scene.add(area3);
+    
+    markCollisionObject(area3, collidableObjects);
+    enableShadowsForAll(area3);
+    
+    // Funções de debug/teste
+    window.testHangarVisibility = function() {            
+        hangarModel.visible = true;
+        hangarModel.traverse((child) => {
+            if (child.isMesh) {
+                child.visible = true;
+            }
+        });
+    };
+    
+    window.toggleHangarDoors = function() {
+        console.log('[DEBUG] Toggling hangar doors...');
+        animateHangarDoors(hangarModel, !hangarModel.userData.doorsOpen);
+    };
 }
 
 function createArea4(scene, materials, collidableObjects) {
@@ -1533,102 +1661,73 @@ function easeInCubic(t) {
 }
 
 export function animateHangarDoors(hangarModel, shouldOpen) {
-    if (!hangarModel || !hangarModel.userData.doors || hangarModel.userData.animating) {
-        console.log('[HANGAR] Cannot animate doors - missing model, doors, or already animating');
+    if (!hangarModel || hangarModel.userData.animating) {
+        console.log('[HANGAR] Cannot animate doors - missing model or already animating');
         return;
     }
     
-    const doors = hangarModel.userData.doors;
+    // Encontrar as portas criadas pela nossa função createHangar
+    const doors = [];
+    hangarModel.traverse((child) => {
+        if (child.userData && child.userData.isDoor) {
+            doors.push(child);
+        }
+    });
+    
     if (doors.length === 0) {
         console.log('[HANGAR] No doors found for animation');
         return;
     }
         
     hangarModel.userData.animating = true;
-    const animationDuration = 3000;
+    hangarModel.userData.doorsOpen = shouldOpen;
+    const animationDuration = 3000; // 3 segundos
     const startTime = Date.now();
     
-    const doorInitialStates = doors.map(door => ({
-        door: door,
-        initialPosition: door.position.clone(),
-        initialRotation: door.rotation.clone(),
-        moveDirection: calculateDoorMovement(door, hangarModel)
-    }));
+    // Calcular posições iniciais e finais das portas
+    const doorStates = doors.map(door => {
+        const isLeftDoor = door.userData.isLeftDoor;
+        const isRightDoor = door.userData.isRightDoor;
+        const originalX = door.userData.originalX;
+        
+        let targetX = originalX;
+        if (shouldOpen) {
+            if (isLeftDoor) {
+                targetX = originalX - 15; // Move para a esquerda
+            } else if (isRightDoor) {
+                targetX = originalX + 15; // Move para a direita
+            }
+        }
+        
+        return {
+            door: door,
+            startX: door.position.x,
+            targetX: targetX,
+            originalX: originalX
+        };
+    });
     
     function animateFrame() {
         const elapsed = Date.now() - startTime;
         const progress = Math.min(elapsed / animationDuration, 1.0);
         
+        // Usar easing para suavizar a animação
         const easedProgress = shouldOpen ? easeOutCubic(progress) : easeInCubic(progress);
         
-        doorInitialStates.forEach(({ door, initialPosition, initialRotation, moveDirection }) => {
-            const animProgress = shouldOpen ? easedProgress : (1.0 - easedProgress);
-            
-            if (moveDirection.type === 'slide') {
-                door.position.copy(initialPosition);
-                door.position.add(moveDirection.direction.clone().multiplyScalar(animProgress * moveDirection.distance));
-            } else if (moveDirection.type === 'swing') {
-                door.rotation.copy(initialRotation);
-                door.rotation.y += animProgress * moveDirection.angle;
-            } else if (moveDirection.type === 'fold') {
-                door.position.copy(initialPosition);
-                door.position.y += animProgress * moveDirection.distance;
-            }
+        doorStates.forEach(({ door, startX, targetX }) => {
+            // Interpolação linear entre posição inicial e final
+            door.position.x = startX + (targetX - startX) * easedProgress;
         });
         
         if (progress < 1.0) {
             requestAnimationFrame(animateFrame);
         } else {
             hangarModel.userData.animating = false;
-            hangarModel.userData.doorsOpen = shouldOpen;
+            console.log(`[HANGAR] Doors ${shouldOpen ? 'opened' : 'closed'} successfully`);
         }
     }
     
     requestAnimationFrame(animateFrame);
-}
-
-function calculateDoorMovement(door, hangarModel) {
-    const doorBbox = new THREE.Box3().setFromObject(door);
-    const hangarBbox = new THREE.Box3().setFromObject(hangarModel);
-    
-    const doorCenter = doorBbox.getCenter(new THREE.Vector3());
-    const hangarCenter = hangarBbox.getCenter(new THREE.Vector3());
-    const doorSize = doorBbox.getSize(new THREE.Vector3());
-    
-    const isWide = doorSize.x > doorSize.z;
-    const isTall = doorSize.y > Math.max(doorSize.x, doorSize.z);
-    
-    const isAtFront = doorCenter.z > hangarCenter.z;
-    const isAtSide = Math.abs(doorCenter.x - hangarCenter.x) > Math.abs(doorCenter.z - hangarCenter.z);
-    
-    if (isTall && isWide && isAtFront) {
-        return {
-            type: 'slide',
-            direction: new THREE.Vector3(doorCenter.x > hangarCenter.x ? 1 : -1, 0, 0),
-            distance: doorSize.x * 0.8
-        };
-    } else if (isTall && !isWide) {
-        return {
-            type: 'swing',
-            angle: doorCenter.x > hangarCenter.x ? Math.PI / 2 : -Math.PI / 2
-        };
-    } else if (!isTall && isWide) {
-        return {
-            type: 'fold',
-            distance: doorSize.y * 2
-        };
-    } else {
-        const direction = new THREE.Vector3()
-            .subVectors(doorCenter, hangarCenter)
-            .normalize();
-        direction.y = 0;
-        
-        return {
-            type: 'slide',
-            direction: direction,
-            distance: Math.max(doorSize.x, doorSize.z) * 1.2
-        };
-    }
 }
 
 export function updateHangarDoors(delta, camera, scene) {
