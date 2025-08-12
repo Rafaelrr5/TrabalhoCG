@@ -5,27 +5,26 @@ export function createMazeArea(opts = {}) {
     areaWidth = 375,
     areaDepth = 125,
     cellSize = 5,
-    centerFreeSize = { width: 80, depth: 40 }, // região central livre
+    centerFreeSize = { width: 80, depth: 40 }, // região final livre
     wallHeight = 10,
     wallThickness = 1,
     wallColor = 0x333333,
     position = new THREE.Vector3(0, 0, 131),
+    southEntrance = false,
   } = opts;
 
-  // Grid (número de células em X e Z)
-  const cols = Math.max(3, Math.floor(areaWidth / cellSize));
-  const rows = Math.max(3, Math.floor(areaDepth / cellSize));
-
-  // Forçamos grid ímpar para ficar simétrico ao centro
+  // Grid sempre ímpar para algoritmo de labirinto tradicional
+  const cols = Math.max(5, Math.floor(areaWidth / cellSize));
+  const rows = Math.max(5, Math.floor(areaDepth / cellSize));
+  
   const gridCols = cols % 2 === 0 ? cols - 1 : cols;
   const gridRows = rows % 2 === 0 ? rows - 1 : rows;
 
-  // Matriz de células (true = parede/visitada flag depende do algoritmo)
-  // Vamos usar representação de labirinto onde cada célula corresponde a uma "célula de corredor".
+  // Matriz do labirinto: 0 = parede, 1 = corredor
+  // Inicializar tudo como parede
   const maze = Array.from({ length: gridRows }, () => Array(gridCols).fill(0));
-  // 0 = não visitada, 1 = corredor visitado
-
-  // Helper: converte índice de célula para coordenada no espaço (centro da célula)
+  
+  // Helper functions
   const originX = - (gridCols * cellSize) / 2 + cellSize / 2;
   const originZ = - (gridRows * cellSize) / 2 + cellSize / 2;
 
@@ -35,20 +34,6 @@ export function createMazeArea(opts = {}) {
     return { x, z };
   }
 
-  // Área central livre: calcular índices de células que devem permanecer livres (não gerar paredes por dentro)
-  const centerCellWidth = Math.max(1, Math.floor(centerFreeSize.width / cellSize));
-  const centerCellDepth = Math.max(1, Math.floor(centerFreeSize.depth / cellSize));
-  const centerStartCol = Math.floor((gridCols - centerCellWidth) / 2);
-  const centerStartRow = Math.floor((gridRows - centerCellDepth) / 2);
-
-  // Marca as células centrais como já visitadas (e preservadas como espaço livre)
-  for (let r = centerStartRow; r < centerStartRow + centerCellDepth; r++) {
-    for (let c = centerStartCol; c < centerStartCol + centerCellWidth; c++) {
-      maze[r][c] = 1; // tratado como corredor livre
-    }
-  }
-
-  // Algoritmo DFS backtracker para preencher o labirinto em torno da área livre
   function shuffle(array) {
     for (let i = array.length - 1; i > 0; i--) {
       const k = Math.floor(Math.random() * (i + 1));
@@ -56,132 +41,241 @@ export function createMazeArea(opts = {}) {
     }
   }
 
-  function inBounds(r, c) {
-    return r >= 0 && r < gridRows && c >= 0 && c < gridCols;
+  function isValid(row, col) {
+    return row >= 0 && row < gridRows && col >= 0 && col < gridCols;
   }
 
-  // Escolhe um início fora da área central (procura a primeira célula não marcada)
-  let startR = 0, startC = 0;
-  outer:
-  for (let i = 0; i < gridRows; i++) {
-    for (let j = 0; j < gridCols; j++) {
-      if (maze[i][j] === 0) { startR = i; startC = j; break outer; }
-    }
-  }
-
-  const stack = [[startR, startC]];
-  maze[startR][startC] = 1;
-
-  while (stack.length) {
-    const [r, c] = stack[stack.length - 1];
-    const neighbors = [];
-
-    const dirs = [
-      [-1, 0],
-      [1, 0],
-      [0, -1],
-      [0, 1],
-    ];
-    shuffle(dirs);
-    for (const [dr, dc] of dirs) {
-      const nr = r + dr;
-      const nc = c + dc;
-      if (!inBounds(nr, nc)) continue;
-      if (maze[nr][nc] === 0) neighbors.push([nr, nc]);
-    }
-
-    if (neighbors.length > 0) {
-      const [nr, nc] = neighbors[Math.floor(Math.random() * neighbors.length)];
-      // marca como corredor
-      maze[nr][nc] = 1;
-      // empilha
-      stack.push([nr, nc]);
+  // Algoritmo de geração de labirinto recursivo backtracking melhorado
+  function generateMaze() {
+    // Começar da entrada sul se southEntrance for true
+    let startRow, startCol;
+    if (southEntrance) {
+      startRow = 1; // segunda linha (primeira são bordas)
+      startCol = Math.floor(gridCols / 2);
+      if (startCol % 2 === 0) startCol -= 1; // garantir posição ímpar
     } else {
-      stack.pop();
+      startRow = 1;
+      startCol = 1;
+    }
+
+    const stack = [];
+    maze[startRow][startCol] = 1; // marcar como corredor
+    stack.push([startRow, startCol]);
+
+    while (stack.length > 0) {
+      const [currentRow, currentCol] = stack[stack.length - 1];
+      
+      // Direções: cima, direita, baixo, esquerda (pulando uma célula)
+      const directions = [
+        [-2, 0], // cima
+        [0, 2],  // direita
+        [2, 0],  // baixo
+        [0, -2]  // esquerda
+      ];
+      
+      shuffle(directions);
+      
+      let foundUnvisited = false;
+      
+      for (const [dRow, dCol] of directions) {
+        const newRow = currentRow + dRow;
+        const newCol = currentCol + dCol;
+        
+        if (isValid(newRow, newCol) && maze[newRow][newCol] === 0) {
+          // Marcar a célula de destino como corredor
+          maze[newRow][newCol] = 1;
+          // Marcar a célula entre origem e destino como corredor (quebrar a parede)
+          maze[currentRow + dRow / 2][currentCol + dCol / 2] = 1;
+          
+          stack.push([newRow, newCol]);
+          foundUnvisited = true;
+          break;
+        }
+      }
+      
+      if (!foundUnvisited) {
+        stack.pop();
+      }
     }
   }
 
+  // Gerar o labirinto principal
+  generateMaze();
+
+  // Criar área final livre (no fundo do labirinto para ser mais desafiador)
+  const finalAreaWidth = Math.max(3, Math.floor(centerFreeSize.width / cellSize));
+  const finalAreaDepth = Math.max(3, Math.floor(centerFreeSize.depth / cellSize));
+  
+  // Posicionar área final no fundo (norte) do labirinto
+  const finalStartCol = Math.floor((gridCols - finalAreaWidth) / 2);
+  const finalStartRow = gridRows - finalAreaDepth - 1;
+
+  // Limpar área final
+  for (let r = finalStartRow; r < finalStartRow + finalAreaDepth; r++) {
+    for (let c = finalStartCol; c < finalStartCol + finalAreaWidth; c++) {
+      if (isValid(r, c)) {
+        maze[r][c] = 1; // corredor livre
+      }
+    }
+  }
+
+  // Garantir pelo menos um caminho da entrada até a área final
+  if (southEntrance) {
+    const entranceCol = Math.floor(gridCols / 2);
+    if (entranceCol % 2 === 0) entranceCol -= 1;
+    
+    // Garantir que a primeira linha (entrada sul) tenha um corredor de entrada
+    maze[0][entranceCol] = 1; // entrada na primeira linha
+    if (isValid(0, entranceCol - 1)) maze[0][entranceCol - 1] = 1; // expandir entrada
+    if (isValid(0, entranceCol + 1)) maze[0][entranceCol + 1] = 1; // expandir entrada
+    
+    // Criar caminho em zigue-zague da entrada até a área final
+    let currentRow = 1;
+    let currentCol = entranceCol;
+    let direction = 1; // 1 = direita, -1 = esquerda
+    
+    while (currentRow < finalStartRow - 2) {
+      // Marcar posição atual como corredor
+      if (isValid(currentRow, currentCol)) {
+        maze[currentRow][currentCol] = 1;
+      }
+      
+      // Mover algumas células horizontalmente (criar zigue-zague)
+      const horizontalSteps = Math.floor(Math.random() * 4) + 2; // 2 a 5 passos
+      for (let i = 0; i < horizontalSteps && currentCol > 2 && currentCol < gridCols - 3; i++) {
+        currentCol += direction * 2;
+        if (isValid(currentRow, currentCol)) {
+          maze[currentRow][currentCol] = 1;
+          // Conectar o caminho
+          if (isValid(currentRow, currentCol - direction)) {
+            maze[currentRow][currentCol - direction] = 1;
+          }
+        }
+      }
+      
+      // Mover verticalmente
+      const verticalSteps = Math.floor(Math.random() * 3) + 2; // 2 a 4 passos
+      for (let i = 0; i < verticalSteps && currentRow < finalStartRow - 2; i++) {
+        currentRow += 2;
+        if (isValid(currentRow, currentCol)) {
+          maze[currentRow][currentCol] = 1;
+          // Conectar o caminho
+          if (isValid(currentRow - 1, currentCol)) {
+            maze[currentRow - 1][currentCol] = 1;
+          }
+        }
+      }
+      
+      // Mudar direção para criar zigue-zague
+      direction *= -1;
+      
+      // Adicionar alguma aleatoriedade para evitar padrões muito previsíveis
+      if (Math.random() > 0.7) {
+        currentCol += (Math.random() > 0.5 ? 2 : -2);
+        currentCol = Math.max(1, Math.min(gridCols - 2, currentCol));
+      }
+    }
+    
+    // Conectar à área final com um caminho final
+    const connectRow = finalStartRow - 1;
+    if (isValid(connectRow, currentCol)) {
+      maze[connectRow][currentCol] = 1;
+    }
+    
+    // Criar conexão direta da posição final até a área central
+    const finalCenterCol = Math.floor((finalStartCol + finalStartCol + finalAreaWidth) / 2);
+    for (let c = Math.min(currentCol, finalCenterCol); c <= Math.max(currentCol, finalCenterCol); c++) {
+      if (isValid(connectRow, c)) {
+        maze[connectRow][c] = 1;
+      }
+    }
+  }
+
+  // Criar grupo 3D
   const group = new THREE.Group();
-  group.position.copy(position); // posiciona o centro da área onde você queria
-  group.position.y = 0; // y base (pode ajustar com WORLD_CONFIG.AREA_Y_POSITION)
+  group.position.copy(position);
+  group.position.y = 0;
 
   const wallMat = new THREE.MeshStandardMaterial({ color: wallColor, metalness: 0.2, roughness: 0.9 });
 
+  console.log('=== DEBUG MAZE ===');
+  console.log('Grid size:', gridRows, 'x', gridCols);
+  console.log('Cell size:', cellSize);
+  console.log('Area dimensions:', areaWidth, 'x', areaDepth);
+  
+  // Contar células
+  let wallCells = 0, corridorCells = 0;
   for (let i = 0; i < gridRows; i++) {
-    // Otimização por linha: agrupar spans contínuos
+    for (let j = 0; j < gridCols; j++) {
+      if (maze[i][j] === 0) wallCells++;
+      else corridorCells++;
+    }
+  }
+  console.log('Wall cells:', wallCells, 'Corridor cells:', corridorCells);
+  
+  let wallCount = 0;
+
+  // Criar paredes conectadas usando spans horizontais e verticais
+  // Primeiro passada: paredes horizontais
+  for (let i = 0; i < gridRows; i++) {
     let spanStart = null;
     for (let j = 0; j < gridCols; j++) {
       const isWall = maze[i][j] === 0;
-      if (isWall && spanStart === null) spanStart = j;
+      if (isWall && spanStart === null) {
+        spanStart = j;
+      }
       if ((!isWall || j === gridCols - 1) && spanStart !== null) {
-        // se a última célula da linha é wall e j==end, precisamos ajustar fim
         let spanEnd = isWall && j === gridCols - 1 ? j : j - 1;
         const spanWidth = (spanEnd - spanStart + 1) * cellSize;
         const midCol = (spanStart + spanEnd) / 2;
         const pos = cellToPos(i, midCol);
 
-        const wallGeom = new THREE.BoxGeometry(spanWidth - 0.02, wallHeight, cellSize - 0.02);
+        const wallGeom = new THREE.BoxGeometry(spanWidth, wallHeight, cellSize);
         const wallMesh = new THREE.Mesh(wallGeom, wallMat);
         wallMesh.position.set(pos.x, wallHeight / 2, pos.z);
         wallMesh.castShadow = true;
         wallMesh.receiveShadow = true;
         group.add(wallMesh);
+        wallCount++;
 
         spanStart = null;
       }
     }
   }
 
+  // Segunda passada: paredes verticais (apenas para células que não foram cobertas horizontalmente)
   for (let j = 0; j < gridCols; j++) {
     let spanStart = null;
     for (let i = 0; i < gridRows; i++) {
       const isWall = maze[i][j] === 0;
-      if (isWall && spanStart === null) spanStart = i;
+      if (isWall && spanStart === null) {
+        spanStart = i;
+      }
       if ((!isWall || i === gridRows - 1) && spanStart !== null) {
         let spanEnd = isWall && i === gridRows - 1 ? i : i - 1;
-        // Criar bloco vertical que cobre spanStart..spanEnd
-        const spanDepth = (spanEnd - spanStart + 1) * cellSize;
-        const midRow = (spanStart + spanEnd) / 2;
-        const pos = cellToPos(midRow, j);
+        
+        // Só criar parede vertical se não há sobreposição significativa com paredes horizontais
+        if (spanEnd - spanStart >= 1) {
+          const spanDepth = (spanEnd - spanStart + 1) * cellSize;
+          const midRow = (spanStart + spanEnd) / 2;
+          const pos = cellToPos(midRow, j);
 
-        const wallGeom = new THREE.BoxGeometry(cellSize - 0.02, wallHeight, spanDepth - 0.02);
-        const wallMesh = new THREE.Mesh(wallGeom, wallMat);
-        wallMesh.position.set(pos.x, wallHeight / 2, pos.z);
-        wallMesh.position.x += 0.0001; // tiny offset to avoid z-fighting
-        wallMesh.castShadow = true;
-        wallMesh.receiveShadow = true;
-        group.add(wallMesh);
+          const wallGeom = new THREE.BoxGeometry(cellSize, wallHeight, spanDepth);
+          const wallMesh = new THREE.Mesh(wallGeom, wallMat);
+          wallMesh.position.set(pos.x, wallHeight / 2, pos.z);
+          wallMesh.castShadow = true;
+          wallMesh.receiveShadow = true;
+          group.add(wallMesh);
+          wallCount++;
+        }
 
         spanStart = null;
       }
     }
   }
 
-  const borderGeom = new THREE.BoxGeometry(areaWidth + cellSize, wallHeight, wallThickness);
-  const borderFront = new THREE.Mesh(borderGeom, wallMat);
-  borderFront.position.set(0, wallHeight / 2, (areaDepth / 2) + (wallThickness / 2) - cellSize / 2);
-  borderFront.castShadow = true;
-  borderFront.receiveShadow = true;
-  group.add(borderFront);
-
-  const borderBack = borderFront.clone();
-  borderBack.position.set(0, wallHeight / 2, - (areaDepth / 2) - (wallThickness / 2) + cellSize / 2);
-  borderBack.castShadow = true;
-  borderBack.receiveShadow = true;
-  group.add(borderBack);
-
-  const borderLeft = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, wallHeight, areaDepth + cellSize), wallMat);
-  borderLeft.position.set(-(areaWidth / 2) - (wallThickness / 2) + cellSize / 2, wallHeight / 2, 0);
-  borderLeft.castShadow = true;
-  borderLeft.receiveShadow = true;
-  group.add(borderLeft);
-
-  const borderRight = borderLeft.clone();
-  borderRight.position.set((areaWidth / 2) + (wallThickness / 2) - cellSize / 2, wallHeight / 2, 0);
-  borderRight.castShadow = true;
-  borderRight.receiveShadow = true;
-  group.add(borderRight);
-
+  console.log('Total walls created:', wallCount);
+  console.log('Final group children count:', group.children.length);
   return group;
 }
 
@@ -194,7 +288,8 @@ export function createArea4Maze(scene, collidableObjects, WORLD_CONFIG) {
     wallHeight: WORLD_CONFIG.AREA_HEIGHT * 2, // Altura das paredes do labirinto
     wallThickness: 1,
     wallColor: 0x2d5a2d, // Verde escuro para combinar com o tema
-    position: new THREE.Vector3(0, WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT/2, 131)
+    position: new THREE.Vector3(0, WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT/2, 131),
+    southEntrance: true // adicionar entrada ao sul
   });
 
   mazeGroup.name = "Area4Maze";
