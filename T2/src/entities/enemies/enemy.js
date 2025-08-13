@@ -2,6 +2,7 @@ import * as THREE from '../../../../build/three.module.js';
 import { LostSoul } from './types/lostSoul.js';
 import { Cacodemon } from './types/cacodemon.js';
 import { preloadSkullModel } from '../../utils/skullLoader.js';
+import { PainElemental } from './types/painElemental.js';
 import { DEBUG_CONFIG } from '../../core/config/debugConfig.js';
 import { WORLD_CONFIG } from '../../core/config/worldConfig.js';
 import { PLAYER_CONFIG } from '../../core/config/playerConfig.js';
@@ -36,7 +37,7 @@ export async function createEnemies(scene) {
   
   lostSoulPositions.forEach(([x, y, z]) => {
     const enemy = new LostSoul([x, y, z]);
-    enemy.area = 'area1'; // Certifique-se que está definido
+    enemy.area = 'area1';
     enemy.enemyType = 'LostSoul';
     enemies.push(enemy);
     scene.add(enemy.mesh);
@@ -51,17 +52,32 @@ export async function createEnemies(scene) {
 
   cacodeemonPositions.forEach(([x, y, z]) => {
     const enemy = new Cacodemon([x, y, z]);
-    enemy.area = 'area2'; // Certifique-se que está definido
+    enemy.area = 'area2';
     enemy.enemyType = 'Cacodemon';
     enemies.push(enemy);
     scene.add(enemy.mesh);
     console.log(`Created Cacodemon at ${x}, ${y}, ${z}`);
   });
+
+  // Adiciona o Pain Elemental
+  const painElemental = new PainElemental([200, 2, 0]);
+  painElemental.area = 'areaTest'; // Você pode definir uma nova área ou usar uma existente
+  painElemental.enemyType = 'PainElemental';
+  enemies.push(painElemental);
+  scene.add(painElemental.mesh);
+  console.log(`Created PainElemental at 200, 2, 0`);
 }
 
 export function shouldUpdateEnemy(camera, enemy) {
-  // Uma vez que um inimigo é ativado pela sua área, ele deve sempre ser atualizado.
-  // A ativação inicial agora é controlada em `updateEnemies`.
+  // 1. Inimigos que devem estar sempre ativos
+  if (enemy.enemyType === 'PainElemental' || 
+      enemy.alwaysActive || 
+      (enemy.spawner && enemy.spawner.enemyType === 'PainElemental') ||
+      enemy.isSpawned) {
+    return true;
+  }
+  
+  // 2. Inimigos ativados por área
   if (enemy.area === 'area1' && area1LostSoulsActivated) {
     return true;
   }
@@ -70,7 +86,7 @@ export function shouldUpdateEnemy(camera, enemy) {
     return true;
   }
 
-  // Permite que inimigos que já viram o jogador continuem ativos, como um fallback.
+  // 3. Inimigos que já viram o jogador
   if (enemy.detection?.hasSeenPlayer) {
     return true;
   }

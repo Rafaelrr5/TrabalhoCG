@@ -20,6 +20,7 @@ export class LostSoul extends Enemy {
       detectionRange: 40.0, //distância para detectar o jogador
       isFlying: true, //indica que voa
       skullScale: 1.2,
+      alwaysActive: false,
       ...config
     };
     
@@ -53,6 +54,10 @@ export class LostSoul extends Enemy {
     this.config.chargeDuration = 1.5; // Tempo mais curto
     this.config.damage = 5; 
 
+    if (this.alwaysActive && this.ai.state === 'IDLE') {
+      this.ai.changeState('PATROL');
+      this.hasSeenPlayer = true; // Adicione esta linha para garantir detecção
+    }
 
     this.skullModel = null;
     this.loadSkull();
@@ -147,11 +152,16 @@ export class LostSoul extends Enemy {
 
   update(delta, camera, targetPosition, collidableObjects) {
     if (this.isDying) {
-            this.deathEffects.update();
-            return;
-        }
+        this.deathEffects.update();
+        return;
+    }
 
     if (!this.isAlive) return;
+
+    // Se for alwaysActive, força o estado PATROL se estiver em IDLE
+    if (this.alwaysActive && this.ai.state === 'IDLE') {
+        this.ai.changeState('PATROL');
+    }
 
     // Atualiza a altura alvo baseado na posição do jogador
     this.updateTargetHeight(targetPosition);
