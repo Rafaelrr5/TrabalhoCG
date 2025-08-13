@@ -435,6 +435,33 @@ function removeLoadingScreen() {
         }, 500);
     }
 }
+// At the end of loading, show Start button for player to enter the game
+function showStartButton() {
+  const overlay = document.getElementById('loading-overlay');
+  if (!overlay) return;
+
+  const startBtn = document.createElement('button');
+  startBtn.id = 'start-button';
+  startBtn.textContent = 'START';
+  startBtn.style.cssText = `
+    margin-top: 20px;
+    padding: 15px 30px;
+    font-size: 20px;
+    color: white;
+    background-color: #28a745;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    outline: none;
+    z-index: 100001;
+  `;
+  startBtn.addEventListener('click', () => {
+    removeLoadingScreen();
+    if (controls && controls.lock) controls.lock();
+  });
+  overlay.appendChild(startBtn);
+  startBtn.focus();
+}
 
 async function init() {
     loadingScreen = createLoadingScreen();
@@ -475,8 +502,9 @@ async function init() {
     
     updateLoadingProgress(100, 'Carregamento concluído!');
     
-    await new Promise(resolve => setTimeout(resolve, 500));
-    removeLoadingScreen();
+  await new Promise(resolve => setTimeout(resolve, 500));
+  // Show start button to let player enter the game
+  showStartButton();
     
     setTimeout(() => {
         updateKeysDisplay();
