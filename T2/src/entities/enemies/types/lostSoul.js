@@ -1,75 +1,68 @@
 import * as THREE from '../../../../../build/three.module.js';
 import { Enemy } from '../base/enemies.js';
 import { loadSkullModel, preloadSkullModel } from '../../../utils/skullLoader.js';
-import { EnemyExplosionEffects } from '../components/EnemyExplosionEffects.js';
-import { EnemyIdleBehaviors } from '../components/EnemyIdleBehaviors.js';
-import { EnemyPersistentPursuitManager } from '../components/EnemyPersistentPursuitBehavior.js';
-import { ENEMY_CONFIG, getLostSoulConfig } from '../config/enemyConfig.js';
-import { PLAYER_CONFIG } from '../../../core/config/playerConfig.js';
+import { getLostSoulConfig } from '../config/enemyConfig.js';
 
 export class LostSoul extends Enemy {
   constructor(position = [0, 0, 0], config = {}) {
-    // Use the centralized enemy config as base
-    const baseConfig = getLostSoulConfig();
-    const defaultConfig = {
-      ...baseConfig,
-      ...config // Allow override with custom config
+    const baseConfig = {
+      ...getLostSoulConfig(),
+      // Configurações específicas
+      heightAdjustSpeed: 2.0,     // Velocidade de ajuste de altura
+      minHeightAboveGround: 1.0,  // Altura mínima sobre o chão
+      maxHeightAboveGround: 5.0,  // Altura máxima sobre o chão
+      preferredHeightOffset: 0.5, // Offset em relação à altura do jogador
+      chargeSpeed: 30.0, //velocidade durante a carga
+      chargeDuration: 2.0, //duração da carga em segundos
+      chargeDistance: 20.0,
+      cooldownDuration: 2.0, //tempo de recarga após a carga
+      wanderSpeed: 3.0, //velocidade ao vagar
+      detectionRange: 40.0, //distância para detectar o jogador
+      isFlying: true, //indica que voa
+      skullScale: 1.2,
+      ...config
     };
-
-    super(position, defaultConfig);
     
-    this.initializeLostSoul();
+    super(position, baseConfig);
+
+    this.mesh.traverse(child => {
+        if (child.isMesh && child.material) {
+            child.material.transparent = true;
+        }
+    });
+
+    this.detection.fovAngle = Math.PI / 2; // 180 graus
+    this.detection.maxDistance = baseConfig.detectionRange;
+
+    //estado específico
+    this.targetHeight = position[1]; // Altura inicial
+    this.lastHeightAdjustTime = 0;
+    this.lastPlayerHitTime = 0; // Para controlar o cooldown de dano ao jogador
+    this.chargeTime = 0.0;
+    this.isCharging = false;
+    this.cooldownTime = 0.0;
+    this.chargeDirection = new THREE.Vector3();
+    this.wanderDirection = new THREE.Vector3(
+      Math.random() -0.5,
+      Math.random() -0.5,
+      Math.random() -0.5
+    ).normalize();
+    this.spawnPosition = new THREE.Vector3().set(position[0], position[1], position[2]);
+    this.groundHeight = position[1]; // Altura inicial
+    this.config.chargeSpeed = 25; // Mais rápido
+    this.config.chargeDuration = 1.5; // Tempo mais curto
+    this.config.damage = 5; 
+
+
+    this.skullModel = null;
     this.loadSkull();
   }
 
-  initializeLostSoul() {
-    this.dashSpeed = this.config.dashSpeed;
-    this.dashInterval = this.config.dashInterval;
-    this.dashDuration = this.config.dashDuration;
-    this.timeSinceLastDash = 0;
-    this.isDashing = false;
-    this.dashDirection = new THREE.Vector3();
-    this.dashCooldown = 0;
-    
-    this.movementState = {
-      isNearPlayer: false,
-      lastPlayerDistance: Infinity,
-      targetDirection: new THREE.Vector3(),
-      smoothedVelocity: new THREE.Vector3(),
-      collisionAvoidanceForce: new THREE.Vector3(),
-      lastCollisionTime: 0,
-      // Lost Soul inter-collision state
-      separationForce: new THREE.Vector3(),
-      lastInterCollisionCheck: 0,
-      interCollisionCheckInterval: 100
-    };
-    
-    this.lastCollisionCheck = 0;
-    this.collisionCheckInterval = 1000 / 30;
-    this.lastPosition = new THREE.Vector3();
-    this.stuckTimer = 0;
-    this.stuckThreshold = 2000;
-    
-    this.skullModel = null;
-    
-    this.pursuitBehavior = EnemyPersistentPursuitManager.attachPursuitBehavior(this, {
-      baseAggressionLevel: 1.3,
-      speedMultiplier: 1.5,
-      attackRangeMultiplier: 1.0,
-      activationDistanceMultiplier: 1.0,
-      persistentChaseSpeedMultiplier: 2.5,
-      maxTimeWithoutPlayer: 45.0
-    });
-    
-    this.hasBeenActivated = false;
-    this.aggressionLevel = 1.0;
-    this.lastKnownPlayerPosition = new THREE.Vector3();
-  }
 
   async loadSkull() {
     try {
       await preloadSkullModel();
-      const loadedModel = await loadSkullModel()
+      const loadedModel = await loadSkullModel();
       const skullWrapper = new THREE.Group();
       
       const clonedModel = loadedModel.clone();
@@ -86,18 +79,11 @@ export class LostSoul extends Enemy {
       
       const box = new THREE.Box3().setFromObject(clonedModel);
       const center = box.getCenter(new THREE.Vector3());
-      
+
+      clonedModel.rotation.set(0, 0, 0);
       clonedModel.position.sub(center);
       
       skullWrapper.add(clonedModel);
-      
-      // Não aplicar rotação inicial - será aplicada dinamicamente no orientSkull
-      // skullWrapper.rotation.set(
-      //   this.config.skullXRotationOffset,
-      //   this.config.skullYRotationOffset,
-      //   this.config.skullZRotationOffset
-      // );
-      
       skullWrapper.scale.setScalar(this.config.skullScale);
       
       skullWrapper.traverse((child) => {
@@ -107,10 +93,8 @@ export class LostSoul extends Enemy {
         }
       });
       
-      
       this.setupSkullModel(skullWrapper);
       
-      // Ensure health bar is visible after model setup
       if (this.healthBar && this.healthBar.healthBarGroup) {
         this.healthBar.show();
       }
@@ -126,7 +110,7 @@ export class LostSoul extends Enemy {
     const oldPosition = this.mesh.position.clone();
     const oldRotation = this.mesh.rotation.clone();
     
-    // Preserve the health bar before removing the mesh
+    // Preserva a barra de vida antes de remover a mesh
     let preservedHealthBar = null;
     if (this.healthBar && this.healthBar.healthBarGroup) {
       preservedHealthBar = this.healthBar.healthBarGroup;
@@ -142,11 +126,11 @@ export class LostSoul extends Enemy {
     
     this.skullModel = model;
     
-    // Re-add the preserved health bar
+    // Re-adiciona a barra de vida preservada
     if (preservedHealthBar) {
       group.add(preservedHealthBar);
     } else if (this.healthBar) {
-      // If no health bar group exists, try to recreate it
+      // Se não existir grupo de barra de vida, tenta recriá-lo
       this.healthBar.initialize();
       if (this.healthBar.healthBarGroup) {
         group.add(this.healthBar.healthBarGroup);
@@ -161,431 +145,199 @@ export class LostSoul extends Enemy {
     this.updateBoundingBox();
   }
 
-  updateMovementState(targetPosition, delta) {
-    const currentDistance = this.mesh.position.distanceTo(targetPosition);
-    const state = this.movementState;
+  update(delta, camera, targetPosition, collidableObjects) {
+    if (this.isDying) {
+            this.deathEffects.update();
+            return;
+        }
+
+    if (!this.isAlive) return;
+
+    // Atualiza a altura alvo baseado na posição do jogador
+    this.updateTargetHeight(targetPosition);
     
-    state.lastPlayerDistance = currentDistance;
-    // When player is immortal, don't consider being "near" the player to allow dash-through behavior
-    const nearPlayerThreshold = PLAYER_CONFIG.PLAYER_IMMORTAL ? 0.5 : (this.config.collisionRadius + 2.0);
-    state.isNearPlayer = currentDistance <= nearPlayerThreshold;
+    // Atualiza temporizadores
+    if (this.isCharging) {
+      this.chargeTime += delta;
+      if (this.chargeTime >= this.config.chargeDuration) {
+        this.endCharge();
+      }
+    }
     
-    const rawDirection = new THREE.Vector3()
+    if (this.isOnCooldown) {
+      this.cooldownTime += delta;
+      if (this.cooldownTime >= this.config.cooldownDuration) {
+        this.isOnCooldown = false;
+        this.cooldownTime = 0;
+      }
+    }
+    
+    // Verifica se pode ver o jogador
+    const canSeePlayer = this.checkPlayerVisibility(targetPosition, collidableObjects);
+    const distanceToPlayer = this.mesh.position.distanceTo(targetPosition);
+    
+    // Comportamento baseado no estado
+    if (this.isCharging) {
+      this.executeCharge(delta, targetPosition, collidableObjects);
+    } else if (!this.isOnCooldown && canSeePlayer && distanceToPlayer < this.config.detectionRange) {
+      this.startCharge(targetPosition);
+    } else {
+      this.wander(delta, collidableObjects);
+    }
+    
+    // Atualiza componentes visuais/auditivos
+    this.audio.updateProximity(camera?.position);
+    this.healthBar.update(camera);
+    this.collision.updateBoundingBox();
+  }
+
+   updateTargetHeight(targetPosition) {
+  const now = Date.now();
+  // Atualiza mais frequentemente para resposta mais imediata
+  if (now - this.lastHeightAdjustTime > 300) { // A cada 300ms
+    this.lastHeightAdjustTime = now;
+    
+    // Usa a altura do alvo diretamente (jogador/câmera)
+    this.targetHeight = targetPosition.y;
+    
+    // Aplica um pequeno offset aleatório para parecer mais natural
+    const randomOffset = (Math.random() - 0.5) * 0.5; // Entre -0.25 e +0.25
+    this.targetHeight += randomOffset;
+    
+    // Limita a altura dentro dos limites configurados
+    this.targetHeight = Math.max(
+      this.config.minHeightAboveGround,
+      Math.min(this.config.maxHeightAboveGround, this.targetHeight)
+    );
+  }
+}
+
+startCharge(targetPosition) {
+    if (this.isCharging || this.isOnCooldown) return;
+
+    // Cálculo da direção com verificação de segurança
+    this.chargeDirection = new THREE.Vector3()
       .subVectors(targetPosition, this.mesh.position)
       .normalize();
-    
-    const smoothingFactor = Math.min(delta * 8.0, 1.0);
-    state.targetDirection.lerp(rawDirection, smoothingFactor);
-    
-    const positionChange = this.mesh.position.distanceTo(this.lastPosition);
-    if (positionChange < 0.1) {
-      this.stuckTimer += delta * 1000;
-    } else {
-      this.stuckTimer = 0;
+
+    // Fallback para direção válida
+    if (this.chargeDirection.length() < 0.1) {
+      this.chargeDirection.set(1, 0, 0);
     }
-    this.lastPosition.copy(this.mesh.position);
+
+    this.isCharging = true;
+    this.chargeTime = 0;
+    this.playAttackSound();
   }
 
-  calculateOptimalSpeed(distance) {
-    let speedMultiplier = 1.0;
-    
-    if (distance > 50.0) {
-      speedMultiplier = 2.5;
-    } else if (distance > 20.0) {
-      speedMultiplier = 1.8;
-    } else if (distance > 10.0) {
-      speedMultiplier = 1.4;
-    } else if (distance > 5.0) {
-      speedMultiplier = 1.0;
-    } else if (distance > 2.0) {
-      speedMultiplier = 0.8;
-    } else {
-      speedMultiplier = 1.5;
-    }
-    
-    if (this.pursuitBehavior.hasBeenActivated) {
-      const pursuitSpeedMultiplier = this.pursuitBehavior.getSpeedMultiplier(distance);
-      speedMultiplier *= pursuitSpeedMultiplier;
-    }
-    
-    if (this.stuckTimer > 1000) {
-      speedMultiplier *= 0.5;
-    }
-    
-    return this.config.speed * speedMultiplier;
-  }
 
-  performCollisionCheck(targetPosition, collidableObjects, delta) {
-    const currentTime = Date.now();
-    const state = this.movementState;
-    
-    if (currentTime - this.lastCollisionCheck < this.collisionCheckInterval) {
-      return false;
-    }
-    this.lastCollisionCheck = currentTime;
-    
-    if (state.isNearPlayer) {
-      state.collisionAvoidanceForce.set(0, 0, 0);
-      return false;
-    }
-    
-    if (!ENEMY_CONFIG.LOST_SOUL_ENABLE_COLLISION || !collidableObjects.length) {
-      state.collisionAvoidanceForce.set(0, 0, 0);
-      return false;
-    }
-    
-    // Verificar colisão com ambiente
-    const avoidanceDirection = this.getCollisionAvoidance(collidableObjects, targetPosition, 2.0);
-    
-    if (avoidanceDirection && avoidanceDirection.length() > 0) {
-      state.lastCollisionTime = currentTime;
-      
-      // Suavizar a força de evasão
-      const avoidanceStrength = Math.min(0.5, (currentTime - state.lastCollisionTime) / 1000);
-      state.collisionAvoidanceForce.lerp(avoidanceDirection, avoidanceStrength);
-      
-      // Prevenir overlap de forma suave
-      this.preventOverlap(collidableObjects, delta);
-      
-      return true;
-    }
-    
-    state.collisionAvoidanceForce.multiplyScalar(0.95); // Decay mais suave
-    return false;
-  }
+executeCharge(delta, targetPosition, collidableObjects) {
+    if (!this.isCharging) return;
 
-  checkLostSoulInterCollision(delta, otherEnemies = []) {
-    const currentTime = Date.now();
-    const state = this.movementState;
+    // 1. Física direta da carga (ignorando config)
+    const CHARGE_SPEED = 30.0; // Velocidade fixa alta
+    const CHARGE_DURATION = 2.0
     
-    if (currentTime - state.lastInterCollisionCheck < state.interCollisionCheckInterval) {
-      return false;
-    }
-    state.lastInterCollisionCheck = currentTime;
+    // 2. Movimento direto com física aplicada
+    const moveVector = this.chargeDirection.clone()
+        .multiplyScalar(CHARGE_SPEED * delta);
     
-    if (!ENEMY_CONFIG.LOST_SOUL_INTER_COLLISION) {
-      state.separationForce.set(0, 0, 0);
-      return false;
-    }
+    this.mesh.position.add(moveVector);
     
-    const lostSoulEnemies = otherEnemies.filter(e => e.constructor.name === 'LostSoul' && e.isAlive);
-    
-    if (lostSoulEnemies.length === 0) {
-      state.separationForce.set(0, 0, 0);
-      return false;
-    }
-    
-    const collisionResult = this.checkEnemyCollisions(lostSoulEnemies, 4.0);
-    
-    if (collisionResult.hasCollision) {
-      const smoothingFactor = Math.min(delta * 5.0, 1.0);
-      state.separationForce.lerp(collisionResult.separationForce, smoothingFactor);
-      return true;
-    } else {
-      state.separationForce.multiplyScalar(0.9);
-      return false;
-    }
-  }
-
-  calculateFinalMovement(targetPosition, delta) {
-    const state = this.movementState;
-    const distance = state.lastPlayerDistance;
-    const speed = this.calculateOptimalSpeed(distance);
-    
-    let finalDirection = state.targetDirection.clone();
-    
-    // Apply environmental collision avoidance
-    if (state.collisionAvoidanceForce.length() > 0.1) {
-      const avoidanceWeight = Math.min(0.7, state.collisionAvoidanceForce.length());
-      const targetWeight = 1.0 - avoidanceWeight;
-      
-      finalDirection.multiplyScalar(targetWeight)
-        .addScaledVector(state.collisionAvoidanceForce, avoidanceWeight)
-        .normalize();
-    }
-    
-    // Apply Lost Soul separation force (reduced when very close to player)
-    if (state.separationForce.length() > 0.1) {
-      const playerDistanceFactor = Math.min(1.0, distance / 5.0);
-      const separationWeight = Math.min(0.8, state.separationForce.length()) * playerDistanceFactor;
-      finalDirection.addScaledVector(state.separationForce, separationWeight).normalize();
-      
-      const directSeparation = state.separationForce.clone().multiplyScalar(this.config.speed * 2.0 * delta);
-      this.mesh.position.add(directSeparation);
-    }
-    
-    if (this.stuckTimer > this.stuckThreshold) {
-      const randomDirection = new THREE.Vector3(
-        (Math.random() - 0.5) * 2,
-        (Math.random() - 0.5) * 0.5,
-        (Math.random() - 0.5) * 2
-      ).normalize();
-      
-      finalDirection.lerp(randomDirection, 0.3);
-    }
-    
-    const targetVelocity = finalDirection.multiplyScalar(speed);
-    const velocitySmoothing = Math.min(delta * 6.0, 1.0);
-    
-    state.smoothedVelocity.lerp(targetVelocity, velocitySmoothing);
-    this.velocity.copy(state.smoothedVelocity);
-    
-    return state.smoothedVelocity.clone();
-  }
-
-  orientSkull(targetPosition) {
-    if (!this.skullModel) return;
-    
-    // Calcular direção para o target
-    let direction;
-    
-    if (this.config.skullOrientToMovement && this.velocity && this.velocity.length() > 0.1) {
-      direction = this.velocity.clone().normalize();
-    } else {
-      direction = new THREE.Vector3()
-        .subVectors(targetPosition, this.mesh.position)
-        .normalize();
-    }
-    
-    // Criar quaternion base para olhar na direção do target
-    const targetQuaternion = new THREE.Quaternion();
-    const lookAtMatrix = new THREE.Matrix4();
-    const up = new THREE.Vector3(0, 1, 0);
-    const currentPos = this.skullModel.position.clone();
-    const targetPos = currentPos.clone().add(direction);
-    
-    lookAtMatrix.lookAt(currentPos, targetPos, up);
-    targetQuaternion.setFromRotationMatrix(lookAtMatrix);
-    
-    // Aplicar os offsets de rotação
-    this.applySkullRotationOffsets(targetQuaternion);
-    
-    // Aplicar rotação suave ou direta
-    if (this.config.skullSmoothRotation) {
-      const speed = (this.config.skullRotationSpeed || 5.0) * 0.016; // Assuming 60fps
-      this.skullModel.quaternion.slerp(targetQuaternion, Math.min(speed, 1.0));
-    } else {
-      this.skullModel.quaternion.copy(targetQuaternion);
-    }
-  }
-
-  applySkullRotationOffsets(quaternion) {
-    const rotationOffsets = [
-      { axis: new THREE.Vector3(0, 1, 0), angle: this.config.skullYRotationOffset },
-      { axis: new THREE.Vector3(1, 0, 0), angle: this.config.skullXRotationOffset },
-      { axis: new THREE.Vector3(0, 0, 1), angle: this.config.skullZRotationOffset }
-    ];
-    
-    rotationOffsets.forEach(({ axis, angle }) => {
-      if (angle !== 0) {
-        const adjustment = new THREE.Quaternion().setFromAxisAngle(axis, angle);
-        quaternion.multiplyQuaternions(quaternion, adjustment);
-      }
-    });
-  }
-
-  updateDash(delta, targetPosition, collidableObjects = []) {
-    this.timeSinceLastDash += delta;
-    this.dashCooldown = Math.max(0, this.dashCooldown - delta);
-    
-    const distanceToTarget = this.mesh.position.distanceTo(targetPosition);
-    const DASH_MIN_DISTANCE = 3.0;
-    const DASH_MAX_DISTANCE = 15.0;
-    
-    const canStartDash = !this.isDashing && 
-                        this.dashCooldown <= 0 &&
-                        this.timeSinceLastDash >= this.config.dashInterval &&
-                        distanceToTarget >= DASH_MIN_DISTANCE && 
-                        distanceToTarget <= DASH_MAX_DISTANCE &&
-                        !this.movementState.isNearPlayer;
-    
-    if (canStartDash) {
-      this.audio.playAttackSound();
-      
-      this.isDashing = true;
-      this.timeSinceLastDash = 0;
-      this.dashCooldown = this.config.dashInterval * 0.5;
-      
-      const playerVelocity = new THREE.Vector3();
-      const predictedPlayerPos = targetPosition.clone().add(playerVelocity.multiplyScalar(0.5));
-      this.dashDirection.subVectors(predictedPlayerPos, this.mesh.position).normalize();
-    }
-    
-    const shouldEndDash = this.isDashing && 
-                         (this.timeSinceLastDash >= this.config.dashDuration || 
-                          distanceToTarget <= 1.0);
-    
-    if (shouldEndDash) {
-      this.isDashing = false;
-      this.timeSinceLastDash = 0;
-      this.dashCooldown = this.config.dashInterval * 0.3;
-    }
-  }
-
-  executeMovement(targetPosition, delta, collidableObjects = [], otherEnemies = []) {
-    if (!this.isAlive) return;
-    
-    this.updateMovementState(targetPosition, delta);
-    
-    if (this.isDashing) {
-      return this.executeDashMovement(targetPosition, delta, collidableObjects, otherEnemies);
-    }
-    
-    return this.executeNormalMovement(targetPosition, delta, collidableObjects, otherEnemies);
-  }
-  
-  executeDashMovement(targetPosition, delta, collidableObjects = [], otherEnemies = []) {
-    const dashVelocity = this.dashDirection.clone().multiplyScalar(this.dashSpeed);
-    const newPosition = this.mesh.position.clone().addScaledVector(dashVelocity, delta);
-    
-    this.checkLostSoulInterCollision(delta, otherEnemies);
-    
-    const state = this.movementState;
-    if (state.separationForce.length() > 0.1) {
-      const dashSeparationWeight = 0.2;
-      const separationVelocity = state.separationForce.clone().multiplyScalar(this.config.speed * dashSeparationWeight);
-      newPosition.addScaledVector(separationVelocity, delta);
-    }
-    
-    if (ENEMY_CONFIG.LOST_SOUL_ENABLE_COLLISION && collidableObjects.length > 0) {
-      const collision = this.checkEnvironmentCollision(collidableObjects, newPosition);
-      
-      if (collision.hasCollision) {
-        this.isDashing = false;
-        this.dashCooldown = this.config.dashInterval * 0.5;
-        
-        let correctedVelocity = new THREE.Vector3();
-        if (collision.normal) {
-          this.dashDirection.reflect(collision.normal);
-          correctedVelocity = this.dashDirection.multiplyScalar(this.config.speed);
-          this.mesh.position.addScaledVector(correctedVelocity, delta);
-        }
-        return correctedVelocity;
-      }
-    }
-    
-    this.mesh.position.copy(newPosition);
-    this.velocity.copy(dashVelocity);
-    
-    return dashVelocity;
-  }
-  
-  executeNormalMovement(targetPosition, delta, collidableObjects = [], otherEnemies = []) {
-    this.performCollisionCheck(targetPosition, collidableObjects, delta);
-    this.checkLostSoulInterCollision(delta, otherEnemies);
-    
-    // Verificar separação de outros inimigos (mais suave)
-    const separationResult = this.checkEnemyCollisions(otherEnemies);
-    if (separationResult.hasCollision) {
-      this.applySeparationForce(separationResult.separationForce, delta, 0.5);
-    }
-    
-    const finalVelocity = this.calculateFinalMovement(targetPosition, delta);
-    
-    this.mesh.position.addScaledVector(finalVelocity, delta);
-    
-    // Prevenir overlap de forma suave após o movimento
-    this.preventOverlap(collidableObjects, delta);
-    
-    return finalVelocity;
-  }
-
-  idleBehavior(delta) {
-    EnemyIdleBehaviors.combinedIdleBehavior(this, delta, {
-      movement: '6dof',
-      enableModelRotation: true,
-      model: this.skullModel,
-      amplitude: 0.15,
-      amplitudeVariation: 0.05
-    });
-  }
-
-  checkPlayerCollision(targetPosition) {
-    // When player is immortal, Lost Souls should not explode on collision
-    const shouldDestroy = !PLAYER_CONFIG.PLAYER_IMMORTAL;
-    
-    return super.checkPlayerCollision(targetPosition, {
-      collisionRadius: this.config.collisionRadius,
-      radiusMultiplier: this.isDashing ? 1.2 : 1.0,
-      damage: this.config.kamikazeDamage,
-      destroyOnHit: shouldDestroy
-    });
-  }
-
-  ensureHealthBarExists() {
-    if (!this.healthBar || !this.healthBar.healthBarGroup) {
-      if (this.healthBar) {
-        this.healthBar.initialize();
-        
-        // Make sure it's added to the current mesh
-        if (this.healthBar.healthBarGroup && this.mesh) {
-          if (!this.mesh.children.includes(this.healthBar.healthBarGroup)) {
-            this.mesh.add(this.healthBar.healthBarGroup);
-          }
-        }
-      }
-    }
-  }
-
-  update(delta, camera, targetPosition, collidableObjects = [], otherEnemies = []) {
-    super.update(delta, camera, targetPosition, collidableObjects, otherEnemies);
-    
-    // Ensure health bar is always present
-    this.ensureHealthBarExists();
-    
-    if (!this.isAlive || this.deathEffects.isDying) return;
-
-    const activationDistance = 30.0;
-    const isPursuing = EnemyPersistentPursuitManager.updatePursuitBehavior(
-      this, targetPosition, delta, activationDistance
+    // 3. Rotação instantânea para direção do charge
+    this.mesh.lookAt(
+        this.mesh.position.x + this.chargeDirection.x,
+        this.mesh.position.y,
+        this.mesh.position.z + this.chargeDirection.z
     );
     
-    const effectiveTarget = EnemyPersistentPursuitManager.getEffectiveTarget(this, targetPosition);
-    
-    this.hasBeenActivated = this.pursuitBehavior.hasBeenActivated;
-    this.aggressionLevel = this.pursuitBehavior.aggressionLevel;
-    this.lastKnownPlayerPosition.copy(this.pursuitBehavior.lastKnownPlayerPosition);
-    
-    if (!effectiveTarget) return;
-    
-    this.updateDash(delta, effectiveTarget, collidableObjects);
-    this.executeMovement(effectiveTarget, delta, collidableObjects, otherEnemies);
-    
-    this.orientSkull(effectiveTarget);
-    
-    if (targetPosition) {
-      const collisionOccurred = this.checkPlayerCollision(targetPosition);
-      
-      if (collisionOccurred && this.mesh && this.mesh.parent) {
-        // Only create explosion effect if player is not immortal
-        if (!PLAYER_CONFIG.PLAYER_IMMORTAL) {
-          this.createExplosionEffect();
-        }
-      }
+    // 4. Verificação de impacto
+    const distanceToPlayer = this.mesh.position.distanceTo(targetPosition);
+    if (distanceToPlayer <= this.config.radius * 3) {
+        this.dealDamageToPlayer(5);
     }
+    
+    // 5. Controle de tempo manual
+    this.chargeTime += delta;
+    if (this.chargeTime >= CHARGE_DURATION) {
+        this.endCharge();
+    }
+}
+
+getGroundHeight() {
+  const raycaster = new THREE.Raycaster(
+    this.mesh.position.clone().setY(100), // Começa acima
+    new THREE.Vector3(0, -1, 0), // Dispara para baixo
+    0, 100 // Distância
+  );
+  const intersects = raycaster.intersectObjects(terrainObjects);
+  return intersects.length > 0 ? intersects[0].point.y : 0;
+}
+
+dealDamageToPlayer(damage) {
+  if (typeof window.playerTakeDamage === 'function') {
+    window.playerTakeDamage(damage);
+  }
+}
+
+
+  endCharge() {
+    this.isCharging = false;
+    this.isOnCooldown = true;
+    this.cooldownTime = 0;
+    this.chargeTime = 0;
   }
 
-  createExplosionEffect() {
-    if (!this.mesh || !this.mesh.parent) return;
+   wander(delta, collidableObjects) {
+  // Muda de direção periodicamente com mais variação vertical
+  if (Math.random() < 0.02 * delta * 60) {
+    this.wanderDirection = new THREE.Vector3(
+      Math.random() - 0.5,
+      (Math.random() - 0.5) * 0.7, // Mais variação vertical
+      Math.random() - 0.5
+    ).normalize();
+  }
+  
+  // Ajuste de altura suave durante o wander
+  const heightDifference = this.targetHeight - this.mesh.position.y;
+  const verticalAdjustment = heightDifference * this.config.heightAdjustSpeed * delta * 0.3;
+  
+  // Combina movimento errático com ajuste de altura
+  const targetPosition = new THREE.Vector3(
+    this.mesh.position.x + this.wanderDirection.x * 3,
+    this.mesh.position.y + this.wanderDirection.y + verticalAdjustment,
+    this.mesh.position.z + this.wanderDirection.z * 3
+  );
+  
+  const moveOptions = {
+    delta: delta,
+    speedMultiplier: this.config.wanderSpeed / this.config.speed,
+    collidableObjects: collidableObjects,
+    use6DOF: true
+  };
+  
+  this.moveTowards(targetPosition, moveOptions);
+  
+  // Rotação suave incluindo componente vertical reduzida
+  if (this.wanderDirection.length() > 0.1) {
+    const smoothedDirection = new THREE.Vector3(
+      this.wanderDirection.x,
+      this.wanderDirection.y * 0.3, // Reduz influência vertical na rotação
+      this.wanderDirection.z
+    ).normalize();
     
-    EnemyExplosionEffects.createExplosion(this.mesh.position, this.mesh.parent, {
-      particles: {
-        particleCount: 8,
-        colors: [0xff4444, 0xff6666, 0xff8888, 0xffaaaa],
-        minSize: 0.08,
-        maxSize: 0.14,
-        minSpeed: 2,
-        maxSpeed: 6,
-        gravity: 0.01,
-        fadeSpeed: 2
-      },
-      flash: {
-        color: 0xffffff,
-        size: 2.0,
-        opacity: 0.6,
-        duration: 1.0,
-        expansionFactor: 2.0
-      }
-    });
+    const targetQuat = new THREE.Quaternion().setFromUnitVectors(
+      new THREE.Vector3(0, 0, 1),
+      smoothedDirection
+    );
+    this.mesh.quaternion.slerp(targetQuat, 0.1);
+  }
+}
+
+  attack(targetPosition) {
+    // Sobrescreve o método de ataque padrão para usar o comportamento de carga
+    if (!this.isCharging && !this.isOnCooldown) {
+      this.startCharge(targetPosition);
+    }
   }
 }

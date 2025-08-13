@@ -7,82 +7,47 @@ import { ENEMY_CONFIG } from '../config/enemyConfig.js';
 export class EnemyMovement {
   constructor(enemy) {
     this.enemy = enemy;
-    // Use the enemy's velocity instead of creating our own
     this._tempVector3 = new THREE.Vector3();
+    this._lastUpdate = 0;
+    this.updateInterval = 100; // ms entre atualizações pesadas
   }
 
   moveTowards(targetPosition, delta, options = {}) {
-    if (!this.enemy.isAlive) return;
-    
     const {
       use6DOF = false,
-      enableCollision = false,
+      enableCollision = true,
       collidableObjects = [],
       speedMultiplier = 1.0
     } = options;
-    
-    // Calculate direction
-    const direction = this._tempVector3
-      .subVectors(targetPosition, this.enemy.mesh.position);
-    
-    if (!use6DOF) {
-      direction.setY(0);
-    }
-    
-    direction.normalize();
-    
-    this.enemy.velocity.copy(direction).multiplyScalar(this.enemy.config.speed * speedMultiplier);
-    
-    if (enableCollision && collidableObjects.length > 0) {
-      this.handleCollision(targetPosition, collidableObjects, delta);
-    }
-    
-    // Apply movement
-    this.enemy.mesh.position.addScaledVector(this.enemy.velocity, delta);
-    
-    return this.enemy.velocity.clone();
-  }
 
-  handleCollision(targetPosition, collidableObjects, delta) {
-    const collision = this.checkEnvironmentCollision(targetPosition, collidableObjects, delta);
-    
-    if (collision && collision.hasCollision) {
-      const safeDistance = ENEMY_CONFIG.LOST_SOUL_COLLISION_DISTANCE || 2.0;
+    if (!this.enemy.isAlive) return;
+
+    // Delega a detecção de colisão totalmente para EnemyCollision
+    if (enableCollision && collidableObjects.length > 0) {
+      const avoidance = this.enemy.collision.getAvoidanceDirection(
+        collidableObjects, 
+        targetPosition,
+        2.0 // lookaheadDistance
+      );
       
-      if (collision.distance < safeDistance) {
-        const corrected = this.applyCollisionCorrection(targetPosition, collidableObjects);
-        
-        if (!corrected) {
-          this.enemy.velocity.multiplyScalar(0.2); // Slow down if can't avoid
-        }
+      if (avoidance) {
+        targetPosition = this.enemy.mesh.position.clone()
+          .addScaledVector(avoidance, 2.0);
       }
     }
-  }
 
-  checkEnvironmentCollision(targetPosition, collidableObjects, delta) {
-    if (!ENEMY_CONFIG.LOST_SOUL_ENABLE_COLLISION || !collidableObjects.length) return null;
-    
-    const currentPosition = this.enemy.mesh.position;
-    const intendedPosition = currentPosition.clone().addScaledVector(this.enemy.velocity, delta);
-    
-    return checkLostSoulCollision(
-      currentPosition,
-      intendedPosition,
-      collidableObjects,
-      this.enemy.config.radius || ENEMY_CONFIG.LOST_SOUL_COLLISION_RADIUS
-    );
-  }
+    // Cálculo de direção
+    const direction = this._tempVector3
+      .subVectors(targetPosition, this.enemy.mesh.position);
 
-  applyCollisionCorrection(targetPosition, collidableObjects) {
-    if (!ENEMY_CONFIG.LOST_SOUL_ENABLE_COLLISION || !collidableObjects.length) return false;
+    if (!use6DOF) direction.setY(0);
+    direction.normalize();
+
+    // Aplica movimento
+    this.enemy.velocity.copy(direction)
+      .multiplyScalar(this.enemy.config.speed * speedMultiplier);
     
-    const correction = applyLostSoulCollisionCorrection(this.enemy, collidableObjects, targetPosition);
-    if (correction.corrected) {
-      this.enemy.velocity.copy(correction.newDirection)
-        .multiplyScalar(this.enemy.config.speed * (ENEMY_CONFIG.LOST_SOUL_WALL_AVOIDANCE || 1.0));
-      return true;
-    }
-    return false;
+    this.enemy.mesh.position.addScaledVector(this.enemy.velocity, delta);
   }
 
   // Convenience methods
