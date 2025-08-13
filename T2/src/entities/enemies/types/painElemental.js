@@ -10,8 +10,8 @@ export class PainElemental extends Enemy {
       ...getCacodeemonConfig(config.difficulty || 'normal'),
       maxHealth: 100,
       isFlying: true,
-      radius: 3.0,
-      collisionRadius: 4.0,
+      radius: 4.0,
+      collisionRadius: 4.5,
       speed: 2.5,
       color: 0x9933cc,
       maxSpawnedSouls: 5, // Máximo de LostSouls que podem ser spawnadas
@@ -326,8 +326,11 @@ forceUpdateSpawnedSouls() {
       this.collision.preventOverlap(collidableObjects, delta);
     }
 
-    // Height limit
-    this.mesh.position.y = Math.min(this.mesh.position.y, 20.0);
+    const MIN_HEIGHT = 2.3; // Defina a altura mínima de voo desejada
+    const MAX_HEIGHT = 20.0; // Altura máxima de voo
+
+    this.mesh.position.y = Math.max(MIN_HEIGHT, this.mesh.position.y); // Impede de atravessar o chão
+    this.mesh.position.y = Math.min(this.mesh.position.y, MAX_HEIGHT); // Impede de voar muito alto
   }
 
   dispose() {
