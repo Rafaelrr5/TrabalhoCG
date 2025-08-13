@@ -647,15 +647,15 @@ export function updateHangarDoors(delta, camera, scene, collidableObjects, keyMa
             }
             
             animateHangarDoors(hangar, true, collidableObjects);
+            
+            // Marcar que as portas foram permanentemente abertas
+            hangar.userData.permanentlyOpen = true;
         } else {
             console.log('[HANGAR DEBUG] ❌ Próximo do hangar mas sem chave amarela');
         }
     } 
-    // Fechar as portas se o jogador se afastar (independente da chave)
-    else if (distance > closeDistance && hangar.userData.doorsOpen && !hangar.userData.animating) {
-        console.log('[HANGAR DEBUG] Fechando portas do hangar (jogador se afastou)');
-        animateHangarDoors(hangar, false, collidableObjects);
-    }
+    // NÃO fechar as portas uma vez abertas - remover lógica de fechamento
+    // As portas permanecem abertas permanentemente após serem abertas com a chave
 }
 
 // Função para verificar se o jogador está dentro do hangar

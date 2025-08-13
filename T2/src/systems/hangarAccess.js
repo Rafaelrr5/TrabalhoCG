@@ -11,7 +11,8 @@ let doorsAnimationState = {
     animationSpeed: 2.0,
     originalPositions: [],
     targetPositions: [],
-    hasStarted: false
+    hasStarted: false,
+    isOpen: false
 };
 
 let hangarKeyAnimationState = {
@@ -221,7 +222,8 @@ export function updateHangarDoorsAnimation(delta, scene, collidableObjects) {
 
     if (doorsAnimationState.animationProgress >= 1) {
         doorsAnimationState.isAnimating = false;
-        console.log('[HANGAR ACCESS] ✅ Animação das portas concluída');
+        doorsAnimationState.isOpen = true;
+        console.log('[HANGAR ACCESS] ✅ Animação das portas concluída - portas permanentemente abertas');
     }
 }
 
@@ -240,25 +242,35 @@ function removeDoorBlockerFromCollisions(collidableObjects) {
 }
 
 export function resetHangarAccess() {
-    doorsAnimationState.isAnimating = false;
-    doorsAnimationState.animationProgress = 0;
-    doorsAnimationState.hasStarted = false;
+    // Só reseta se as portas ainda não foram abertas
+    if (!doorsAnimationState.isOpen) {
+        doorsAnimationState.isAnimating = false;
+        doorsAnimationState.animationProgress = 0;
+        doorsAnimationState.hasStarted = false;
+        
+        if (hangarDoors.length > 0 && doorsAnimationState.originalPositions.length > 0) {
+            hangarDoors.forEach((door, index) => {
+                if (doorsAnimationState.originalPositions[index]) {
+                    const original = doorsAnimationState.originalPositions[index];
+                    door.position.set(original.x, original.y, original.z);
+                }
+            });
+        }
+    } else {
+        console.log('[HANGAR ACCESS] ℹ️ Portas já estão abertas permanentemente - não será resetado');
+    }
     
+    // Sempre reseta a animação da chave
     hangarKeyAnimationState.isAnimating = false;
     hangarKeyAnimationState.animationProgress = 0;
-    
-    if (hangarDoors.length > 0 && doorsAnimationState.originalPositions.length > 0) {
-        hangarDoors.forEach((door, index) => {
-            if (doorsAnimationState.originalPositions[index]) {
-                const original = doorsAnimationState.originalPositions[index];
-                door.position.set(original.x, original.y, original.z);
-            }
-        });
-    }
 }
 
 export function areHangarDoorsOpen() {
     return doorsAnimationState.hasStarted;
+}
+
+export function areHangarDoorsFullyOpen() {
+    return doorsAnimationState.isOpen;
 }
 
 export function isPlayerInHangarEntranceZone(camera, hangarModel) {
