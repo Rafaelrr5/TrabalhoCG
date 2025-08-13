@@ -126,6 +126,12 @@ export function applyGravity(delta, collidableObjects, camera) {
         velocityY = 0;
     }
     hitbox.position.y += velocityY * delta;
+    const minimumHeight = 1.9; // Defina uma altura mínima segura para o seu mundo de jogo
+    if (hitbox.position.y < minimumHeight) {
+        hitbox.position.y = minimumHeight;
+        velocityY = 0;
+        isGrounded = true; // Força o estado de 'no chão' para estabilizar
+    }
     camera.position.y += velocityY * delta;
     checkGroundCollisions(collidableObjects, camera);
     checkWallCollisions(collidableObjects, camera);
