@@ -10,8 +10,8 @@ export class PainElemental extends Enemy {
       ...getCacodeemonConfig(config.difficulty || 'normal'),
       maxHealth: 100,
       isFlying: true,
-      radius: 1.5,
-      collisionRadius: 1.8,
+      radius: 3.0,
+      collisionRadius: 4.0,
       speed: 2.5,
       color: 0x9933cc,
       maxSpawnedSouls: 5, // Máximo de LostSouls que podem ser spawnadas
@@ -46,45 +46,55 @@ export class PainElemental extends Enemy {
     this.loadModel();
   }
 
-  async loadModel() {
-    try {
-      const modelConfig = {
-        scale: 0.01,
-        position: { x: 0, y: 0, z: 0 },
-        rotation: { x: 0, y: 0, z: 0 },
-        pivotAtCenter: true,
-        castShadow: true,
-        receiveShadow: true,
-        materialConfig: {
-          transparent: false,
-          opacity: 1.0,
-          visible: true,
-          side: THREE.DoubleSide,
-          map: await this.loadTexture('../../../../../0_assetsT3/objects/pain/painElemental.glb'),
-          normalMap: await this.loadTexture('../../../../../0_assetsT3/objects/pain/textures/pain_elemental_toy_normal.png'),
-          displacementMap: await this.loadTexture('../../../../../0_assetsT3/objects/pain/textures/pain_elemental_toy_specularGlossiness.png'),
-          displacementScale: 0.1
-        },
-        fallback: {
-          type: 'sphere',
-          radius: this.config.radius,
-          color: this.config.color
-        }
-      };
+async loadModel() {
+  try {
+    const modelConfig = {
+      scale: 0.5,
+      position: { x: 0, y: 0, z: 0 },
+      rotation: { x: 0, y: -1 * (Math.PI/2), z: 0 },
+      pivotAtCenter: true,
+      castShadow: true,
+      receiveShadow: true,
+      materialConfig: {
+        transparent: false,
+        opacity: 1.0,
+        visible: true,
+        side: THREE.DoubleSide,
+        map: await this.loadTexture('../../../../0_assetsT3/objects/pain/textures/pain_elemental_toy_diffuse.png'),
+        normalMap: await this.loadTexture('../../../../0_assetsT3/objects/pain/textures/pain_elemental_toy_normal.png'),
+        displacementMap: await this.loadTexture('../../../../0_assetsT3/objects/pain/textures/pain_elemental_toy_specularGlossiness.png'),
+        displacementScale: 0.1
+      },
+      fallback: {
+        type: 'sphere',
+        radius: this.config.radius,
+        color: this.config.color
+      }
+    };
 
-      this.removePlaceholder();
-      
-      this.model = await loadGLTFModel('./0_assetsT3/objects/pain/painElemental.glb', modelConfig);
-      
-      this.mesh.add(this.model);
-      this.modelLoaded = true;
-      
-    } catch (error) {
-      console.error('Failed to load Pain Elemental GLB model:', error);
-      this.createPlaceholderGeometry();
-      this.modelLoaded = false;
+    this.removePlaceholder();
+    
+    // Caminho corrigido para o modelo GLB
+    this.model = await loadGLTFModel('../../../../0_assetsT3/objects/pain/painElemental.glb', modelConfig);
+    
+    this.mesh.add(this.model);
+    this.modelLoaded = true;
+
+    // Ajuste da barra de vida após carregar o modelo
+    if (this.healthBar && this.healthBar.healthBarGroup) {
+      // Aumenta a altura da barra proporcionalmente ao aumento do modelo
+      this.healthBar.healthBarGroup.position.y = this.config.radius * 3.5; // Ajuste este valor conforme necessário
+  
+      // Opcional: Aumentar o tamanho da barra também
+      this.healthBar.healthBarGroup.scale.set(2.0, 1.5, 2.0); // Ajuste a escala conforme necessário
     }
+    
+  } catch (error) {
+    console.error('Failed to load Pain Elemental GLB model:', error);
+    this.createPlaceholderGeometry();
+    this.modelLoaded = false;
   }
+}
 
   async loadTexture(path) {
     const loader = new THREE.TextureLoader();
