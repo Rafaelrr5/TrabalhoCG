@@ -35,25 +35,36 @@ window.playerTakeDamage = function(damage) {
 };
 
 function updatePlayerHealthDisplay() {
-  const healthDisplay = document.getElementById('player-health');
-  if (healthDisplay) {
-    if (PLAYER_CONFIG.PLAYER_IMMORTAL) {
-      healthDisplay.style.display = 'none';
-      return;
+  const healthStatus = player.getHealthStatus();
+  const healthPercentage = healthStatus.percentage;
+  
+  // Atualizar a barra de vida 3D - sempre visível
+  const healthBarGroup = camera.getObjectByName('PlayerHealthBar');
+  if (healthBarGroup) {
+    healthBarGroup.visible = true;
+    
+    const healthBarFill = healthBarGroup.getObjectByName('PlayerHealthBarFill');
+    if (healthBarFill) {
+      // Atualizar escala da barra baseada na porcentagem de vida
+      healthBarFill.scale.x = Math.max(0.01, healthPercentage); // Mínimo para ser visível
+      
+      // Mudar cor baseada na porcentagem de vida
+      if (healthPercentage < 0.3) {
+        healthBarFill.material.color.setHex(0xff0000); // Vermelho
+      } else if (healthPercentage < 0.6) {
+        healthBarFill.material.color.setHex(0xffaa00); // Laranja
+      } else {
+        healthBarFill.material.color.setHex(0x00ff00); // Verde
+      }
     }
-    
-    healthDisplay.style.display = 'block';
-    
-    const healthStatus = player.getHealthStatus();
-    healthDisplay.textContent = `Health: ${healthStatus.current}/${healthStatus.max}`;
-    
-    const healthPercentage = healthStatus.percentage;
-    if (healthPercentage < 0.3) {
-      healthDisplay.style.color = 'red';
-    } else if (healthPercentage < 0.6) {
-      healthDisplay.style.color = 'orange';
+  }
+  
+  const healthText = document.getElementById('player-health-text');
+  if (healthText) {
+    healthText.style.display = 'block';
+    if (PLAYER_CONFIG.PLAYER_IMMORTAL) {
     } else {
-      healthDisplay.style.color = 'green';
+      healthText.textContent = `${healthStatus.current}/${healthStatus.max}`;
     }
   }
 }
@@ -179,23 +190,55 @@ function showGameOverPopup() {
 }
 
 function createPlayerHealthHUD() {
-    const healthDisplay = document.createElement('div');
-    healthDisplay.id = 'player-health';
-    healthDisplay.style.position = 'fixed';
-    healthDisplay.style.top = '20px';
-    healthDisplay.style.left = '20px';
-    healthDisplay.style.color = 'green';
-    healthDisplay.style.fontSize = '20px';
-    healthDisplay.style.fontWeight = 'bold';
-    healthDisplay.style.zIndex = '1000';
-    healthDisplay.style.textShadow = '2px 2px 4px rgba(0,0,0,0.8)';
+    // Criar um grupo para a barra de vida 3D
+    const healthBarGroup = new THREE.Group();
+    healthBarGroup.name = 'PlayerHealthBar';
     
-    if (PLAYER_CONFIG.PLAYER_IMMORTAL) {
-        healthDisplay.style.display = 'none';
-    } else {
-        const healthStatus = player.getHealthStatus();
-        healthDisplay.textContent = `Health: ${healthStatus.current}/${healthStatus.max}`;
-    }
+    // Configurações da barra
+    const barWidth = 0.8;
+    const barHeight = 0.06;
+    const barDepth = 0.01;
+    
+    // Background da barra (preto)
+    const bgGeometry = new THREE.BoxGeometry(barWidth, barHeight, barDepth);
+    const bgMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x000000, 
+        transparent: true, 
+        opacity: 0.8 
+    });
+    const healthBarBg = new THREE.Mesh(bgGeometry, bgMaterial);
+    
+    // Preenchimento da barra (verde inicialmente)
+    const fillGeometry = new THREE.BoxGeometry(barWidth, barHeight * 0.8, barDepth * 1.1);
+    const fillMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    const healthBarFill = new THREE.Mesh(fillGeometry, fillMaterial);
+    healthBarFill.name = 'PlayerHealthBarFill';
+    
+    // Posicionar no canto superior esquerdo da tela
+    healthBarGroup.position.set(-2.6, 1.4, -2);
+    
+    healthBarGroup.add(healthBarBg);
+    healthBarGroup.add(healthBarFill);
+    
+    // Adicionar à câmera para que siga o jogador
+    camera.add(healthBarGroup);
+    
+    // Criar texto para mostrar valores numéricos
+    const healthDisplay = document.createElement('div');
+    healthDisplay.id = 'player-health-text';
+    healthDisplay.style.cssText = `
+        position: fixed;
+        top: 50px;
+        left: 20px;
+        color: white;
+        font-size: 14px;
+        font-weight: bold;
+        z-index: 1000;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        font-family: Arial, sans-serif;
+    `;
+    
+    healthBarGroup.visible = true;
     
     document.body.appendChild(healthDisplay);
 }
@@ -205,6 +248,9 @@ function initializeImmortalityIndicator() {
     if (immortalityIndicator) {
         immortalityIndicator.style.display = PLAYER_CONFIG.PLAYER_IMMORTAL ? 'block' : 'none';
     }
+    
+    // Manter a barra de vida sempre visível, apenas atualizar o texto
+    updatePlayerHealthDisplay();
 }
 
 function createKeysHUD() {
