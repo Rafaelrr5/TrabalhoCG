@@ -471,9 +471,8 @@ export class KeyManager {
         return true;
     }
 
-    // Adiciona todas as chaves disponíveis ao inventário
     addAllKeysToInventory(scene = null) {
-        const allKeyTypes = ['red', 'blue', 'yellow', 'green', 'gold'];
+        const allKeyTypes = ['red', 'blue', 'yellow'];
         let addedCount = 0;
 
         allKeyTypes.forEach(keyType => {

@@ -241,25 +241,20 @@ function showImmortilityNotification(isImmortal) {
     }, 200);
 }
 
-// Função para dar todas as chaves ao jogador
 function giveAllKeys() {
     const addedCount = keyManager.addAllKeysToInventory(gameScene);
     
     console.log(`[CHEAT] Player received all keys (${addedCount} keys added)`);
     
-    // Mostra notificação visual temporária
     showKeysCheatNotification(addedCount);
 }
 
-// Função para mostrar notificação visual de cheat de chaves
 function showKeysCheatNotification(keyCount) {
-    // Remove notificação existente se houver
     const existingNotification = document.getElementById('keys-cheat-notification');
     if (existingNotification) {
         existingNotification.remove();
     }
     
-    // Cria nova notificação
     const notification = document.createElement('div');
     notification.id = 'keys-cheat-notification';
     notification.style.cssText = `
@@ -282,7 +277,6 @@ function showKeysCheatNotification(keyCount) {
     
     document.body.appendChild(notification);
     
-    // Remove a notificação após 3 segundos
     setTimeout(() => {
         notification.style.opacity = '0';
         setTimeout(() => {
@@ -293,8 +287,6 @@ function showKeysCheatNotification(keyCount) {
     }, 3000);
 }
 
-// ===== CONTROLE DE ÁUDIO =====
-// Alterna entre ativar/desativar todos os sons do jogo
 function toggleAudio() {
     const isEnabled = audioManager.toggleAudio();
     console.log(`[CONTROLS] Áudio ${isEnabled ? 'ativado' : 'desativado'} via tecla Q`);
