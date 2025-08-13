@@ -12,8 +12,9 @@ export class LostSoul extends Enemy {
       minHeightAboveGround: 1.0,  // Altura mínima sobre o chão
       maxHeightAboveGround: 5.0,  // Altura máxima sobre o chão
       preferredHeightOffset: 0.5, // Offset em relação à altura do jogador
-      chargeSpeed: 15.0, //velocidade durante a carga
+      chargeSpeed: 30.0, //velocidade durante a carga
       chargeDuration: 2.0, //duração da carga em segundos
+      chargeDistance: 20.0,
       cooldownDuration: 2.0, //tempo de recarga após a carga
       wanderSpeed: 3.0, //velocidade ao vagar
       detectionRange: 40.0, //distância para detectar o jogador
@@ -46,6 +47,11 @@ export class LostSoul extends Enemy {
       Math.random() -0.5,
       Math.random() -0.5
     ).normalize();
+    this.spawnPosition = new THREE.Vector3().set(position[0], position[1], position[2]);
+    this.groundHeight = position[1]; // Altura inicial
+    this.config.chargeSpeed = 25; // Mais rápido
+    this.config.chargeDuration = 1.5; // Tempo mais curto
+    this.config.damage = 5; 
 
 
     this.skullModel = null;
@@ -206,68 +212,66 @@ export class LostSoul extends Enemy {
   }
 }
 
- startCharge(targetPosition) {
+startCharge(targetPosition) {
     if (this.isCharging || this.isOnCooldown) return;
-    
-    // Calcula direção do ataque
+
+    // Cálculo da direção com verificação de segurança
     this.chargeDirection = new THREE.Vector3()
       .subVectors(targetPosition, this.mesh.position)
       .normalize();
-    
+
+    // Fallback para direção válida
+    if (this.chargeDirection.length() < 0.1) {
+      this.chargeDirection.set(1, 0, 0);
+    }
+
     this.isCharging = true;
     this.chargeTime = 0;
     this.playAttackSound();
   }
 
-  executeCharge(delta, targetPosition, collidableObjects) {
-  // Direção completa (incluindo vertical)
-  this.chargeDirection = new THREE.Vector3()
-    .subVectors(targetPosition, this.mesh.position)
-    .normalize();
-  
-  // Ajuste de altura mais agressivo durante o ataque
-  const heightDifference = this.targetHeight - this.mesh.position.y;
-  const verticalAdjustment = heightDifference * this.config.heightAdjustSpeed * delta;
-  
-  // Combina movimento de carga com ajuste vertical
-  const moveDirection = new THREE.Vector3(
-    this.chargeDirection.x,
-    this.chargeDirection.y + verticalAdjustment,
-    this.chargeDirection.z
-  ).normalize();
-  
-  const moveOptions = {
-    delta: delta,
-    speedMultiplier: this.config.chargeSpeed / this.config.speed,
-    collidableObjects: collidableObjects,
-    use6DOF: true // Importante para movimento 3D
-  };
-  
-  // Cria um ponto à frente na direção do movimento
-  const chargeTarget = new THREE.Vector3(
-    this.mesh.position.x + moveDirection.x * 10,
-    this.mesh.position.y + moveDirection.y * 10,
-    this.mesh.position.z + moveDirection.z * 10
-  );
-  
-  this.moveTowards(chargeTarget, moveOptions);
-  
-  // Rotação mais dinâmica incluindo componente vertical
-  const targetQuat = new THREE.Quaternion().setFromUnitVectors(
-    new THREE.Vector3(0, 0, 1),
-    moveDirection.clone().normalize()
-  );
-  this.mesh.quaternion.slerp(targetQuat, 0.3); // Mais rápido durante o ataque
 
-  // Verifica colisão com o jogador durante o ataque
-  const distanceToPlayer = this.mesh.position.distanceTo(targetPosition);
-  const now = performance.now();
-  
-  if (distanceToPlayer <= this.config.radius * 1.5 && 
-      (!this.lastPlayerHitTime || now - this.lastPlayerHitTime > 1000)) { // 1 segundo de cooldown
-    this.dealDamageToPlayer(5); // Causa 5 de dano ao jogador
-    this.lastPlayerHitTime = now;
-  }
+executeCharge(delta, targetPosition, collidableObjects) {
+    if (!this.isCharging) return;
+
+    // 1. Física direta da carga (ignorando config)
+    const CHARGE_SPEED = 30.0; // Velocidade fixa alta
+    const CHARGE_DURATION = 2.0
+    
+    // 2. Movimento direto com física aplicada
+    const moveVector = this.chargeDirection.clone()
+        .multiplyScalar(CHARGE_SPEED * delta);
+    
+    this.mesh.position.add(moveVector);
+    
+    // 3. Rotação instantânea para direção do charge
+    this.mesh.lookAt(
+        this.mesh.position.x + this.chargeDirection.x,
+        this.mesh.position.y,
+        this.mesh.position.z + this.chargeDirection.z
+    );
+    
+    // 4. Verificação de impacto
+    const distanceToPlayer = this.mesh.position.distanceTo(targetPosition);
+    if (distanceToPlayer <= this.config.radius * 3) {
+        this.dealDamageToPlayer(5);
+    }
+    
+    // 5. Controle de tempo manual
+    this.chargeTime += delta;
+    if (this.chargeTime >= CHARGE_DURATION) {
+        this.endCharge();
+    }
+}
+
+getGroundHeight() {
+  const raycaster = new THREE.Raycaster(
+    this.mesh.position.clone().setY(100), // Começa acima
+    new THREE.Vector3(0, -1, 0), // Dispara para baixo
+    0, 100 // Distância
+  );
+  const intersects = raycaster.intersectObjects(terrainObjects);
+  return intersects.length > 0 ? intersects[0].point.y : 0;
 }
 
 dealDamageToPlayer(damage) {
