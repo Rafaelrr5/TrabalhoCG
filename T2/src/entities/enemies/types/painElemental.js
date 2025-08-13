@@ -80,6 +80,13 @@ async loadModel() {
     this.mesh.add(this.model);
     this.modelLoaded = true;
 
+    this.model.traverse((child) => {
+      if (child.isMesh && child.material) {
+        child.material.transparent = true;
+        child.material.needsUpdate = true;
+      }
+    });
+
     // Ajuste da barra de vida após carregar o modelo
     if (this.healthBar && this.healthBar.healthBarGroup) {
       // Aumenta a altura da barra proporcionalmente ao aumento do modelo
@@ -233,11 +240,30 @@ forceUpdateSpawnedSouls() {
     this.attackMovementTime = this.attackMovementDuration;
   }
 
+  takeDamage(damage) {
+  if (!this.isAlive || this.isDying) return false;
+
+  this.currentHealth -= damage;
+  this.emit('damaged', { enemy: this, damage });
+
+  if (this.currentHealth <= 0) {
+    this.currentHealth = 0;
+    this.isAlive = false;
+    this.isDying = true;
+    this.deathEffects.start(); // Força o início da animação de morte
+    this.emit('death', { enemy: this });
+    return true;
+  }
+  return false;
+}
+
   update(delta, camera, targetPosition, collidableObjects = []) {
     if (this.isDying) {
-      this.deathEffects.update();
-      return;
+    this.deathEffects.update(); // Garante que a animação de morte continue
+    return; // Ignora o resto da lógica de movimento, etc.
     }
+
+  if (!this.isAlive) return;
 
     if (!this.isAlive) return;
 
