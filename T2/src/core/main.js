@@ -10,6 +10,7 @@ import { createWeaponManager, updateProjectiles } from '../components/weaponMana
 import { createEnemies, updateEnemies, cleanupDeadEnemies, enemies, cleanupAllEnemyProjectiles, resetArea2Activation, resetArea1Activation } from '../entities/enemies/enemy.js';
 import { setupEventListeners, updateCameraMovement, continuousCameraDebug } from '../systems/controls.js';
 import { lightingSystem } from '../systems/lights.js';
+import { initHangarLighting, updateHangarLighting, resetHangarLighting } from '../systems/hangarLights.js';
 import { applyGravity} from '../systems/collision.js';
 import { createHitbox, hitbox, player } from '../entities/player/player.js';
 import { updateElevator } from '../systems/elevator.js';
@@ -17,6 +18,7 @@ import { keyManager } from '../entities/items/key.js';
 import { ambientAudioManager, playerAudioManager, gameAudioManager, audioManager } from '../systems/index.js';
 import { updateTotem, updateDoorAnimation, updateKeyAnimation, totem } from '../systems/door.js';
 import { updateArea4Totem, updateArea4KeyAnimation, updateArea4WallsAnimation } from '../systems/area4Access.js';
+import { updateHangarTotem, updateHangarKeyAnimation, updateHangarDoorsAnimation } from '../systems/hangarAccess.js';
 import { loadSky } from '../systems/sky.js';
 
 // Expor keyManager globalmente para debug
@@ -448,6 +450,7 @@ async function init() {
     
     updateLoadingProgress(30, 'Configurando iluminação...');
     lightingSystem.init(scene, renderer);
+    initHangarLighting(scene);
     
     updateLoadingProgress(40, 'Carregando ambiente e modelos...');
     await createEnvironment();
@@ -630,6 +633,9 @@ function animate() {
         
         // Sistema de acesso ao hangar baseado em proximidade (área 3)
         updateHangarDoors(delta, camera, scene, collidableObjects, keyManager);
+        
+        // Sistema de iluminação do hangar
+        updateHangarLighting(delta, camera);
     }
     
     // These updates don't require camera/controls, so they can run always
@@ -643,6 +649,9 @@ function animate() {
     updateDoorAnimation(delta, scene); // Atualiza animação da porta (área 2)
     updateArea4KeyAnimation(delta, scene); // Atualiza animação da chave (área 4)
     updateArea4WallsAnimation(delta, scene); // Atualiza animação dos muros (área 4)
+    updateHangarTotem(delta, scene, hitbox, collidableObjects); // Sistema de acesso ao hangar com totem
+    updateHangarKeyAnimation(delta, scene); // Animação da chave do hangar
+    updateHangarDoorsAnimation(delta, scene, collidableObjects); // Animação das portas do hangar
     
     // Ensure ambient music keeps playing
     ambientAudioManager.ensureAmbientMusicPlaying();
@@ -702,6 +711,9 @@ async function restartGame() {
     
     keyManager.clearAll();
     updateKeysDisplay();
+    
+    // Reset iluminação do hangar
+    resetHangarLighting();
     
     currentPlayerArea = 'none';
     ambientAudioManager.playAreaMusic('none');
@@ -934,5 +946,35 @@ window.initializeDynamicTextures = function() {
     applicator.applyDefaultTextures().then(() => {
       console.log('[DEBUG] ✅ Sistema de texturas dinâmicas inicializado');
     });
+  });
+};
+
+// Debug functions for hangar lighting system
+window.testHangarLighting = function() {
+  import('../systems/hangarLights.js').then(module => {
+    const { getHangarLightingStatus } = module;
+    const status = getHangarLightingStatus();
+    console.log('[DEBUG] Status da iluminação do hangar:', status);
+  });
+};
+
+window.resetHangarLights = function() {
+  import('../systems/hangarLights.js').then(module => {
+    const { resetHangarLighting } = module;
+    resetHangarLighting();
+    console.log('[DEBUG] Iluminação do hangar resetada');
+  });
+};
+
+window.configureHangarLighting = function(hangarIntensity = 2.5, ambientIntensity = 0.4, transitionSpeed = 2.0) {
+  import('../systems/hangarLights.js').then(module => {
+    const { hangarLightingSystem } = module;
+    hangarLightingSystem.setHangarLightIntensity(hangarIntensity);
+    hangarLightingSystem.setHangarAmbientIntensity(ambientIntensity);
+    hangarLightingSystem.setTransitionSpeed(transitionSpeed);
+    console.log(`[DEBUG] Configuração da iluminação do hangar atualizada:
+    - Intensidade do hangar: ${hangarIntensity}
+    - Intensidade ambiente: ${ambientIntensity}
+    - Velocidade de transição: ${transitionSpeed}`);
   });
 };
