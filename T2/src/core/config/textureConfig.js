@@ -54,8 +54,15 @@ export const TEXTURE_CONFIG = {
         ROUGHNESS: 0.9,
         METALNESS: 0.2
     },
-    
-    GRUNGE_CONCRETE: {
+
+    GRUNGE_CONCRETE1: {
+        NAME: 'fundo-estilo-de-grunge-com-uma-textura-de-concreto.jpg',
+        REPEAT: { x: 2, y: 1 },
+        ROUGHNESS: 0.8,
+        METALNESS: 0.15
+    },
+
+    GRUNGE_CONCRETE2: {
         NAME: 'fundo-estilo-de-grunge-com-uma-textura-de-concreto.jpg',
         REPEAT: { x: 5, y: 5 },
         ROUGHNESS: 0.8,

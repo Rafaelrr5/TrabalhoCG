@@ -170,11 +170,18 @@ export const QuickTexture = {
             metalness: TEXTURE_CONFIG.DIRTY_CONCRETE.METALNESS,
             textureOptions: { repeat: TEXTURE_CONFIG.DIRTY_CONCRETE.REPEAT }
         }),
-        
-    grungeConcrete: async (object, textureName = TEXTURE_CONFIG.GRUNGE_CONCRETE.NAME) => 
+
+    grungeConcrete1: async (object, textureName = TEXTURE_CONFIG.GRUNGE_CONCRETE1.NAME) => 
         await applyTexture(object, textureName, 'standard', {
-            roughness: TEXTURE_CONFIG.GRUNGE_CONCRETE.ROUGHNESS,
-            metalness: TEXTURE_CONFIG.GRUNGE_CONCRETE.METALNESS,
-            textureOptions: { repeat: TEXTURE_CONFIG.GRUNGE_CONCRETE.REPEAT }
+            roughness: TEXTURE_CONFIG.GRUNGE_CONCRETE1.ROUGHNESS,
+            metalness: TEXTURE_CONFIG.GRUNGE_CONCRETE1.METALNESS,
+            textureOptions: { repeat: TEXTURE_CONFIG.GRUNGE_CONCRETE1.REPEAT }
+        }),
+
+    grungeConcrete2: async (object, textureName = TEXTURE_CONFIG.GRUNGE_CONCRETE2.NAME) => 
+        await applyTexture(object, textureName, 'standard', {
+            roughness: TEXTURE_CONFIG.GRUNGE_CONCRETE2.ROUGHNESS,
+            metalness: TEXTURE_CONFIG.GRUNGE_CONCRETE2.METALNESS,
+            textureOptions: { repeat: TEXTURE_CONFIG.GRUNGE_CONCRETE2.REPEAT }
         }),
 };

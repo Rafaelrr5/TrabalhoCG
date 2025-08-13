@@ -164,6 +164,10 @@ function createArea1(scene, materials, collidableObjects) {
     area1.add(area1_center);
     area1.add(area1_left);
     area1.add(area1_right);
+
+    QuickTexture.grungeConcrete1(area1_left)
+    QuickTexture.grungeConcrete1(area1_right)
+    QuickTexture.grungeConcrete2(area1_center)
     
     const romanColumns = createRomanColumns(scene);
     area1.add(romanColumns);
