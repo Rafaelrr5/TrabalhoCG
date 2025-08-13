@@ -13,6 +13,13 @@ export const TEXTURE_CONFIG = {
         METALNESS: 0.9
     },
     
+    WALL_TEXTURE: {
+        NAME: 'annie-spratt-kG-ZwDuQ8ME-unsplash.jpg',
+        REPEAT: { x: 30, y: 30 },
+        ROUGHNESS: 0.8,
+        METALNESS: 0.1
+    },
+    
     MATERIAL_PRESETS: {
         STONE: {
             ROUGHNESS: 0.8,

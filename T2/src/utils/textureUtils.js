@@ -128,5 +128,12 @@ export const QuickTexture = {
             roughness: TEXTURE_CONFIG.FLOOR_TEXTURE.ROUGHNESS,
             metalness: TEXTURE_CONFIG.FLOOR_TEXTURE.METALNESS,
             textureOptions: { repeat: TEXTURE_CONFIG.FLOOR_TEXTURE.REPEAT }
+        }),
+        
+    wall: async (object, textureName = TEXTURE_CONFIG.WALL_TEXTURE.NAME) => 
+        await applyTexture(object, textureName, 'standard', {
+            roughness: TEXTURE_CONFIG.WALL_TEXTURE.ROUGHNESS,
+            metalness: TEXTURE_CONFIG.WALL_TEXTURE.METALNESS,
+            textureOptions: { repeat: TEXTURE_CONFIG.WALL_TEXTURE.REPEAT }
         })
 };

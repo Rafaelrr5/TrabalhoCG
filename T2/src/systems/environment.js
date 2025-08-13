@@ -58,6 +58,7 @@ export function createWalls(scene, collidableObjects) {
     walls.add(wall1);
     walls.add(wall2);
     walls.add(wall3);
+    walls.name = "MainWalls"; // Adiciona nome para identificar o grupo
     scene.add(walls);
     markCollisionObject(walls, collidableObjects);
     enableShadowsForAll(walls); // Ativa sombras para todas as paredes
@@ -108,6 +109,12 @@ export async function createAreas(scene, collidableObjects) {
 }
 
 async function applyEnvironmentTextures(scene) {
+    
+    // Aplicar textura às paredes principais do mundo
+    const mainWalls = scene.getObjectByName("MainWalls");
+    if (mainWalls && mainWalls.children.length > 0) {
+        QuickTexture.wall(mainWalls);
+    }
     
     const area2Group = scene.getObjectByName("Area2");
     if (area2Group) {
