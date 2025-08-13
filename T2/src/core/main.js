@@ -5,7 +5,7 @@ import { PLAYER_CONFIG } from './config/playerConfig.js';
 import { WORLD_CONFIG } from './config/worldConfig.js';
 import { DEBUG_CONFIG } from './config/debugConfig.js';
 import { createWalls, createAreas, updateArea1, updateArea2, area1KeyPlatform, area2KeyPlatform, isPlayerInArea1, isPlayerInArea2 } from '../systems/environment.js';
-import { updateHangarTotem, updateHangarKeyAnimation, updateHangarDoorsAnimation } from '../systems/hangarAccess.js';
+import { updateHangarDoors } from '../components/hangar.js';
 import { createWeaponManager, updateProjectiles } from '../components/weaponManager.js';
 import { createEnemies, updateEnemies, cleanupDeadEnemies, enemies, cleanupAllEnemyProjectiles, resetArea2Activation, resetArea1Activation } from '../entities/enemies/enemy.js';
 import { setupEventListeners, updateCameraMovement, continuousCameraDebug } from '../systems/controls.js';
@@ -665,10 +665,8 @@ function animate() {
             console.log(`[KEYS] Available key types:`, keyManager.getCollectedKeys());
         }
         
-        // Sistema padronizado de acesso ao hangar (área 3)
-        updateHangarTotem(delta, camera, scene, collidableObjects, keyManager);
-        updateHangarKeyAnimation(delta, scene);
-        updateHangarDoorsAnimation(delta, scene, collidableObjects);
+        // Sistema de acesso ao hangar baseado em proximidade (área 3)
+        updateHangarDoors(delta, camera, scene, collidableObjects, keyManager);
     }
     
     // These updates don't require camera/controls, so they can run always
@@ -676,7 +674,7 @@ function animate() {
     updateArea1(delta);
     updateArea2(delta);
     updateElevator(delta);
-    updateTotem(delta, scene, hitbox, 'red', collidableObjects); // Totem da área 2 (chave amarela)
+    updateTotem(delta, scene, hitbox, 'red', collidableObjects); // Totem da área 2 (requer chave vermelha)
     updateArea4Totem(delta, scene, hitbox, collidableObjects); // Totem da área 4 (chave verde)
     updateKeyAnimation(delta, scene); // Atualiza animação da chave (área 2)
     updateDoorAnimation(delta, scene); // Atualiza animação da porta (área 2)

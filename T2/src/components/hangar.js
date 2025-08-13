@@ -603,10 +603,16 @@ export function animateHangarDoors(hangarModel, shouldOpen, collidableObjects = 
 // Função para atualizar as portas do hangar baseado na proximidade do jogador e se tem a chave
 export function updateHangarDoors(delta, camera, scene, collidableObjects, keyManager = null) {
     const area3 = scene.getObjectByName('Area3');
-    if (!area3) return;
+    if (!area3) {
+        console.log('[HANGAR DEBUG] Area3 não encontrada');
+        return;
+    }
     
     const hangar = area3.getObjectByName('HangarModel');
-    if (!hangar || !hangar.userData.doors) return;
+    if (!hangar || !hangar.userData.doors) {
+        console.log('[HANGAR DEBUG] HangarModel não encontrado ou sem doors');
+        return;
+    }
     
     const playerPosition = camera.position;
     const hangarPosition = hangar.position;
@@ -618,17 +624,36 @@ export function updateHangarDoors(delta, camera, scene, collidableObjects, keyMa
     const openDistance = 80; // Aumentar distância para abrir
     const closeDistance = 120; // Aumentar distância para fechar
     
-    // Verificar se o jogador tem a chave da área 2 (chave vermelha)
-    const hasHangarKey = keyManager ? keyManager.hasKey('red') : false;
+    // Verificar se o jogador tem a chave da área 2 (chave amarela)
+    const hasHangarKey = keyManager ? keyManager.hasKey('yellow') : false;
+    
+    // Log de debug a cada 60 frames (aproximadamente 1 segundo)
+    if (Math.floor(Date.now() / 1000) % 2 === 0 && Math.random() < 0.1) {
+        console.log(`[HANGAR DEBUG] Distância: ${distance.toFixed(2)}, Tem chave amarela: ${hasHangarKey}, Portas abertas: ${hangar.userData.doorsOpen}, Animando: ${hangar.userData.animating}`);
+    }
     
     // Só abrir as portas se estiver perto E tiver a chave
     if (distance < openDistance && !hangar.userData.doorsOpen && !hangar.userData.animating) {
         if (hasHangarKey) {
+            console.log('[HANGAR DEBUG] ✅ Abrindo portas do hangar!');
+            
+            // Remover a chave amarela do inventário
+            if (keyManager && keyManager.useKey) {
+                keyManager.useKey('yellow');
+                console.log('[HANGAR DEBUG] ✅ Chave amarela removida do inventário');
+                
+                // Disparar evento para atualizar UI
+                window.dispatchEvent(new CustomEvent('keyRemoved', { detail: { keyType: 'yellow' } }));
+            }
+            
             animateHangarDoors(hangar, true, collidableObjects);
+        } else {
+            console.log('[HANGAR DEBUG] ❌ Próximo do hangar mas sem chave amarela');
         }
     } 
     // Fechar as portas se o jogador se afastar (independente da chave)
     else if (distance > closeDistance && hangar.userData.doorsOpen && !hangar.userData.animating) {
+        console.log('[HANGAR DEBUG] Fechando portas do hangar (jogador se afastou)');
         animateHangarDoors(hangar, false, collidableObjects);
     }
 }
@@ -704,11 +729,11 @@ function setupHangarDebugFunctions(hangarModel) {
     
     // Função para testar o sistema de chaves
     window.testHangarWithKey = function(hasKey = true) {
-        console.log(`[DEBUG] Testando hangar com chave vermelha: ${hasKey}`);
+        console.log(`[DEBUG] Testando hangar com chave amarela: ${hasKey}`);
         
         // Simular keyManager com ou sem chave
         const mockKeyManager = { 
-            hasKey: (keyType) => hasKey && keyType === 'red' 
+            hasKey: (keyType) => hasKey && keyType === 'yellow' 
         };
         
         const collidableObjects = hangarModel.userData.collidableObjectsRef;

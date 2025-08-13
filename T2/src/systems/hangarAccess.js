@@ -88,16 +88,16 @@ export function updateHangarTotem(delta, scene, hitbox, collidableObjects) {
         hitbox.position.z - hangarTotem.position.z
     ).length();
 
-    const hasRedKey = keyManager.hasKey('red');
+    const hasYellowKey = keyManager.hasKey('yellow');
 
-    if (playerDistance <= 3.5 && hasRedKey && !doorsAnimationState.hasStarted && !hangarKeyAnimationState.isAnimating) {
+    if (playerDistance <= 3.5 && hasYellowKey && !doorsAnimationState.hasStarted && !hangarKeyAnimationState.isAnimating) {
         
-        const collectedRedKey = keyManager.getAllKeys().find(key => 
-            key.getType() === 'red' && key.isCollectedKey()
+        const collectedYellowKey = keyManager.getAllKeys().find(key => 
+            key.getType() === 'yellow' && key.isCollectedKey()
         );
         
-        if (collectedRedKey && collectedRedKey.getMesh()) {
-            prepareHangarKeyForAnimation(collectedRedKey, scene);
+        if (collectedYellowKey && collectedYellowKey.getMesh()) {
+            prepareHangarKeyForAnimation(collectedYellowKey, scene);
             
             startHangarKeyAnimation(() => {
                 if (gameAudioManager && gameAudioManager.playDoorOpeningSound) {
@@ -119,7 +119,7 @@ export function updateHangarTotem(delta, scene, hitbox, collidableObjects) {
                 console.log('[HANGAR ACCESS] ✅ Todas as portas removidas das colisões - passagem liberada!');
             });
 
-            window.dispatchEvent(new CustomEvent('keyRemoved', { detail: { keyType: 'red' } }));
+            window.dispatchEvent(new CustomEvent('keyRemoved', { detail: { keyType: 'yellow' } }));
         }
     }
 }
@@ -184,7 +184,7 @@ export function updateHangarKeyAnimation(delta, scene) {
         const keyType = hangarKeyAnimationState.keyObject ? hangarKeyAnimationState.keyObject.getType() : null;
         if (keyType) {
             keyManager.useKey(keyType);
-            console.log('[HANGAR ACCESS] ✅ Chave vermelha removida do inventário pelo KeyManager');
+            console.log('[HANGAR ACCESS] ✅ Chave amarela removida do inventário pelo KeyManager');
         }
         
         setTimeout(() => {
