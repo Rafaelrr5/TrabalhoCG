@@ -15,19 +15,27 @@ export const ENEMY_AUDIO_CONFIG = {
   
   SOUND_PATHS: {
     LostSoul: {
-      hit: '/T2/assets/sounds/lost_soul/lost_soul_injured.wav',
-      death: '/T2/assets/sounds/lost_soul/lost_soul_death.wav',
-      attack: '/T2/assets/sounds/lost_soul/lost_soul_attack.wav',
-      nearby: '/T2/assets/sounds/lost_soul/lost_soul_nearby.wav',
-      sight: '/T2/assets/sounds/lost_soul/lost_soul_nearby.wav' // Using nearby for sight
+      hit: '../../../../assets/sounds/lost_soul/lost_soul_injured.wav',
+      death: '../../../../assets/sounds/lost_soul/lost_soul_death.wav',
+      attack: '../../../../assets/sounds/lost_soul/lost_soul_attack.wav',
+      nearby: '../../../../assets/sounds/lost_soul/lost_soul_nearby.wav',
+      sight: '../../../../assets/sounds/lost_soul/lost_soul_nearby.wav' // Using nearby for sight
     },
     Cacodemon: {
-      hit: '/T2/assets/sounds/cacodemon/cacodemon_injured.wav',
-      death: '/T2/assets/sounds/cacodemon/cacodemon_death.wav',
-      attack: '/T2/assets/sounds/cacodemon/cacodemon_attack.wav',
-      nearby: '/T2/assets/sounds/cacodemon/cacodemon_nearby.wav',
-      sight: '/T2/assets/sounds/cacodemon/cacodemon_sight.wav'
+      hit: '../../../../assets/sounds/cacodemon/cacodemon_injured.wav',
+      death: '../../../../assets/sounds/cacodemon/cacodemon_death.wav',
+      attack: '../../../../assets/sounds/cacodemon/cacodemon_attack.wav',
+      nearby: '../../../../assets/sounds/cacodemon/cacodemon_nearby.wav',
+      sight: '../../../../assets/sounds/cacodemon/cacodemon_sight.wav'
+    },
+    PainElemental: {
+      hit: '../../../../../../0_assetsT3/sounds/painElemental/injured.wav',
+      death: '../../../../assets/sounds/cacodemon/cacodemon_death.wav',
+      attack: '../../../../../../0_assetsT3/sounds/painElemental/painAttack.wav',
+      nearby: '../../../../assets/sounds/cacodemon/cacodemon_nearby.wav',
+      sight: '../../../../../../0_assetsT3/sounds/painElemental/painAttack.wav'
     }
+
   },
   
   SOUND_PROPERTIES: {
