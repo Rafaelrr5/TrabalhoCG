@@ -207,6 +207,10 @@ function createArea2(scene, materials, collidableObjects) {
     area2.add(area2_left);
     area2.add(area2_right);
 
+    QuickTexture.metallicScratched1(area2_left)
+    QuickTexture.metallicScratched1(area2_right)
+    QuickTexture.metallicScratched2(area2_center)
+
     const point1 = {x: -54.5, z: -74.5};
     const point2 = {x: 56.5, z: -187.5};
     const blockgroup = createGradientBlocksWithGap(point1, point2, scene, 4.0, collidableObjects);

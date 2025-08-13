@@ -15,9 +15,9 @@ export const TEXTURE_CONFIG = {
     
     WALL_TEXTURE: {
         NAME: 'annie-spratt-kG-ZwDuQ8ME-unsplash.jpg',
-        REPEAT: { x: 30, y: 30 },
-        ROUGHNESS: 0.8,
-        METALNESS: 0.1
+        REPEAT: { x: 10, y: 1 },
+        ROUGHNESS: 1,
+        METALNESS: 0
     },
     
     AREA4_WALLS: {
@@ -25,6 +25,41 @@ export const TEXTURE_CONFIG = {
         REPEAT: { x: 100, y: 30 },
         ROUGHNESS: 1.0,
         METALNESS: 0.3
+    },
+
+    METALLIC_SCRATCHED1: {
+        NAME: 'resumo-fundo-metalico-perfurado-com-arranhoes-e-manchas.jpg',
+        REPEAT: { x: 10, y: 1 },
+        ROUGHNESS: 0.5,
+        METALNESS: 0.8
+    },
+
+    METALLIC_SCRATCHED2: {
+        NAME: 'resumo-fundo-metalico-perfurado-com-arranhoes-e-manchas.jpg',
+        REPEAT: { x: 8, y: 2 },
+        ROUGHNESS: 0.5,
+        METALNESS: 0.8
+    },
+
+    FINISHED_CONCRETE: {
+        NAME: 'concretoacabado.jpg',
+        REPEAT: { x: 5, y: 5 },
+        ROUGHNESS: 0.7,
+        METALNESS: 0.1
+    },
+
+    DIRTY_CONCRETE: {
+        NAME: 'concretosujo.jpg',
+        REPEAT: { x: 5, y: 5 },
+        ROUGHNESS: 0.9,
+        METALNESS: 0.2
+    },
+    
+    GRUNGE_CONCRETE: {
+        NAME: 'fundo-estilo-de-grunge-com-uma-textura-de-concreto.jpg',
+        REPEAT: { x: 5, y: 5 },
+        ROUGHNESS: 0.8,
+        METALNESS: 0.15
     },
     
     MATERIAL_PRESETS: {

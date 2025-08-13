@@ -112,7 +112,6 @@ export async function applyMaterialVariations(objects, textureName, variations) 
     }
 }
 
-// Funções de conveniência para os tipos mais usados (usando configurações)
 export const QuickTexture = {
     metal: async (object, textureName = TEXTURE_CONFIG.METAL_BLOCKS.NAME) => 
         await applyTextureWithPreset(object, textureName, 'metal'),
@@ -142,5 +141,40 @@ export const QuickTexture = {
             roughness: TEXTURE_CONFIG.AREA4_WALLS.ROUGHNESS,
             metalness: TEXTURE_CONFIG.AREA4_WALLS.METALNESS,
             textureOptions: { repeat: TEXTURE_CONFIG.AREA4_WALLS.REPEAT }
-        })
+        }),
+
+    metallicScratched1: async (object, textureName = TEXTURE_CONFIG.METALLIC_SCRATCHED1.NAME) => 
+    await applyTexture(object, textureName, 'standard', {
+        roughness: TEXTURE_CONFIG.METALLIC_SCRATCHED1.ROUGHNESS,
+        metalness: TEXTURE_CONFIG.METALLIC_SCRATCHED1.METALNESS,
+        textureOptions: { repeat: TEXTURE_CONFIG.METALLIC_SCRATCHED1.REPEAT }
+    }),
+
+    metallicScratched2: async (object, textureName = TEXTURE_CONFIG.METALLIC_SCRATCHED2.NAME) => 
+    await applyTexture(object, textureName, 'standard', {
+        roughness: TEXTURE_CONFIG.METALLIC_SCRATCHED2.ROUGHNESS,
+        metalness: TEXTURE_CONFIG.METALLIC_SCRATCHED2.METALNESS,
+        textureOptions: { repeat: TEXTURE_CONFIG.METALLIC_SCRATCHED2.REPEAT }
+    }),
+
+    finishedConcrete: async (object, textureName = TEXTURE_CONFIG.FINISHED_CONCRETE.NAME) => 
+        await applyTexture(object, textureName, 'standard', {
+            roughness: TEXTURE_CONFIG.FINISHED_CONCRETE.ROUGHNESS,
+            metalness: TEXTURE_CONFIG.FINISHED_CONCRETE.METALNESS,
+            textureOptions: { repeat: TEXTURE_CONFIG.FINISHED_CONCRETE.REPEAT }
+        }),
+
+    dirtyConcrete: async (object, textureName = TEXTURE_CONFIG.DIRTY_CONCRETE.NAME) => 
+        await applyTexture(object, textureName, 'standard', {
+            roughness: TEXTURE_CONFIG.DIRTY_CONCRETE.ROUGHNESS,
+            metalness: TEXTURE_CONFIG.DIRTY_CONCRETE.METALNESS,
+            textureOptions: { repeat: TEXTURE_CONFIG.DIRTY_CONCRETE.REPEAT }
+        }),
+        
+    grungeConcrete: async (object, textureName = TEXTURE_CONFIG.GRUNGE_CONCRETE.NAME) => 
+        await applyTexture(object, textureName, 'standard', {
+            roughness: TEXTURE_CONFIG.GRUNGE_CONCRETE.ROUGHNESS,
+            metalness: TEXTURE_CONFIG.GRUNGE_CONCRETE.METALNESS,
+            textureOptions: { repeat: TEXTURE_CONFIG.GRUNGE_CONCRETE.REPEAT }
+        }),
 };

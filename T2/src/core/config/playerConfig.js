@@ -1,5 +1,5 @@
 export const PLAYER_CONFIG = {
-    MOVE_SPEED: 20,
+    MOVE_SPEED: 100,
     SPRINT_MULTIPLIER: 2,
     GRAVITY: -20,
     
@@ -21,7 +21,7 @@ export const PLAYER_CONFIG = {
     STAIR_HEIGHT_TOLERANCE: 1.5,
     STAIR_MOVEMENT_SPEED: 0.2,
     
-    INITIAL_PLAYER_HEIGHT: 80.0,
+    INITIAL_PLAYER_HEIGHT: 100.0,
     
     PLAYER_IMMORTAL: true
 };
