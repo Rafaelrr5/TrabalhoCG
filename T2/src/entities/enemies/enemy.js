@@ -58,25 +58,21 @@ export async function createEnemies(scene) {
 }
 
 export function shouldUpdateEnemy(camera, enemy) {
-  // Sempre atualize se já tiver visto o jogador
+  // Uma vez que um inimigo é ativado pela sua área, ele deve sempre ser atualizado.
+  // A ativação inicial agora é controlada em `updateEnemies`.
+  if (enemy.area === 'area1' && area1LostSoulsActivated) {
+    return true;
+  }
+  
+  if (enemy.area === 'area2' && area2CacodemonsActivated) {
+    return true;
+  }
+
+  // Permite que inimigos que já viram o jogador continuem ativos, como um fallback.
   if (enemy.detection?.hasSeenPlayer) {
     return true;
   }
 
-  // Verifique a área específica e ative os inimigos
-  const inArea1 = isPlayerInArea1(camera);
-  const inArea2 = isPlayerInArea2(camera);
-  
-  if (enemy.area === 'area1' && inArea1) {
-    enemy.ai.changeState('PATROL'); 
-    return true;
-  }
-  
-  if (enemy.area === 'area2' && inArea2) {
-    enemy.ai.changeState('PATROL'); 
-    return true;
-  }
-  
   return false;
 }
 
@@ -91,18 +87,27 @@ export function updateEnemies(delta, scene, camera, gun = null, collidableObject
   const inArea1 = isPlayerInArea1(camera);
   const inArea2 = isPlayerInArea2(camera);
 
-  // Debug logs
-  console.log(`Area1: ${inArea1}, Area2: ${inArea2}`);
-  console.log(`Total enemies: ${enemies.length}, Alive: ${aliveEnemies.length}`);
+  // Ativação única das áreas
+  if (inArea1 && !area1LostSoulsActivated) {
+    activateLostSoulsInArea1();
+  }
+
+  if (inArea2 && !area2CacodemonsActivated) {
+    activateCacodemonsInArea2();
+  }
 
   enemies.forEach(enemy => {
     const shouldUpdate = shouldUpdateEnemy(camera, enemy);
     
     if (shouldUpdate) {
-      console.log(`Updating enemy ${enemy.enemyType} in area ${enemy.area}`);
+      // Se o inimigo deve ser atualizado, garanta que ele não está em IDLE
+      if (enemy.ai.state === 'IDLE') {
+        enemy.ai.changeState('PATROL');
+      }
       const otherEnemies = aliveEnemies.filter(e => e !== enemy);
       enemy.update(delta, camera, hitboxTop, collidableObjects, otherEnemies);
     } else if (typeof enemy.idleBehavior === 'function') {
+      // Este bloco agora só será executado para inimigos em áreas não ativadas.
       enemy.idleBehavior(delta);
     }
   });
@@ -204,7 +209,9 @@ export function activateCacodemonsInArea2() {
   console.log(`Activating ${cacodemons.length} Cacodemons in Area 2`);
   
   cacodemons.forEach(cacodemon => {
-    cacodemon.ai.changeState('PATROL');
+    if (cacodemon.ai.state === 'IDLE') {
+      cacodemon.ai.changeState('PATROL');
+    }
     cacodemon.playSightSound();
     console.log(`Activated Cacodemon at ${cacodemon.mesh.position.toArray()}`);
   });
@@ -253,7 +260,10 @@ export function activateLostSoulsInArea1() {
   console.log(`Activating ${lostSouls.length} Lost Souls in Area 1`);
   
   lostSouls.forEach(lostSoul => {
-    lostSoul.ai.changeState('PATROL'); 
+    // A mudança de estado é crucial aqui
+    if (lostSoul.ai.state === 'IDLE') {
+      lostSoul.ai.changeState('PATROL'); 
+    }
     lostSoul.playSightSound();
     console.log(`Activated LostSoul at ${lostSoul.mesh.position.toArray()}`);
   });
