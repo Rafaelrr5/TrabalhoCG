@@ -73,7 +73,8 @@ export function shouldUpdateEnemy(camera, enemy) {
   if (enemy.enemyType === 'PainElemental' || 
       enemy.alwaysActive || 
       (enemy.spawner && enemy.spawner.enemyType === 'PainElemental') ||
-      enemy.isSpawned) {
+      enemy.isSpawned ||
+      enemy.detection?.hasSeenPlayer) {
     return true;
   }
   
@@ -114,18 +115,19 @@ export function updateEnemies(delta, scene, camera, gun = null, collidableObject
     activateCacodemonsInArea2();
   }
 
-  enemies.forEach(enemy => {
+   enemies.forEach(enemy => {
     const shouldUpdate = shouldUpdateEnemy(camera, enemy);
-    
+
     if (shouldUpdate) {
-      // Se o inimigo deve ser atualizado, garanta que ele não está em IDLE
+      // Força o estado 'PATROL' se a IA estiver em 'IDLE'
       if (enemy.ai.state === 'IDLE') {
         enemy.ai.changeState('PATROL');
       }
+      
       const otherEnemies = aliveEnemies.filter(e => e !== enemy);
       enemy.update(delta, camera, hitboxTop, collidableObjects, otherEnemies);
     } else if (typeof enemy.idleBehavior === 'function') {
-      // Este bloco agora só será executado para inimigos em áreas não ativadas.
+      // Este bloco só deve ser executado para inimigos inativos
       enemy.idleBehavior(delta);
     }
   });

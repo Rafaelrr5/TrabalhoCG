@@ -21,6 +21,7 @@ export class LostSoul extends Enemy {
       isFlying: true, //indica que voa
       skullScale: 1.2,
       alwaysActive: false,
+      isSpawned: false,
       ...config
     };
     
@@ -151,17 +152,18 @@ export class LostSoul extends Enemy {
   }
 
   update(delta, camera, targetPosition, collidableObjects) {
-    if (this.isDying) {
-        this.deathEffects.update();
-        return;
-    }
+  if (this.isDying) {
+    this.deathEffects.update();
+    return;
+  }
 
-    if (!this.isAlive) return;
+  if (!this.isAlive) return;
 
-    // Se for alwaysActive, força o estado PATROL se estiver em IDLE
-    if (this.alwaysActive && this.ai.state === 'IDLE') {
-        this.ai.changeState('PATROL');
-    }
+  // Forçar atualização se spawnada pelo Pain Elemental
+  if (this.isSpawned && this.ai.state === 'IDLE') {
+    this.ai.changeState('PATROL');
+    this.detection.hasSeenPlayer = true;
+  }
 
     // Atualiza a altura alvo baseado na posição do jogador
     this.updateTargetHeight(targetPosition);

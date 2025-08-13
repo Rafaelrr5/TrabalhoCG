@@ -151,7 +151,7 @@ attack(targetPosition) {
   }
 }
 
- spawnLostSoul(targetPosition) {
+spawnLostSoul(targetPosition) {
   if (!this.mesh.parent) return;
 
   const direction = new THREE.Vector3()
@@ -169,22 +169,30 @@ attack(targetPosition) {
       alwaysActive: true,
       detection: { 
         hasSeenPlayer: true,
-        lastSeenTime: Date.now()
+        lastSeenTime: Date.now(),
+        fovAngle: Math.PI / 2,  // Adicionar configuração de FOV
+        maxDistance: 40.0        // Adicionar distância máxima
+      },
+      ai: {
+        initialState: 'PATROL'  // Forçar estado inicial
       }
     }
   );
   
-  // Assegura que o estado da IA é 'PATROL' imediatamente
-  lostSoul.ai.changeState('PATROL'); // Adicione esta linha
+  // Garantir que a IA está no estado correto
+  lostSoul.ai.changeState('PATROL');
+  lostSoul.detection.hasSeenPlayer = true;
+  
+  // Iniciar carga imediatamente
+  if (lostSoul.startCharge) {
+    lostSoul.startCharge(targetPosition);
+  }
   
   this.mesh.parent.add(lostSoul.mesh);
   this.spawnedSouls++;
   this.spawnedSoulsList.push(lostSoul);
   
-  // Inicia imediatamente o comportamento de ataque, se possível
-  if (lostSoul.ai.state === 'PATROL') {
-      lostSoul.startCharge(targetPosition);
-  }
+  return lostSoul;
 }
 
 forceUpdateSpawnedSouls() {
@@ -230,7 +238,12 @@ forceUpdateSpawnedSouls() {
     this.audio.updateProximity(camera?.position);
     this.healthBar.update(camera);
     this.collision.updateBoundingBox();
-    this.forceUpdateSpawnedSouls();
+    // Forçar atualização das Lost Souls spawnadas
+    this.spawnedSoulsList.forEach(soul => {
+      if (soul.update && soul.isAlive) {
+        soul.update(delta, camera, targetPosition, collidableObjects);
+      }
+    });
 
     // Movement options
     const moveOptions = {
