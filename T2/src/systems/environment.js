@@ -10,8 +10,7 @@ import { keyManager, Key } from '../entities/items/key.js';
 import { createDoor, createtotem } from './door.js';
 import { loadOBJModel } from '../utils/modelLoader.js';
 import { applyTexture, QuickTexture } from '../utils/textureUtils.js';
-import { CSG } from '../../../libs/other/CSGMesh.js';
-import { createArea3, animateHangarDoors, updateHangarDoors, isPlayerInsideHangar } from '../components/hangar.js';
+import { createArea3, isPlayerInsideHangar } from '../components/hangar.js';
 import { createArea4Maze } from '../components/labirinth.js';
 import { createArea4Totem, setArea4Walls } from './area4Access.js';
 
@@ -19,7 +18,7 @@ export let area1KeyPlatform = null;
 export let area2KeyPlatform = null;
 
 // Re-exportar funções do hangar para manter compatibilidade
-export { animateHangarDoors, updateHangarDoors, isPlayerInsideHangar, createArea3 } from '../components/hangar.js';
+export { isPlayerInsideHangar, createArea3 } from '../components/hangar.js';
 
 export function createWalls(scene, collidableObjects) {
     let material = new THREE.MeshLambertMaterial({ color: 'orange' });

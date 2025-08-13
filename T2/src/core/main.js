@@ -4,7 +4,8 @@ import { CAMERA_CONFIG } from './config/cameraConfig.js';
 import { PLAYER_CONFIG } from './config/playerConfig.js';
 import { WORLD_CONFIG } from './config/worldConfig.js';
 import { DEBUG_CONFIG } from './config/debugConfig.js';
-import { createWalls, createAreas, updateArea1, updateArea2, area1KeyPlatform, area2KeyPlatform, isPlayerInArea1, isPlayerInArea2, updateHangarDoors } from '../systems/environment.js';
+import { createWalls, createAreas, updateArea1, updateArea2, area1KeyPlatform, area2KeyPlatform, isPlayerInArea1, isPlayerInArea2 } from '../systems/environment.js';
+import { updateHangarTotem, updateHangarKeyAnimation, updateHangarDoorsAnimation } from '../systems/hangarAccess.js';
 import { createWeaponManager, updateProjectiles } from '../components/weaponManager.js';
 import { createEnemies, updateEnemies, cleanupDeadEnemies, enemies, cleanupAllEnemyProjectiles, resetArea2Activation, resetArea1Activation } from '../entities/enemies/enemy.js';
 import { setupEventListeners, updateCameraMovement, continuousCameraDebug } from '../systems/controls.js';
@@ -664,7 +665,10 @@ function animate() {
             console.log(`[KEYS] Available key types:`, keyManager.getCollectedKeys());
         }
         
-        updateHangarDoors(delta, camera, scene, collidableObjects, keyManager); // Atualiza animação das portas do hangar com sistema de chaves
+        // Sistema padronizado de acesso ao hangar (área 3)
+        updateHangarTotem(delta, camera, scene, collidableObjects, keyManager);
+        updateHangarKeyAnimation(delta, scene);
+        updateHangarDoorsAnimation(delta, scene, collidableObjects);
     }
     
     // These updates don't require camera/controls, so they can run always
