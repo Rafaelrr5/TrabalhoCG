@@ -129,15 +129,26 @@ export function updateArea4Totem(delta, scene, hitbox, collidableObjects) {
 }
 
 function prepareArea4KeyForAnimation(keyObject, scene) {
-    const keyMesh = keyObject.getMesh();
-    if (!keyMesh) return;
+    // Usa a chave CSG existente (igual à área 2)
+    area4KeyAnimationState.keyMesh = keyObject.getMesh();
+    area4KeyAnimationState.keyObject = keyObject; // Armazena referência para o objeto completo
     
-    // Configurar estado da animação
-    area4KeyAnimationState.keyMesh = keyMesh;
-    area4KeyAnimationState.keyObject = keyObject;
-    area4KeyAnimationState.startPosition = keyMesh.position.clone();
-    area4KeyAnimationState.endPosition = area4Totem.position.clone();
-    area4KeyAnimationState.endPosition.y += 1.0; // Um pouco acima do totem
+    // Posição inicial da chave (acima do totem) - igual à área 2
+    area4KeyAnimationState.startPosition = new THREE.Vector3(
+        area4Totem.position.x,
+        area4Totem.position.y + 3.0, // Mais alto para ficar bem visível
+        area4Totem.position.z
+    );
+    
+    // Posição final da chave (no topo do totem) - igual à área 2
+    area4KeyAnimationState.endPosition = new THREE.Vector3(
+        area4Totem.position.x,
+        area4Totem.position.y + 1.2, // Mais alto que o totem para ficar visível
+        area4Totem.position.z
+    );
+    
+    // Prepara a chave para a animação (IGUAL À ÁREA 2 - esta linha estava faltando!)
+    const result = keyObject.prepareForTotemAnimation(area4KeyAnimationState.startPosition, area4KeyAnimationState.endPosition, scene);
     
     console.log('[AREA4ACCESS] Chave azul preparada para animação do totem');
 }
@@ -152,6 +163,11 @@ function startArea4KeyAnimation(onComplete) {
 
 export function updateArea4KeyAnimation(delta, scene) {
     if (!area4KeyAnimationState.isAnimating || !area4KeyAnimationState.keyMesh) return;
+
+    // SE A CHAVE FOI REMOVIDA DA CENA DURANTE A ANIMAÇÃO, ADICIONA DE VOLTA! (igual à área 2)
+    if (!area4KeyAnimationState.keyMesh.parent) {
+        scene.add(area4KeyAnimationState.keyMesh);
+    }
     
     // Incrementar progresso da animação
     area4KeyAnimationState.animationProgress += area4KeyAnimationState.animationSpeed * delta;
