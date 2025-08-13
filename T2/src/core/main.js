@@ -326,7 +326,6 @@ function createLoadingScreen() {
         position: relative;
     `;
     
-    // Animated shine effect
     const shine = document.createElement('div');
     shine.style.cssText = `
         position: absolute;
@@ -339,7 +338,6 @@ function createLoadingScreen() {
     `;
     progressBar.appendChild(shine);
     
-    // Progress percentage
     const progressPercent = document.createElement('div');
     progressPercent.id = 'loading-percent';
     progressPercent.style.cssText = `
@@ -350,7 +348,6 @@ function createLoadingScreen() {
     `;
     progressPercent.textContent = '0%';
     
-    // Loading dots animation
     const loadingDots = document.createElement('div');
     loadingDots.style.cssText = `
         font-size: 20px;
@@ -360,7 +357,6 @@ function createLoadingScreen() {
     `;
     loadingDots.textContent = '...';
     
-    // Controls instruction
     const controlsInfo = document.createElement('div');
     controlsInfo.style.cssText = `
         position: absolute;
@@ -378,7 +374,6 @@ function createLoadingScreen() {
         <p>1/2 - Trocar Arma</p>
     `;
     
-    // Add CSS animations
     const style = document.createElement('style');
     style.textContent = `
         @keyframes pulse {
@@ -401,7 +396,6 @@ function createLoadingScreen() {
     `;
     document.head.appendChild(style);
     
-    // Assembly
     progressContainer.appendChild(progressBar);
     overlay.appendChild(title);
     overlay.appendChild(loadingText);
@@ -414,7 +408,6 @@ function createLoadingScreen() {
     return overlay;
 }
 
-// Update loading progress
 function updateLoadingProgress(percent, text) {
     const progressBar = document.getElementById('loading-progress');
     const progressPercent = document.getElementById('loading-percent');
@@ -425,14 +418,11 @@ function updateLoadingProgress(percent, text) {
     if (loadingText && text) loadingText.textContent = text;
 }
 
-// Make loading progress available globally
 window.updateLoadingProgress = updateLoadingProgress;
 
-// Remove loading screen
 function removeLoadingScreen() {
     const overlay = document.getElementById('loading-overlay');
     if (overlay) {
-        // Fade out animation
         overlay.style.transition = 'opacity 0.5s ease';
         overlay.style.opacity = '0';
         
@@ -445,11 +435,9 @@ function removeLoadingScreen() {
 }
 
 async function init() {
-    // Create and show loading screen
     loadingScreen = createLoadingScreen();
     updateLoadingProgress(0, 'Inicializando sistema...');
     
-    // Small delay to ensure loading screen is visible
     await new Promise(resolve => setTimeout(resolve, 100));
     
     updateLoadingProgress(10, 'Configurando cena 3D...');
@@ -468,7 +456,6 @@ async function init() {
     createHitbox(scene);
     
     updateLoadingProgress(80, 'Posicionando jogador...');
-    // Reset player position AFTER environment is fully loaded
     resetPlayerPosition();
     
     updateLoadingProgress(85, 'Configurando controles...');
@@ -485,51 +472,41 @@ async function init() {
     
     updateLoadingProgress(100, 'Carregamento concluído!');
     
-    // Wait a moment before removing loading screen
     await new Promise(resolve => setTimeout(resolve, 500));
     removeLoadingScreen();
     
-    // Atualizar HUD das chaves após criar o ambiente
     setTimeout(() => {
         updateKeysDisplay();
     }, 100);
     
-    // Configurar callback para atualizar HUD quando inventário de chaves mudar
     keyManager.onInventoryChange((inventoryData) => {
         const { action, keyType, collectedKeys, collectedKeyCount } = inventoryData;
         
-        // Atualizar display das chaves
         updateKeysDisplay();
         
-        // Log da mudança para debug
         if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
             console.log(`[MAIN] Inventory changed - Action: ${action}, Key: ${keyType}, Total: ${collectedKeyCount}`);
         }
     });
     
-    // Event listener para atualizar o display quando uma chave é removida (compatibilidade)
     window.addEventListener('keyRemoved', () => {
         updateKeysDisplay();
     });
     
-    // Force start ambient music after everything is loaded
     setTimeout(() => {
         console.log('[MAIN] Force starting ambient music...');
         ambientAudioManager.forcePlayAreaMusic('none');
-    }, 500); // Reduced delay
+    }, 500);
     
-    // Mark game as fully initialized
     window.gameInitialized = true;
 }
 
 function setupScene() {
     scene = new THREE.Scene();
-    // Enable antialiasing to smooth edges and prevent black artifacts
     renderer = new THREE.WebGLRenderer({
         antialias: true,
         powerPreference: "high-performance"
     });
-    // Use device pixel ratio for crisp rendering on high-DPI screens
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     const container = document.getElementById('webgl-output') || document.body;
@@ -539,10 +516,8 @@ function setupScene() {
 function setupCamera() {
     camera = new THREE.PerspectiveCamera(CAMERA_CONFIG.CAMERA_FOV, window.innerWidth/window.innerHeight, CAMERA_CONFIG.CAMERA_NEAR, CAMERA_CONFIG.CAMERA_FAR);
     camera.position.y = CAMERA_CONFIG.CAMERA_HEIGHT;
-    // Adiciona listener de áudio à câmera para sons 3D
     window.listener = new THREE.AudioListener();
     
-    // Proteção contra valores não finitos no AudioListener
     const originalSetMasterVolume = window.listener.setMasterVolume;
     window.listener.setMasterVolume = function(value) {
         if (isFinite(value) && value >= 0 && value <= 1) {
@@ -550,15 +525,12 @@ function setupCamera() {
         }
     };
     
-    // Proteção no updateMatrixWorld
     const originalUpdateMatrixWorld = window.listener.updateMatrixWorld;
     window.listener.updateMatrixWorld = function(force) {
         try {
-            // Verificar se a câmera pai tem posição válida
             if (this.parent && this.parent.position) {
                 const pos = this.parent.position;
                 if (!isFinite(pos.x) || !isFinite(pos.y) || !isFinite(pos.z)) {
-                    // Resetar posição para valores válidos
                     pos.set(0, PLAYER_CONFIG.INITIAL_PLAYER_HEIGHT || 7, 0);
                 }
             }
@@ -570,7 +542,6 @@ function setupCamera() {
     
     camera.add(window.listener);
     
-    // Initialize ambient audio system
     console.log('[MAIN] Initializing audio systems...');
     ambientAudioManager.init(window.listener);
     playerAudioManager.init(window.listener);
@@ -598,11 +569,7 @@ function setupControls() {
 }
 
 async function createEnvironment() {
-    // Limpar estado anterior das chaves
     keyManager.clearAll();
-    
-    // Temporariamente comentando o reset para debug
-    // resetAllEnemies();
     
     updateLoadingProgress(45, 'Criando paredes e chão...');
     createWalls(scene, collidableObjects);
@@ -611,16 +578,12 @@ async function createEnvironment() {
     await createAreas(scene, collidableObjects);
     
     updateLoadingProgress(55, 'Carregando céu...');
-    // Load sky with red tint filter
-    loadSky(scene, '../assets/textures/skybox/panorama1.jpg', { redTint: 0.4 });
+    // Load sky
+    loadSky(scene, 'panorama1Red.jpg');
     
     updateLoadingProgress(65, 'Criando inimigos...');
-    //gun = createGun(camera); // Captura a referência da arma
-    //gun.init(scene); // Inicializa a arma com a cena
-    // Spawn Lost Soul enemies (they will idle until Area 1 entry)
     createEnemies(scene);
     
-    // Mark environment as fully loaded
     environmentLoaded = true;
     console.log('[MAIN] Environment fully loaded, enabling gravity');
 }

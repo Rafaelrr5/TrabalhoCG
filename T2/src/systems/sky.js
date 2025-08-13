@@ -4,18 +4,48 @@ export function loadSky(scene, texturePath, options = {}) {
     console.log('[SKY] Loading sky texture:', texturePath);
     
     const textureLoader = new THREE.TextureLoader();
-    let textureEquirec = textureLoader.load(texturePath, (texture) => {
-        if (options.redTint) {
-            applyRedFilter(texture, options.redTint);
+    
+    // Try multiple paths like textureManager does
+    const possiblePaths = [
+        texturePath,
+        `assets/textures/${texturePath}`,
+        `../assets/textures/${texturePath}`,
+        `../../assets/textures/${texturePath}`
+    ];
+    
+    let loadAttempt = 0;
+    
+    function tryLoadTexture(pathIndex = 0) {
+        if (pathIndex >= possiblePaths.length) {
+            console.error('[SKY] ❌ Sky texture not found:', texturePath);
+            return;
         }
         
-        console.log('[SKY] Sky loaded and applied to scene');
-    });
+        const currentPath = possiblePaths[pathIndex];
+        console.log(`[SKY] Trying path ${pathIndex + 1}/${possiblePaths.length}:`, currentPath);
+        
+        let textureEquirec = textureLoader.load(
+            currentPath, 
+            (texture) => {
+                if (options.redTint) {
+                    applyRedFilter(texture, options.redTint);
+                }
+                console.log('[SKY] ✅ Sky loaded and applied to scene from:', currentPath);
+            },
+            undefined,
+            (error) => {
+                console.warn(`[SKY] Failed to load from path ${pathIndex + 1}:`, currentPath);
+                tryLoadTexture(pathIndex + 1);
+            }
+        );
+        
+        textureEquirec.mapping = THREE.EquirectangularReflectionMapping;
+        textureEquirec.colorSpace = THREE.SRGBColorSpace;
+        
+        scene.background = textureEquirec;
+    }
     
-    textureEquirec.mapping = THREE.EquirectangularReflectionMapping;
-    textureEquirec.colorSpace = THREE.SRGBColorSpace;
-    
-    scene.background = textureEquirec;
+    tryLoadTexture();
 }
 
 function applyRedFilter(texture, intensity = 0.8) {
