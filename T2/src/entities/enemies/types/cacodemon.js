@@ -170,23 +170,26 @@ export class Cacodemon extends Enemy {
     }
 }
 
- applyRandomAttackMovement() {
-    // Movimento mais suave e menos extremo
-    const randomY = Math.min((Math.random() - 0.5) * 0.3, 0.2);
+applyRandomAttackMovement() {
+    // Movimento mais suave e contínuo, com maior alcance
+    const randomY = (Math.random() - 0.5) * 0.5; // Aumentado o range vertical
     
+    // Direção mais consistente (menos aleatória extrema)
     this.attackMovementDirection.set(
-        (Math.random() - 0.5) * 1.5, // Reduzido de 2 para 1.5
+        (Math.random() - 0.5) * 1.0, // Reduzido para 1.0 para menos mudanças bruscas
         randomY,
-        (Math.random() - 0.5) * 1.5
+        (Math.random() - 0.5) * 1.0
     ).normalize();
     
-    // Distância menor para o alvo
+    // Distância maior para o alvo (aumentado de 5 para 8)
+    const movementDistance = 8 + Math.random() * 4; // Adiciona alguma variação
+    
     this.attackMovementTarget = this.mesh.position.clone().add(
-        this.attackMovementDirection.clone().multiplyScalar(5) // Reduzido de 10 para 5
+        this.attackMovementDirection.clone().multiplyScalar(movementDistance)
     );
     
-    // Duração menor do movimento
-    this.attackMovementDuration = 1.0; // Reduzido de 2.0
+    // Duração maior do movimento (aumentado de 1.0 para 1.5-2.0 segundos)
+    this.attackMovementDuration = 1.5 + Math.random() * 0.5; // Entre 1.5 e 2.0 segundos
     this.attackMovementTime = this.attackMovementDuration;
 }
 
