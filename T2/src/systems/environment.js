@@ -129,8 +129,8 @@ async function applyEnvironmentTextures(scene) {
     if (area4Group) {
         const wallsGroup = area4Group.getObjectByName("Area4Walls");
         if (wallsGroup && wallsGroup.children.length > 0) {
-            // Aplicar textura neutra e discreta aos muros
-            QuickTexture.stone(wallsGroup);
+            // Aplicar textura de metal e concreto aos muros
+            QuickTexture.area4Walls(wallsGroup);
         }
         
         // Aplicar texturas ao labirinto

@@ -20,6 +20,13 @@ export const TEXTURE_CONFIG = {
         METALNESS: 0.1
     },
     
+    AREA4_WALLS: {
+        NAME: 'fundo-de-metal-e-concreto.jpg',
+        REPEAT: { x: 100, y: 30 },
+        ROUGHNESS: 1.0,
+        METALNESS: 0.3
+    },
+    
     MATERIAL_PRESETS: {
         STONE: {
             ROUGHNESS: 0.8,
