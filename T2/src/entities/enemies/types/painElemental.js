@@ -3,6 +3,7 @@ import { loadGLTFModel } from '../../../utils/modelLoader.js';
 import { Enemy } from '../base/enemies.js';
 import { getCacodeemonConfig } from '../config/enemyConfig.js';
 import { LostSoul } from './lostSoul.js';
+import {enemies} from '../enemy.js'
 
 export class PainElemental extends Enemy {
   constructor(position = [0, 0, 0], config = {}) {
@@ -187,20 +188,18 @@ spawnLostSoul(targetPosition) {
       detection: { 
         hasSeenPlayer: true,
         lastSeenTime: Date.now(),
-        fovAngle: Math.PI / 2,  // Adicionar configuração de FOV
-        maxDistance: 40.0        // Adicionar distância máxima
+        fovAngle: Math.PI / 2,
+        maxDistance: 40.0
       },
       ai: {
-        initialState: 'PATROL'  // Forçar estado inicial
+        initialState: 'PATROL'
       }
     }
   );
   
-  // Garantir que a IA está no estado correto
   lostSoul.ai.changeState('PATROL');
   lostSoul.detection.hasSeenPlayer = true;
   
-  // Iniciar carga imediatamente
   if (lostSoul.startCharge) {
     lostSoul.startCharge(targetPosition);
   }
@@ -209,6 +208,9 @@ spawnLostSoul(targetPosition) {
   this.spawnedSouls++;
   this.spawnedSoulsList.push(lostSoul);
   
+  // ADICIONE A LOST SOUL AO GERENCIADOR PRINCIPAL DE INIMIGOS
+  enemies.push(lostSoul); // <-- ADICIONE ESTA LINHA
+
   return lostSoul;
 }
 
@@ -274,12 +276,6 @@ forceUpdateSpawnedSouls() {
     this.audio.updateProximity(camera?.position);
     this.healthBar.update(camera);
     this.collision.updateBoundingBox();
-    // Forçar atualização das Lost Souls spawnadas
-    this.spawnedSoulsList.forEach(soul => {
-      if (soul.update && soul.isAlive) {
-        soul.update(delta, camera, targetPosition, collidableObjects);
-      }
-    });
 
     // Movement options
     const moveOptions = {
@@ -334,14 +330,6 @@ forceUpdateSpawnedSouls() {
   }
 
   dispose() {
-    // Clean up spawned souls
-    this.spawnedSoulsList.forEach(soul => {
-      if (soul.mesh.parent) {
-        soul.mesh.parent.remove(soul.mesh);
-      }
-      soul.dispose();
-    });
-    this.spawnedSoulsList = [];
     
     // Clean up model and placeholder
     if (this.model) {
