@@ -687,7 +687,7 @@ function animate() {
             applyGravity(delta, collidableObjects, camera);
         }
         
-        updateCameraMovement(delta, controls);
+        updateCameraMovement(delta, controls, collidableObjects);
         updateEnemies(delta, scene, camera, gun, collidableObjects);
         
         // Update ambient music based on player position

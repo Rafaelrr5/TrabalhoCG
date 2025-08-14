@@ -440,3 +440,46 @@ export function checkLostSoulInterCollision(currentLostSoul, otherLostSouls) {
         collisionCount
     };
 }
+
+const sweepRaycaster = new THREE.Raycaster();
+
+/**
+ * Verifica o caminho de movimento do jogador para detectar colisões futuras (Sweep Test).
+ * Impede o "efeito túnel" ao limitar o movimento antes que a colisão ocorra.
+ * @param {THREE.Vector3} movementVector - O vetor de deslocamento total para o quadro atual.
+ * @param {Array<THREE.Object3D>} collidableObjects - A lista de objetos com os quais colidir.
+ * @returns {THREE.Vector3} - O vetor de movimento seguro (pode ser menor que o original se uma colisão for detectada).
+ */
+export function calculateSafeMovement(movementVector, collidableObjects) {
+    if (!hitbox || movementVector.lengthSq() === 0) {
+        return movementVector;
+    }
+
+    const playerPosition = hitbox.position;
+    const movementDirection = movementVector.clone().normalize();
+    const movementDistance = movementVector.length();
+
+    // Configura o raycaster para verificar todo o caminho do movimento
+    sweepRaycaster.set(playerPosition, movementDirection);
+    sweepRaycaster.far = movementDistance;
+
+    // Filtra objetos para colisão, similar a checkWallCollisions
+    const validObjects = collidableObjects.filter(obj => obj?.isMesh && obj.visible && (!obj.parent || !obj.parent.name.includes("Escada")));
+
+    const intercepts = sweepRaycaster.intersectObjects(validObjects, true);
+
+    // Adiciona uma pequena margem para evitar que o jogador grude na parede
+    const collisionOffset = 0.1; 
+
+    if (intercepts.length > 0 && intercepts[0].distance < movementDistance) {
+        // Colisão detectada no caminho!
+        // Calcula a nova distância segura, subtraindo o offset.
+        const safeDistance = Math.max(0, intercepts[0].distance - collisionOffset);
+        
+        // Retorna o vetor de movimento limitado à distância segura.
+        return movementDirection.clone().multiplyScalar(safeDistance);
+    }
+
+    // Nenhuma colisão detectada, o caminho é livre. Retorna o vetor de movimento original.
+    return movementVector;
+}

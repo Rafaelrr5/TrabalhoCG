@@ -7,6 +7,9 @@ import { enemies } from '../entities/enemies/enemy.js';
 import { nextWeapon, previousWeapon, switchWeapon, startShooting, stopShooting} from '../components/weaponManager.js';
 import { keyManager } from '../entities/items/key.js';
 import { audioManager } from './audio/audioManager.js';
+import { calculateSafeMovement } from './collision.js'; // Importa a nova função
+import { hitbox } from '../entities/player/player.js'; // Precisamos da referência da hitbox
+import * as THREE from '../../../build/three.module.js'; // Precisamos do THREE para o Vector3
 
 // Estados de controle de movimento (quais teclas estão ativas)
 export let moveState = { 
@@ -87,57 +90,54 @@ function weaponSwitch(timestamp, deltaY) {
 
 
 // Atualiza posição do jogador baseado na entrada do usuário
-export function updateCameraMovement(delta, controls) {
-    // Guard against undefined controls
-    if (!controls || !controls.moveRight || !controls.moveForward) {
+export function updateCameraMovement(delta, controls, collidableObjects) {
+    if (!controls || !hitbox) {
         return;
     }
-    
-    // Aplica multiplicador de velocidade se Shift estiver pressionado
-    const sprintMultiplier = moveState.sprint ? PLAYER_CONFIG.SPRINT_MULTIPLIER : 1;
-    const distance = PLAYER_CONFIG.MOVE_SPEED * delta * sprintMultiplier;
-    
-    // Calcula os vetores de movimento
-    let moveX = 0;
-    let moveZ = 0;
-    
-    if (moveState.forward) moveZ += distance;
-    if (moveState.backward) moveZ -= distance;
-    if (moveState.left) moveX -= distance;
-    if (moveState.right) moveX += distance;
-    
-    // Normaliza movimento diagonal (mantém velocidade constante nas diagonais)
-    if (moveX !== 0 && moveZ !== 0) {
-        const factor = Math.sqrt(0.5);
-        moveX *= factor;
-        moveZ *= factor;
+
+    const speed = (PLAYER_CONFIG.MOVE_SPEED * delta) * (moveState.sprint ? PLAYER_CONFIG.SPRINT_MULTIPLIER : 1);
+
+    // 1. Pega os vetores de direção da câmera (no plano XZ)
+    const forward = new THREE.Vector3();
+    controls.camera.getWorldDirection(forward);
+    forward.y = 0;
+    forward.normalize();
+
+    // --- LINHA CORRIGIDA ---
+    // A ordem correta para obter o vetor "direita" é (frente X cima)
+    const right = new THREE.Vector3();
+    right.crossVectors(forward, controls.camera.up); 
+    // A linha anterior estava: right.crossVectors(controls.camera.up, forward); que resultava no vetor "esquerda".
+
+    // 2. Calcula a direção final baseada nas teclas pressionadas
+    const direction = new THREE.Vector3();
+    if (moveState.forward) {
+        direction.add(forward);
+    }
+    if (moveState.backward) {
+        direction.sub(forward);
+    }
+    if (moveState.left) {
+        direction.sub(right); // Agora subtrai o vetor "direita" real, movendo para a esquerda
+    }
+    if (moveState.right) {
+        direction.add(right); // Agora adiciona o vetor "direita" real, movendo para a direita
     }
     
-    // --- Suavização adaptativa para ângulos próximos a 90º ---
-    if (wallColide.x || wallColide.z) {
-        // Calcula o ângulo do movimento (em radianos)
-        const angle = Math.atan2(moveZ, moveX);
-        const angleDeg = Math.abs(angle * (180 / Math.PI));
-        
-        // Fator de suavização baseado no ângulo:
-        // - Quanto mais próximo de 0º ou 90º, mais suavização é aplicada.
-        // - Para diagonais (45º), mantém a suavização padrão.
-        let smoothingFactor = PLAYER_CONFIG.COLLISION_SMOOTHING;
-        
-        // Ajusta o fator para movimentos laterais (ângulos próximos a 0º ou 90º)
-        const angleThreshold = PLAYER_CONFIG.COLLISION_ANGLE_THRESHOLD; // Margem para considerar "próximo a 90º"
-        if (angleDeg <= angleThreshold || angleDeg >= 90 - angleThreshold) {
-            smoothingFactor *= 2; // Dobra a suavização para movimentos retos
-        }
-        
-        // Aplica suavização apenas no eixo colidido
-        if (wallColide.x) moveX *= smoothingFactor;
-        if (wallColide.z) moveZ *= smoothingFactor;
+    if (direction.lengthSq() === 0) {
+        return;
     }
-    
-    // Aplica movimento
-    controls.moveRight(moveX);
-    controls.moveForward(moveZ);
+
+    direction.normalize();
+
+    // 3. Calcula o vetor de movimento total desejado
+    const totalMovementVector = direction.multiplyScalar(speed);
+
+    // 4. Usa o Sweep Test para obter o vetor de movimento seguro
+    const safeMovementVector = calculateSafeMovement(totalMovementVector, collidableObjects);
+
+    // 5. Aplica o movimento seguro diretamente na posição do objeto de controle
+    controls.getObject().position.add(safeMovementVector);
 }
 
 // Lida com redimensionamento da janela
