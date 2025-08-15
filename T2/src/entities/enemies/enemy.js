@@ -9,6 +9,7 @@ import { PLAYER_CONFIG } from '../../core/config/playerConfig.js';
 import { isPlayerInArea1, isPlayerInArea2 } from '../../systems/environment.js';
 import { cleanupAllProjectiles } from './systems/cacodeemonProjectile.js';
 import { forceShowAllHealthBars, debugAllHealthBars } from './base/enemies.js';
+import { Zombieman } from './types/zombieman.js';
 
 export const enemies = [];
 
@@ -59,18 +60,28 @@ export async function createEnemies(scene) {
     console.log(`Created Cacodemon at ${x}, ${y}, ${z}`);
   });
 
-  // Adiciona o Pain Elemental
+  // Adiciona o Pain Elemental para teste
   const painElemental = new PainElemental([200, 2, 0]);
   painElemental.area = 'areaTest'; // Você pode definir uma nova área ou usar uma existente
   painElemental.enemyType = 'PainElemental';
   enemies.push(painElemental);
   scene.add(painElemental.mesh);
   console.log(`Created PainElemental at 200, 2, 0`);
+
+  //adiciona o Zombieman para teste
+  const zombieman = new Zombieman([-200, 0, 0], {
+    alwaysActive: true  // Garante que estará sempre ativo
+  });
+  zombieman.enemyType = 'Zombieman';
+  enemies.push(zombieman);
+  scene.add(zombieman.mesh);
+  console.log('Created test Zombieman at (-200, 0, 0)');
 }
 
 export function shouldUpdateEnemy(camera, enemy) {
   // 1. Inimigos que devem estar sempre ativos
   if (enemy.enemyType === 'PainElemental' || 
+      enemy.enemyType === 'Zombieman' ||
       enemy.alwaysActive || 
       (enemy.spawner && enemy.spawner.enemyType === 'PainElemental') ||
       enemy.isSpawned ||
