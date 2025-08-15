@@ -34,8 +34,14 @@ export const ENEMY_AUDIO_CONFIG = {
       attack: '../../../../../../0_assetsT3/sounds/painElemental/painAttack.wav',
       nearby: '../../../../assets/sounds/cacodemon/cacodemon_nearby.wav',
       sight: '../../../../../../0_assetsT3/sounds/painElemental/painAttack.wav'
+    },
+    Zombieman: {
+      hit: '../../../../../0_assetsT3/sounds/soldier/injured.wav',
+      death: '../../../../../0_assetsT3/sounds/soldier/injured.wav',
+      attack: '../../../../../0_assetsT3/sounds/soldier/soldierAttack.wav',
+      nearby: '../../../../../0_assetsT3/sounds/soldier/soldierSight.wav',
+      sight: '../../../../../0_assetsT3/sounds/soldier/soldierSight.wav'
     }
-
   },
   
   SOUND_PROPERTIES: {
