@@ -6,7 +6,7 @@ import { PainElemental } from './types/painElemental.js';
 import { DEBUG_CONFIG } from '../../core/config/debugConfig.js';
 import { WORLD_CONFIG } from '../../core/config/worldConfig.js';
 import { PLAYER_CONFIG } from '../../core/config/playerConfig.js';
-import { isPlayerInArea1, isPlayerInArea2, isPlayerInArea3, isPlayerInsideHangar } from '../../systems/environment.js';
+import { isPlayerInArea1, isPlayerInArea2, isPlayerInArea3, isPlayerInsideHangar, isPlayerInArea4 } from '../../systems/environment.js';
 import { cleanupAllProjectiles } from './systems/cacodeemonProjectile.js';
 import { forceShowAllHealthBars, debugAllHealthBars } from './base/enemies.js';
 import { Zombieman } from './types/zombieman.js';
@@ -96,9 +96,7 @@ export async function createEnemies(scene) {
 
 export function shouldUpdateEnemy(camera, enemy) {
   // 1. Inimigos que devem estar sempre ativos
-  if (enemy.enemyType === 'PainElemental' || 
-      enemy.enemyType === 'Zombieman' ||
-      enemy.alwaysActive || 
+  if ( enemy.alwaysActive || 
       (enemy.spawner && enemy.spawner.enemyType === 'PainElemental') ||
       enemy.isSpawned ||
       enemy.detection?.hasSeenPlayer) {

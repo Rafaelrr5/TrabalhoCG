@@ -1259,6 +1259,16 @@ function raisePlatform(platformGroup, delta) {
     }
 }
 
+export function isPlayerInArea4(camera) {
+  const playerX = camera.position.x;
+  const playerZ = camera.position.z;
+
+  const inX = playerX >= -172 && playerX <= 172;
+  const inZ = playerZ >= -44 && playerZ <= 44;
+
+  return inX && inZ;
+}
+
 function createStair(x, y, z, h, direction, material) {
     let stairGroup = new THREE.Group();
     stairGroup.name = "Escada";
