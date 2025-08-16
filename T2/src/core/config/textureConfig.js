@@ -14,7 +14,7 @@ export const TEXTURE_CONFIG = {
     },
     
     WALL_TEXTURE: {
-        NAME: 'annie-spratt-kG-ZwDuQ8ME-unsplash.jpg',
+        NAME: 'concrete_tile_facade_diff_4k.jpg',
         REPEAT: { x: 10, y: 1 },
         ROUGHNESS: 1,
         METALNESS: 0
