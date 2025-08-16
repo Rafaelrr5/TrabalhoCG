@@ -132,12 +132,18 @@ export class Zombieman extends Enemy {
     const now = Date.now() / 1000;
     if (now - this.lastAttackTime < this.config.attackCooldown) return;
     
+    // Para a movimentação atual antes de atirar
+    this.velocity.set(0, 0, 0);
+    this.isMoving = false;
+    if (this.ai) {
+      Object.values(this.actions).forEach(action => action.stop());
+    }
+
     // Determina a direção do ataque baseado na posição do jogador
     const direction = this.getAttackDirection(targetPosition);
     const attackAction = this.getAttackAction(direction);
     
     if (attackAction) {
-      Object.values(this.actions).forEach(action => action.stop());
       attackAction.playLoop();
     }
     
@@ -149,9 +155,20 @@ export class Zombieman extends Enemy {
     
     this.lastAttackTime = now;
 
+    // --- NOVA LÓGICA DE FUGA ---
+    // Define uma direção de movimento aleatória após atirar.
+    const escapeDirection = new THREE.Vector3(
+      Math.random() - 0.5,
+      0, // Mantém o movimento no plano XZ
+      Math.random() - 0.5
+    ).normalize();
+
+    // Aplica a direção à IA para que o estado 'DISENGAGE' a utilize.
     if (this.ai) {
+      this.ai.currentDirection = escapeDirection;
       this.ai.changeState('DISENGAGE');
     }
+    // --- FIM DA NOVA LÓGICA ---
   }
 
    getAttackDirection(targetPosition) {
