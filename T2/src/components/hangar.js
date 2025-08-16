@@ -101,18 +101,14 @@ export function createHangar(opts = {}) {
 
         QuickTexture.hangarWalls(hangarWithDoor)
         
-        // thickness do arco do teto
-        const roofThickness = 1.0;  // ajuste esse valor para ficar mais grosso ou mais fino
-
-        const outerRadius = width / 2 + roofOverhang;
-        const innerRadius = outerRadius - roofThickness;
-        const roofLength = depth + 2 * roofOverhang;
+        const outerRadius = 70;
+        const innerRadius = 80;
+        const roofLength = 110;
         
-        // desenha um semicírculo “oco”
         const shape = new THREE.Shape();
         shape.moveTo(-outerRadius, 0);
-        shape.absarc(0, 0, outerRadius, Math.PI, 0, false);
-        shape.absarc(0, 0, innerRadius, 0, Math.PI, true);
+        shape.absarc(0, 0, outerRadius, Math.PI/2, 0, false);
+        shape.absarc(0, 0, innerRadius, 0, Math.PI/2, true);
         shape.closePath();
 
         const extrudeSettings = {
@@ -124,7 +120,7 @@ export function createHangar(opts = {}) {
         // gira para alinhar o arco como teto (profundidade no Z)
         roofGeometry.rotateX(Math.PI / 2);
         // centralizar o extrude ao longo de Z
-        roofGeometry.translate(0, height - roofThickness + outerRadius, -roofLength / 2);
+        roofGeometry.translate(0, 50, -20);
 
         const roofMesh = new THREE.Mesh(roofGeometry, hangarMaterial);
         roofMesh.castShadow = true;
