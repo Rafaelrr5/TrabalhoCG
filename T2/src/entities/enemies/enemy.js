@@ -10,6 +10,7 @@ import { isPlayerInArea1, isPlayerInArea2, isPlayerInArea3, isPlayerInsideHangar
 import { cleanupAllProjectiles } from './systems/cacodeemonProjectile.js';
 import { forceShowAllHealthBars, debugAllHealthBars } from './base/enemies.js';
 import { Zombieman } from './types/zombieman.js';
+import { spawnPoints } from '../../systems/environment.js';
 
 export const enemies = [];
 

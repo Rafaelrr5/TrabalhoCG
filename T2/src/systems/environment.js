@@ -17,6 +17,8 @@ import { createArea4Totem, setArea4Walls } from './area4Access.js';
 export let area1KeyPlatform = null;
 export let area2KeyPlatform = null;
 
+export const spawnPoints = [];
+
 // Re-exportar funções do hangar para manter compatibilidade
 export { isPlayerInsideHangar, createArea3 } from '../components/hangar.js';
 
@@ -244,7 +246,7 @@ function createArea4(scene, materials, collidableObjects) {
     area4.name = "Area4";
     
     // Criar o labirinto dentro da área 4
-    const mazeGroup = createArea4Maze(scene, collidableObjects, WORLD_CONFIG);
+    const mazeGroup = createArea4Maze(scene, collidableObjects, WORLD_CONFIG, spawnPoints);
     area4.add(mazeGroup);
     
     // Criar muros altos ao redor da área 4 para ocultá-la completamente
