@@ -218,24 +218,8 @@ function showFinalVictoryMessage() {
     
     popup.innerHTML = `
         <h2 style="color: #4CAF50; margin: 0 0 15px 0;">VITÓRIA!</h2>
-        <p style="margin: 0 0 20px 0;">Você venceu o jogo! As paredes do mapa foram removidas.</p>
-        <button id="victory-continue" style="
-            background-color: #4CAF50;
-            border: none;
-            color: white;
-            padding: 10px 20px;
-            font-size: 16px;
-            border-radius: 5px;
-            cursor: pointer;
-        ">
-            Continuar
-        </button>
+        <p style="margin: 0 0 20px 0;">Você venceu o jogo! As paredes do mapa foram removidas e você conquistou sua liberdade.</p>
     `;
-    
-    const continueButton = popup.querySelector('#victory-continue');
-    continueButton.addEventListener('click', () => {
-        document.body.removeChild(overlay);
-    });
         
     overlay.appendChild(popup);
     document.body.appendChild(overlay);
