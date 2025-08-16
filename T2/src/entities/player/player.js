@@ -144,6 +144,7 @@ export class Player {
 
     update(delta, camera) {
         this.updateHitbox(camera);
+        console.log(`Player Position (X, Z): ${this.position.x.toFixed(2)}, ${this.position.z.toFixed(2)}`);
     }
 }
 

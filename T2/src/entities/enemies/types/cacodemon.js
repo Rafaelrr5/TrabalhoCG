@@ -189,7 +189,7 @@ applyRandomAttackMovement() {
     );
     
     // Duração maior do movimento (aumentado de 1.0 para 1.5-2.0 segundos)
-    this.attackMovementDuration = 1.5 + Math.random() * 0.5; // Entre 1.5 e 2.0 segundos
+    this.attackMovementDuration = 2.0 + Math.random() * 0.5; // Entre 1.5 e 2.0 segundos
     this.attackMovementTime = this.attackMovementDuration;
 }
 

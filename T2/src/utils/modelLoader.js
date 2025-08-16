@@ -373,3 +373,86 @@ export function getCacheStats() {
     loadingPromises: loadingPromises.size
   };
 }
+
+/**
+ * Carrega um modelo OBJ e aplica texturas manualmente a partir de caminhos fornecidos.
+ * Útil quando não há um arquivo .mtl disponível.
+ * @param {string} objPath Caminho para o arquivo .obj
+ * @param {object} texturePaths Objeto com caminhos para as texturas. Ex: { diffuse: 'path/to/diffuse.jpg', normal: '...' }
+ * @param {object} config Configurações de escala, rotação, etc.
+ * @returns {Promise<THREE.Object3D>} O modelo 3D carregado.
+ */
+export function loadOBJWithManualTextures(objPath, texturePaths = {}, config = {}) {
+  initializeLoaders(); // Garante que os loaders do three.js foram inicializados
+  const validatedConfig = validateConfig(config);
+
+  return new Promise((resolve, reject) => {
+    const textureLoader = new THREE.TextureLoader();
+    const material = new THREE.MeshStandardMaterial();
+
+    // Carrega e atribui cada textura se o caminho for fornecido
+    if (texturePaths.diffuse) {
+      material.map = textureLoader.load(texturePaths.diffuse);
+    }
+    if (texturePaths.normal) {
+      material.normalMap = textureLoader.load(texturePaths.normal);
+    }
+    if (texturePaths.displacement) {
+      material.displacementMap = textureLoader.load(texturePaths.displacement);
+      material.displacementScale = validatedConfig.displacementScale || 0.01;
+    }
+    // Você pode adicionar mais texturas aqui (ex: roughnessMap, aoMap) se necessário
+
+    // Carrega a geometria do modelo .obj
+    objLoader.load(objPath,
+      (object) => {
+        // Aplica o material criado a todas as malhas (meshes) dentro do modelo
+        object.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            child.material = material;
+          }
+        });
+
+        // Aplica as configurações de escala, rotação, etc.
+        applyConfigToObject(object, validatedConfig);
+        
+        resolve(object); // Retorna o objeto pronto
+      },
+      undefined,
+      (error) => {
+        console.error(`Erro ao carregar o modelo OBJ (manual texture): ${objPath}`, error);
+        reject(error);
+      }
+    );
+  });
+}
+
+// Esta função auxiliar provavelmente já existe no seu arquivo, mas se não existir, adicione-a também.
+// Ela aplica as configurações de escala/rotação ao objeto.
+export function applyConfigToObject(object, config) {
+    if (config.scale) {
+        object.scale.setScalar(config.scale);
+    }
+    if (config.rotation) {
+        object.rotation.set(config.rotation.x, config.rotation.y, config.rotation.z);
+    }
+    if (config.pivotAtCenter) {
+        const box = new THREE.Box3().setFromObject(object);
+        const center = box.getCenter(new THREE.Vector3());
+        object.position.sub(center);
+    }
+    if (config.castShadow) {
+        object.traverse(child => {
+            if (child instanceof THREE.Mesh) {
+                child.castShadow = true;
+            }
+        });
+    }
+     if (config.receiveShadow) {
+        object.traverse(child => {
+            if (child instanceof THREE.Mesh) {
+                child.receiveShadow = true;
+            }
+        });
+    }
+}

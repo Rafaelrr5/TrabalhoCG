@@ -171,6 +171,10 @@ export class BaseWeapon {
             
             projectileData.timeAlive += delta;
             
+            // Log para depuração: Mostra a posição do projétil a cada frame
+            console.log(`Projétil ${i} Posição:`, projectile.position);
+
+
             // Verifica colisão com paredes usando Raycaster
             this.raycaster.set(projectile.position, projectileData.direction);
             this.raycaster.far = this.projectileSpeed * delta + this.collisionDistance;
