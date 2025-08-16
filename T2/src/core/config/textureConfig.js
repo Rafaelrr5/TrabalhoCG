@@ -78,9 +78,9 @@ export const TEXTURE_CONFIG = {
 
     HANGAR_WALLS: {
         NAME: 'hangarwalls.jpg',
-        REPEAT: { x: 5, y: 5 },
+        REPEAT: { x: 2, y: 2 },
         ROUGHNESS: 0.8,
-        METALNESS: 0.15
+        METALNESS: 0.5
     },
     
     MATERIAL_PRESETS: {

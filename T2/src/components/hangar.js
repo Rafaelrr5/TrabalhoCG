@@ -15,7 +15,6 @@ function easeInCubic(t) {
     return t * t * t;
 }
 
-// Função principal para criar o hangar
 export function createHangar(opts = {}) {
     const {
         width = 20,
@@ -112,6 +111,8 @@ export function createHangar(opts = {}) {
 
         hangarGroup.add(hangarWithDoor);
 
+        QuickTexture.hangarWalls(hangarWithDoor)
+
         // === TELHADO INCLINADO ===
         
         const roofHeight = height * 0.6;
@@ -153,6 +154,7 @@ export function createHangar(opts = {}) {
         }
 
         hangarGroup.add(roofMesh);
+        QuickTexture.hangarWalls(roofMesh);
 
         // === COLUNAS DE REFORÇO FRONTAL ===
         
