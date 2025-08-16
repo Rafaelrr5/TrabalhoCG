@@ -184,4 +184,18 @@ export const QuickTexture = {
             metalness: TEXTURE_CONFIG.GRUNGE_CONCRETE2.METALNESS,
             textureOptions: { repeat: TEXTURE_CONFIG.GRUNGE_CONCRETE2.REPEAT }
         }),
+
+    hangarFloor: async (object, textureName = TEXTURE_CONFIG.HANGAR_FLOOR.NAME) => 
+        await applyTexture(object, textureName, 'standard', {
+            roughness: TEXTURE_CONFIG.HANGAR_FLOOR.ROUGHNESS,
+            metalness: TEXTURE_CONFIG.HANGAR_FLOOR.METALNESS,
+            textureOptions: { repeat: TEXTURE_CONFIG.HANGAR_FLOOR.REPEAT }
+        }),
+
+    hangarWalls: async (object, textureName = TEXTURE_CONFIG.HANGAR_WALLS.NAME) => 
+        await applyTexture(object, textureName, 'standard', {
+            roughness: TEXTURE_CONFIG.HANGAR_WALLS.ROUGHNESS,
+            metalness: TEXTURE_CONFIG.HANGAR_WALLS.METALNESS,
+            textureOptions: { repeat: TEXTURE_CONFIG.HANGAR_WALLS.REPEAT }
+        }),
 };

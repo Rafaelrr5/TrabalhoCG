@@ -4,6 +4,7 @@ import { loadOBJModel } from '../utils/modelLoader.js';
 import { enableShadowsForAll } from '../systems/lights.js';
 import { CSG } from '../../../../libs/other/CSGMesh.js';
 import { keyManager, Key } from '../entities/items/key.js';
+import { QuickTexture } from '../utils/textureUtils.js'
 
 // Funções de easing para animações
 function easeOutCubic(t) {
@@ -229,6 +230,23 @@ export function createHangar(opts = {}) {
 
     // Centralizar o grupo no chão (y=0)
     hangarGroup.position.y = 0;
+
+    // === CHÃO DO HANGAR ===
+    const floorGeometry = new THREE.PlaneGeometry(width, depth);
+    const floorMaterial = new THREE.MeshStandardMaterial({
+        color: 0xaaaaaa,
+        metalness: 0.2,
+        roughness: 0.8,
+        side: THREE.DoubleSide
+    });
+    const floorMesh = new THREE.Mesh(floorGeometry, floorMaterial);
+    floorMesh.rotation.x = -Math.PI / 2; // Rotacionar para ficar no plano XZ
+    floorMesh.position.y = 0; // Posicionar no nível do chão
+
+    // Aplicar textura ao chão
+    QuickTexture.hangarFloor(floorMesh); // Usando a textura de concreto acabado
+
+    hangarGroup.add(floorMesh);
 
     return hangarGroup;
 }

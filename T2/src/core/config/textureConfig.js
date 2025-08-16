@@ -68,6 +68,20 @@ export const TEXTURE_CONFIG = {
         ROUGHNESS: 0.8,
         METALNESS: 0.15
     },
+
+    HANGAR_FLOOR: {
+        NAME: 'hangarfloor.jpg',
+        REPEAT: { x: 5, y: 5 },
+        ROUGHNESS: 0.8,
+        METALNESS: 0.15
+    },
+
+    HANGAR_WALLS: {
+        NAME: 'hangarwalls.jpg',
+        REPEAT: { x: 5, y: 5 },
+        ROUGHNESS: 0.8,
+        METALNESS: 0.15
+    },
     
     MATERIAL_PRESETS: {
         STONE: {
