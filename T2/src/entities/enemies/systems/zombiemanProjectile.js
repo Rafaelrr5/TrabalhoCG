@@ -19,6 +19,7 @@ export class ZombiemanProjectile {
     const geometry = new THREE.SphereGeometry(this.config.radius, 8, 8);
     const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
     this.mesh = new THREE.Mesh(geometry, material);
+    this.mesh.visible = false;
     
     this.mesh.position.copy(this.startPosition);
     this.mesh.userData.projectile = this;
