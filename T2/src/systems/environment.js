@@ -181,6 +181,8 @@ async function createArea1(scene, materials, collidableObjects) {
     scene.add(area1);
     stair1.add(createStair(-197.75, WORLD_CONFIG.STAIR_HEIGHT_OFFSET, -62.8, WORLD_CONFIG.AREA_HEIGHT, true, materials.stair));
     scene.add(stair1);
+    QuickTexture.hangarWalls(stair1)
+    
     markCollisionObject(area1, collidableObjects);
     markCollisionObject(stair1, collidableObjects);
     enableShadowsForAll(area1);
