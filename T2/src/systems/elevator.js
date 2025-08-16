@@ -1,9 +1,9 @@
-
 import * as THREE from '../../../build/three.module.js';
 import { WORLD_CONFIG } from '../core/config/worldConfig.js';
 import { PLAYER_CONFIG } from '../core/config/playerConfig.js';
 import { hitbox } from '../entities/player/player.js';
 import { gameAudioManager } from './index.js';
+import { QuickTexture } from '../utils/textureUtils.js';
 
 export let elevator = null;
 const returnDistance = WORLD_CONFIG.ELEVATOR_ACTIVATION_DISTANCE;
@@ -24,6 +24,7 @@ export function createElevator(scene, collidableObjects, x, z) {
         playerWasOnElevator: false
     };
     scene.add(elevator);
+    QuickTexture.hangarWalls(elevator);
     collidableObjects.push(elevator);
     elevator.castShadow = true; // Ativa sombras no elevador
     elevator.receiveShadow = true; // Ativa recebimento de sombras no elevador

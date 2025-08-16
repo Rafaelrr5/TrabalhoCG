@@ -43,7 +43,7 @@ export const TEXTURE_CONFIG = {
 
     FINISHED_CONCRETE: {
         NAME: 'concretoacabado.jpg',
-        REPEAT: { x: 5, y: 5 },
+        REPEAT: { x: 1, y: 1 },
         ROUGHNESS: 0.7,
         METALNESS: 0.1
     },

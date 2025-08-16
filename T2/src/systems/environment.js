@@ -182,7 +182,7 @@ async function createArea1(scene, materials, collidableObjects) {
     stair1.add(createStair(-197.75, WORLD_CONFIG.STAIR_HEIGHT_OFFSET, -62.8, WORLD_CONFIG.AREA_HEIGHT, true, materials.stair));
     scene.add(stair1);
     QuickTexture.hangarWalls(stair1)
-    
+
     markCollisionObject(area1, collidableObjects);
     markCollisionObject(stair1, collidableObjects);
     enableShadowsForAll(area1);
@@ -226,7 +226,7 @@ function createArea2(scene, materials, collidableObjects) {
     area2.add(centralBlock);
     
     scene.add(area2);
-
+    QuickTexture.metal(centralBlock)
     markCollisionObject(area2, collidableObjects);
     markCollisionObject(centralBlock, collidableObjects);
 
@@ -234,6 +234,7 @@ function createArea2(scene, materials, collidableObjects) {
     enableShadowsForAll(area2);
 
     createDoor(scene, collidableObjects, 50.0, -63, 15.0, 4.0, 'blue');
+
     createtotem(scene, collidableObjects, 60.0, -59.05, 'red');
 }
 
