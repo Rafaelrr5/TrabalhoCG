@@ -9,7 +9,7 @@ export class Zombieman extends Enemy {
     const defaultConfig = {
       maxHealth: 30,
       damage: 2,
-      attackRange: 25,
+      attackRange: 50,
       attackCooldown: 1.5,
       speed: 2.0,
       radius: 0.5,
@@ -19,6 +19,11 @@ export class Zombieman extends Enemy {
     };
 
     super(position, defaultConfig);
+
+    if(this.detection){
+      this.detection.maxDistance = 60.0;
+      this.detection.fovAngle = Math.PI;
+    }
     
     this.activeProjectiles = [];
     this.lastAttackTime = 0;
