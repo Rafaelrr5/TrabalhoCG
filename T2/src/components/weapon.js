@@ -10,6 +10,11 @@ export class Gun extends BaseWeapon {
         super(camera, WEAPONS_CONFIG.WEAPONS.LAUNCHER);
         this.projectileModel = null;
         this.modelsLoaded = false;
+
+        this.originalPosition = new THREE.Vector3();
+        this.recoilProgress = 1; // 0 = recuo máximo, 1 = em repouso
+        this.recoilAmount = 0.3; // Distância do "coice" para trás
+        this.recoilSpeed = 1 / (this.shootRate / 1000); // Recuperação em 500ms
     }
 
     async init(scene) {
@@ -52,6 +57,18 @@ export class Gun extends BaseWeapon {
         this.mesh = await loadOBJWithManualTextures(modelPath, texturePaths, weaponConfig);
         
         this.mesh.position.set(WEAPONS_CONFIG.GUN_POSITION.x, WEAPONS_CONFIG.GUN_POSITION.y, 0.5);
+        
+        // --- GUARDA A POSIÇÃO ORIGINAL PARA O RECUO ---
+        this.originalPosition.copy(this.mesh.position);
+
+         // Remove qualquer outra arma com o mesmo nome que já possa estar na câmera.
+        const oldMesh = this.camera.getObjectByName("GunMesh");
+        if (oldMesh) {
+            this.camera.remove(oldMesh);
+        }
+        // Nomeia a nova malha para que possamos encontrá-la no futuro, se necessário.
+        this.mesh.name = "GunMesh";
+
         this.mesh.visible = this.isVisible;
         this.camera.add(this.mesh);
     }
@@ -107,7 +124,32 @@ export class Gun extends BaseWeapon {
             timeAlive: 0
         });
 
+        // --- INICIA A ANIMAÇÃO DE RECUO ---
+        this.recoilProgress = 0;
+
+
         this.onShoot();
+    }
+
+    updateProjectiles(delta) {
+        // Chama a função original `updateProjectiles` da BaseWeapon para que os projéteis se movam.
+        super.updateProjectiles(delta);
+        // ==============================================================================
+
+        // --- LÓGICA DA ANIMAÇÃO DE RECUO ---
+        if (!this.mesh) return;
+
+        if (this.recoilProgress < 1) {
+            this.recoilProgress += this.recoilSpeed * delta;
+            this.recoilProgress = Math.min(this.recoilProgress, 1);
+
+            // Easing para um movimento suave de retorno
+            const easedProgress = 1 - Math.pow(1 - this.recoilProgress, 3);
+            const currentRecoil = this.recoilAmount * (1 - easedProgress);
+
+            // Aplica o deslocamento apenas no eixo Z da posição original
+            this.mesh.position.z = this.originalPosition.z + currentRecoil;
+        }
     }
 
 
