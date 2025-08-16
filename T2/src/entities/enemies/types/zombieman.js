@@ -166,7 +166,8 @@ export class Zombieman extends Enemy {
     
     this.lastAttackTime = now;
 
-    
+    this.applyRandomMovement();
+
     const escapeDirection = new THREE.Vector3(
       Math.random() - 0.5,
       0, // Mantém o movimento no plano XZ
@@ -178,7 +179,14 @@ export class Zombieman extends Enemy {
       this.ai.currentDirection = escapeDirection;
       this.ai.changeState('DISENGAGE');
     }
-    // --- FIM DA NOVA LÓGICA ---
+  }
+
+  applyRandomMovement() {
+    const randomAngle = Math.random() * 2 * Math.PI;
+    const direction = new THREE.Vector3(Math.cos(randomAngle), 0, Math.sin(randomAngle));
+
+    // Define a velocidade do inimigo. O movimento será aplicado no 'update' principal.
+    this.velocity.copy(direction).multiplyScalar(this.config.speed);
   }
 
    getAttackDirection(targetPosition, camera) {
