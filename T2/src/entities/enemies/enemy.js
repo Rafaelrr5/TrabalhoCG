@@ -60,13 +60,13 @@ export async function createEnemies(scene) {
     console.log(`Created Cacodemon at ${x}, ${y}, ${z}`);
   });
 
-  // Adiciona o Pain Elemental para teste
-  const painElemental = new PainElemental([200, 2, 0]);
-  painElemental.area = 'areaTest'; // Você pode definir uma nova área ou usar uma existente
+  // Adiciona o Pain Elemental na área 4 (labirinto)
+  const painElemental = new PainElemental([0, 10, 180]); // Posição no centro do labirinto
+  painElemental.area = 'area4';
   painElemental.enemyType = 'PainElemental';
   enemies.push(painElemental);
   scene.add(painElemental.mesh);
-  console.log(`Created PainElemental at 200, 2, 0`);
+  console.log(`Created PainElemental at 0, 10, 180`);
 
   //adiciona o Zombieman para teste
   const zombieman = new Zombieman([-200, 0, 0], {
@@ -169,6 +169,11 @@ export function areAllArea1EnemiesDefeated() {
 export function areAllArea2EnemiesDefeated() {
   const area2Enemies = enemies.filter(e => e.area === 'area2');
   return area2Enemies.length > 0 && area2Enemies.every(e => !e.isAlive);
+}
+
+export function areAllArea4EnemiesDefeated() {
+  const area4Enemies = enemies.filter(e => e.area === 'area4');
+  return area4Enemies.length > 0 && area4Enemies.every(e => !e.isAlive);
 }
 
 export function getAliveEnemies() {

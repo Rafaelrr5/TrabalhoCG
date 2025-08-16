@@ -7,7 +7,7 @@ import { DEBUG_CONFIG } from './config/debugConfig.js';
 import { createWalls, createAreas, updateArea1, updateArea2, area1KeyPlatform, area2KeyPlatform, isPlayerInArea1, isPlayerInArea2 } from '../systems/environment.js';
 import { updateHangarDoors } from '../components/hangar.js';
 import { createWeaponManager, updateProjectiles } from '../components/weaponManager.js';
-import { createEnemies, updateEnemies, cleanupDeadEnemies, enemies, cleanupAllEnemyProjectiles, resetArea2Activation, resetArea1Activation } from '../entities/enemies/enemy.js';
+import { createEnemies, updateEnemies, cleanupDeadEnemies, enemies, cleanupAllEnemyProjectiles, resetArea2Activation, resetArea1Activation, areAllArea4EnemiesDefeated } from '../entities/enemies/enemy.js';
 import { setupEventListeners, updateCameraMovement, continuousCameraDebug } from '../systems/controls.js';
 import { lightingSystem } from '../systems/lights.js';
 import { initHangarLighting, updateHangarLighting, resetHangarLighting } from '../systems/hangarLights.js';
@@ -20,6 +20,7 @@ import { updateTotem, updateDoorAnimation, updateKeyAnimation, totem } from '../
 import { updateArea4Totem, updateArea4KeyAnimation, updateArea4WallsAnimation } from '../systems/area4Access.js';
 import { updateHangarTotem, updateHangarKeyAnimation, updateHangarDoorsAnimation } from '../systems/hangarAccess.js';
 import { loadSky } from '../systems/sky.js';
+import { initializeArea4Victory, checkArea4Victory, updateArea4Victory, resetArea4Victory } from '../systems/area4Victory.js';
 
 // Expor keyManager globalmente para debug
 window.keyManager = keyManager;
@@ -661,6 +662,9 @@ async function createEnvironment() {
     updateLoadingProgress(65, 'Criando inimigos...');
     createEnemies(scene);
     
+    updateLoadingProgress(70, 'Inicializando sistema de vitória...');
+    initializeArea4Victory(scene);
+    
     environmentLoaded = true;
     console.log('[MAIN] Environment fully loaded, enabling gravity');
 }
@@ -689,6 +693,9 @@ function animate() {
         
         updateCameraMovement(delta, controls, collidableObjects);
         updateEnemies(delta, scene, camera, gun, collidableObjects);
+        
+        // Verificar vitória na área 4
+        checkArea4Victory(areAllArea4EnemiesDefeated);
         
         // Update ambient music based on player position
         updateAmbientMusic();
@@ -726,6 +733,9 @@ function animate() {
     updateHangarTotem(delta, scene, hitbox, collidableObjects); // Sistema de acesso ao hangar com totem
     updateHangarKeyAnimation(delta, scene); // Animação da chave do hangar
     updateHangarDoorsAnimation(delta, scene, collidableObjects); // Animação das portas do hangar
+    
+    // Sistema de vitória da área 4
+    updateArea4Victory(delta);
     
     // Ensure ambient music keeps playing
     ambientAudioManager.ensureAmbientMusicPlaying();
@@ -788,6 +798,9 @@ async function restartGame() {
     
     // Reset iluminação do hangar
     resetHangarLighting();
+    
+    // Reset sistema de vitória da área 4
+    resetArea4Victory();
     
     currentPlayerArea = 'none';
     ambientAudioManager.playAreaMusic('none');
