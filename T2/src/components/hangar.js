@@ -6,7 +6,6 @@ import { CSG } from '../../../../libs/other/CSGMesh.js';
 import { keyManager, Key } from '../entities/items/key.js';
 import { QuickTexture } from '../utils/textureUtils.js'
 
-// Funções de easing para animações
 function easeOutCubic(t) {
     return 1 - Math.pow(1 - t, 3);
 }
@@ -41,31 +40,24 @@ export function createHangar(opts = {}) {
     });
 
     try {
-        // === CORPO DO HANGAR COM PAREDES OCAS ===
-        
-        // Caixa externa (corpo principal)
         const outerGeometry = new THREE.BoxGeometry(width, height, depth);
         const outerMesh = new THREE.Mesh(outerGeometry, hangarMaterial);
         outerMesh.position.set(0, height / 2, 0);
 
-        // Caixa interna (para criar o oco) - aumentada para remover também o chão
         const innerGeometry = new THREE.BoxGeometry(
             width - wallThickness * 2,
-            height, // Mesma altura para remover o chão também
+            height,
             depth - wallThickness * 2
         );
         const innerMesh = new THREE.Mesh(innerGeometry, hangarMaterial);
         innerMesh.position.set(0, height / 2, 0);
 
-        // Aplicar CSG para criar paredes ocas
         let hangarBody;
         if (typeof CSG !== 'undefined') {
             try {
-                // Atualizar matrizes antes da operação CSG
                 outerMesh.updateMatrix();
                 innerMesh.updateMatrix();
                 
-                // Criar BSP e subtrair
                 const outerBSP = CSG.fromMesh(outerMesh);
                 const innerBSP = CSG.fromMesh(innerMesh);
                 const hollowBSP = outerBSP.subtract(innerBSP);
@@ -81,14 +73,10 @@ export function createHangar(opts = {}) {
             hangarBody = outerMesh;
         }
 
-        // === ABERTURA DA PORTA ===
-        
-        // Criar geometria da abertura da porta
         const doorGeometry = new THREE.BoxGeometry(doorWidth, doorHeight, depth + 2);
         const doorMesh = new THREE.Mesh(doorGeometry, hangarMaterial);
         doorMesh.position.set(0, doorHeight / 2, depth / 2);
 
-        // Subtrair a abertura da porta do corpo do hangar
         let hangarWithDoor;
         if (typeof CSG !== 'undefined' && hangarBody.geometry) {
             try {
@@ -112,51 +100,39 @@ export function createHangar(opts = {}) {
         hangarGroup.add(hangarWithDoor);
 
         QuickTexture.hangarWalls(hangarWithDoor)
-
-        // === TELHADO INCLINADO ===
         
-        const roofHeight = height * 0.6;
-        const roofWidthHalf = width / 2 + roofOverhang;
+        // thickness do arco do teto
+        const roofThickness = 1.0;  // ajuste esse valor para ficar mais grosso ou mais fino
 
-        // Peça esquerda do telhado
-        const roofLeftGeometry = new THREE.BoxGeometry(roofWidthHalf, wallThickness + roofHeight, depth + 2 * roofOverhang);
-        const roofLeft = new THREE.Mesh(roofLeftGeometry, hangarMaterial);
-        roofLeft.position.set(-roofWidthHalf / 2, height + (roofHeight / 2) - wallThickness / 2, 0);
-        roofLeft.rotation.z = THREE.MathUtils.degToRad(15); // Inclina para cima
+        const outerRadius = width / 2 + roofOverhang;
+        const innerRadius = outerRadius - roofThickness;
+        const roofLength = depth + 2 * roofOverhang;
+        
+        // desenha um semicírculo “oco”
+        const shape = new THREE.Shape();
+        shape.moveTo(-outerRadius, 0);
+        shape.absarc(0, 0, outerRadius, Math.PI, 0, false);
+        shape.absarc(0, 0, innerRadius, 0, Math.PI, true);
+        shape.closePath();
 
-        // Peça direita do telhado
-        const roofRightGeometry = roofLeftGeometry.clone();
-        const roofRight = new THREE.Mesh(roofRightGeometry, hangarMaterial);
-        roofRight.position.set(roofWidthHalf / 2, height + (roofHeight / 2) - wallThickness / 2, 0);
-        roofRight.rotation.z = THREE.MathUtils.degToRad(-15);
+        const extrudeSettings = {
+            depth: roofLength,
+            bevelEnabled: false
+        };
 
-        // Tentar unir as peças do telhado com CSG
-        let roofMesh;
-        if (typeof CSG !== 'undefined') {
-            try {
-                roofLeft.updateMatrix();
-                roofRight.updateMatrix();
-                
-                const leftBSP = CSG.fromMesh(roofLeft);
-                const rightBSP = CSG.fromMesh(roofRight);
-                const roofBSP = leftBSP.union(rightBSP);
-                
-                roofMesh = CSG.toMesh(roofBSP, new THREE.Matrix4());
-                roofMesh.material = hangarMaterial;
-            } catch (csgError) {
-                console.warn('[HANGAR] CSG roof union failed, using separate pieces:', csgError);
-                roofMesh = new THREE.Group();
-                roofMesh.add(roofLeft, roofRight);
-            }
-        } else {
-            roofMesh = new THREE.Group();
-            roofMesh.add(roofLeft, roofRight);
-        }
+        const roofGeometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+        // gira para alinhar o arco como teto (profundidade no Z)
+        roofGeometry.rotateX(Math.PI / 2);
+        // centralizar o extrude ao longo de Z
+        roofGeometry.translate(0, height - roofThickness + outerRadius, -roofLength / 2);
+
+        const roofMesh = new THREE.Mesh(roofGeometry, hangarMaterial);
+        roofMesh.castShadow = true;
+        roofMesh.receiveShadow = true;
+        roofMesh.rotation.x = Math.PI / 2; // alinha ao eixo Z (profundidade)
 
         hangarGroup.add(roofMesh);
         QuickTexture.hangarWalls(roofMesh);
-
-        // === COLUNAS DE REFORÇO FRONTAL ===
         
         const columnGeometry = new THREE.BoxGeometry(wallThickness, height, wallThickness);
         const columnMaterial = hangarMaterial.clone();
@@ -169,13 +145,11 @@ export function createHangar(opts = {}) {
         colRight.position.set(halfDoor + wallThickness, height / 2, depth / 2 - wallThickness / 2);
         
         hangarGroup.add(colLeft, colRight);
-
-        // === PORTAS DESLIZANTES (para animação) ===
         
         const doorPanelWidth = doorWidth / 2 - 1; // Duas portas que se abrem para os lados
         const doorPanelGeometry = new THREE.BoxGeometry(doorPanelWidth, doorHeight, wallThickness);
         const doorPanelMaterial = new THREE.MeshStandardMaterial({
-            color: color * 0.8, // Cor ligeiramente mais escura para as portas
+            color: color * 0.8,
             metalness: metalness * 1.2,
             roughness: roughness * 0.8,
         });
@@ -196,9 +170,6 @@ export function createHangar(opts = {}) {
 
         hangarGroup.add(leftDoor, rightDoor);
 
-        // === DETALHES ESTRUTURAIS ===
-        
-        // Vigas horizontais
         const beamGeometry = new THREE.BoxGeometry(width + roofOverhang * 2, wallThickness * 0.7, wallThickness);
         const frontBeam = new THREE.Mesh(beamGeometry, hangarMaterial);
         frontBeam.position.set(0, height - wallThickness, depth / 2 - wallThickness);
@@ -211,14 +182,12 @@ export function createHangar(opts = {}) {
     } catch (error) {
         console.error('[HANGAR] Error creating hangar with CSG:', error);
         
-        // Fallback: criar hangar simples sem CSG
         const fallbackGeometry = new THREE.BoxGeometry(width, height, depth);
         const fallbackMesh = new THREE.Mesh(fallbackGeometry, hangarMaterial);
         fallbackMesh.position.set(0, height / 2, 0);
         hangarGroup.add(fallbackMesh);
     }
 
-    // Configurar sombras para todos os objetos
     hangarGroup.traverse((child) => {
         if (child.isMesh) {
             child.castShadow = true;
@@ -226,14 +195,10 @@ export function createHangar(opts = {}) {
         }
     });
 
-    // === APENAS COLISÕES SIMPLES PARA AS PORTAS ===
-    // Não criar colisões internas complexas, deixar o hangar livre por dentro
     createSimpleHangarCollisions(hangarGroup, width, height, depth, doorWidth, doorHeight);
 
-    // Centralizar o grupo no chão (y=0)
     hangarGroup.position.y = 0;
 
-    // === CHÃO DO HANGAR ===
     const floorGeometry = new THREE.PlaneGeometry(width, depth);
     const floorMaterial = new THREE.MeshStandardMaterial({
         color: 0xaaaaaa,
@@ -245,8 +210,7 @@ export function createHangar(opts = {}) {
     floorMesh.rotation.x = -Math.PI / 2; // Rotacionar para ficar no plano XZ
     floorMesh.position.y = 0; // Posicionar no nível do chão
 
-    // Aplicar textura ao chão
-    QuickTexture.hangarFloor(floorMesh); // Usando a textura de concreto acabado
+    QuickTexture.hangarFloor(floorMesh);
 
     hangarGroup.add(floorMesh);
 
