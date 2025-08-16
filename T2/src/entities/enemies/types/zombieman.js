@@ -30,6 +30,8 @@ export class Zombieman extends Enemy {
     this.loadSprite();
     this.createHitbox();
     
+    this.camera = null;
+    this.scene = null;
     this.attack = this.attack.bind(this);
   }
 
@@ -128,7 +130,7 @@ export class Zombieman extends Enemy {
   }
   
    attack(targetPosition) {
-    if (!this.isAlive || this.isDying) return;
+   if (!this.isAlive || this.isDying) return;
     const now = Date.now() / 1000;
     if (now - this.lastAttackTime < this.config.attackCooldown) return;
     
@@ -140,7 +142,7 @@ export class Zombieman extends Enemy {
     }
 
     // Determina a direção do ataque baseado na posição do jogador
-    const direction = this.getAttackDirection(targetPosition);
+    const direction = this.getAttackDirection(targetPosition, this.camera);
     const attackAction = this.getAttackAction(direction);
     
     if (attackAction) {
@@ -155,8 +157,7 @@ export class Zombieman extends Enemy {
     
     this.lastAttackTime = now;
 
-    // --- NOVA LÓGICA DE FUGA ---
-    // Define uma direção de movimento aleatória após atirar.
+    
     const escapeDirection = new THREE.Vector3(
       Math.random() - 0.5,
       0, // Mantém o movimento no plano XZ
@@ -171,21 +172,42 @@ export class Zombieman extends Enemy {
     // --- FIM DA NOVA LÓGICA ---
   }
 
-   getAttackDirection(targetPosition) {
-    const toPlayer = new THREE.Vector3().subVectors(targetPosition, this.mesh.position).normalize();
-    const forward = new THREE.Vector3(0, 0, 1);
-    const angle = Math.atan2(toPlayer.x, toPlayer.z);
-    const angleDeg = THREE.MathUtils.radToDeg(angle);
+   getAttackDirection(targetPosition, camera) {
+    // 1. Vetor do inimigo para o jogador (projetado no plano XZ)
+    const toPlayer = new THREE.Vector3().subVectors(targetPosition, this.mesh.position);
+    toPlayer.y = 0;
+    toPlayer.normalize();
+
+    // 2. Vetor de direção da câmera (projetado no plano XZ)
+    const cameraDirection = new THREE.Vector3();
+    camera.getWorldDirection(cameraDirection);
+    cameraDirection.y = 0;
+    cameraDirection.normalize();
+
+    // 3. Calcula o ângulo do ataque e o ângulo da câmera
+    const attackAngle = Math.atan2(toPlayer.x, toPlayer.z);
+    const cameraAngle = Math.atan2(cameraDirection.x, cameraDirection.z);
     
-    // Mapeia o ângulo para uma direção
+    // 4. A diferença entre os ângulos nos dá o ângulo relativo
+    let relativeAngle = attackAngle - cameraAngle;
+
+    // Normaliza o ângulo para o intervalo [-PI, PI] para evitar problemas de "wrap-around"
+    if (relativeAngle > Math.PI) relativeAngle -= 2 * Math.PI;
+    if (relativeAngle < -Math.PI) relativeAngle += 2 * Math.PI;
+
+    // 5. Converte para graus e usa a mesma lógica de mapeamento de antes
+    const angleDeg = THREE.MathUtils.radToDeg(relativeAngle);
+    
+    // O inimigo deve usar a animação "para cima" quando atira para longe da câmera
+    // e "para baixo" quando atira em direção à câmera.
     if (angleDeg >= -22.5 && angleDeg < 22.5) return 'up';
-    if (angleDeg >= 22.5 && angleDeg < 67.5) return 'ru';
-    if (angleDeg >= 67.5 && angleDeg < 112.5) return 'right';
-    if (angleDeg >= 112.5 && angleDeg < 157.5) return 'rd';
+    if (angleDeg >= 22.5 && angleDeg < 67.5) return 'lu'; // Invertido: Esquerda da câmera é direita do inimigo
+    if (angleDeg >= 67.5 && angleDeg < 112.5) return 'left';
+    if (angleDeg >= 112.5 && angleDeg < 157.5) return 'ld';
     if (angleDeg >= 157.5 || angleDeg < -157.5) return 'down';
-    if (angleDeg >= -157.5 && angleDeg < -112.5) return 'ld';
-    if (angleDeg >= -112.5 && angleDeg < -67.5) return 'left';
-    if (angleDeg >= -67.5 && angleDeg < -22.5) return 'lu';
+    if (angleDeg >= -157.5 && angleDeg < -112.5) return 'rd'; // Invertido: Direita da câmera é esquerda do inimigo
+    if (angleDeg >= -112.5 && angleDeg < -67.5) return 'right';
+    if (angleDeg >= -67.5 && angleDeg < -22.5) return 'ru';
     
     return 'up';
   }
@@ -207,17 +229,28 @@ export class Zombieman extends Enemy {
 
 
   fireProjectile(targetPosition) {
-    const direction = new THREE.Vector3().subVectors(targetPosition, this.mesh.position).normalize();
-    const projectile = new ZombiemanProjectile(this.mesh.position, direction);
-    
+    // Garante que o inimigo esteja na cena para encontrar o 'parent'
+    if (!this.mesh.parent) {
+      console.error("Zombieman não pode atirar: a malha do inimigo não foi adicionada a uma cena.");
+      return;
+    }
+
+    const projectileDirection = new THREE.Vector3().subVectors(targetPosition, this.mesh.position).normalize();
+    const projectile = new ZombiemanProjectile(
+      this.mesh.position.clone(),
+      projectileDirection,
+      { damage: this.config.damage }
+    );
+
     this.activeProjectiles.push(projectile);
     
-    if (this.mesh.parent) {
-      this.mesh.parent.add(projectile.mesh);
-    }
+    // A MÁGICA ACONTECE AQUI: Adiciona o projétil ao mesmo 'parent' do Zombieman (a cena)
+    this.mesh.parent.add(projectile.mesh);
   }
   
-  update(delta, camera, targetPosition, collidableObjects, otherEnemies) {
+  update(delta, camera, targetPosition, collidableObjects, otherEnemies, scene) {
+    this.camera = camera;
+
     if (this.isDying) {
       if (this.spriteMixer) this.spriteMixer.update(delta);
       if (this.actionSprite) this.actionSprite.quaternion.copy(camera.quaternion);
@@ -253,19 +286,20 @@ export class Zombieman extends Enemy {
     if (this.spriteMixer) this.spriteMixer.update(delta);
     
     // Atualiza projéteis
-    for (let i = this.activeProjectiles.length - 1; i >= 0; i--) {
+     for (let i = this.activeProjectiles.length - 1; i >= 0; i--) {
       const projectile = this.activeProjectiles[i];
       projectile.update(delta);
-      
-      if(projectile.checkCollision({position: targetPosition, radius: 1.0})) {
+
+      // A checagem de colisão e o evento de dano continuam sendo responsabilidade do Zombieman
+      if (projectile.checkCollision({position: targetPosition, radius: 1.0})) {
         this.emit('dealDamage', { damage: projectile.config.damage });
-        projectile.destroy();
+        projectile.destroy(); // O projétil se remove da cena
         this.activeProjectiles.splice(i, 1);
-      } else if (!projectile.isActive) {
-        this.activeProjectiles.splice(i, 1);
+      } else if (!projectile.isActive) { // Se ficou inativo por distância
+        this.activeProjectiles.splice(i, 1); // Apenas remove da lista, pois destroy() já foi chamado
       }
     }
-    
+
     if (this.actionSprite) {
       this.actionSprite.quaternion.copy(camera.quaternion);
     }
