@@ -47,20 +47,20 @@ export class ZombiemanProjectile {
   }
 
   checkCollision(player) {
-    if (!this.isActive || !player || !player.position) return false;
+  if (!this.isActive || !player || !player.position) return false;
 
-    const playerRadius = player.radius || 1.0; // Raio do jogador padrão
-    const distanceToPlayer = this.mesh.position.distanceTo(player.position);
+  const playerRadius = player.radius || 1.0; 
+  const distanceToPlayer = this.mesh.position.distanceTo(player.position);
 
-    if (distanceToPlayer < this.config.radius + playerRadius) {
-      this.onHit(player);
-      return true;
-    }
-    return false;
+  if (distanceToPlayer < this.config.radius + playerRadius) {
+    this.onHit(player); // Chama onHit ao colidir
+    return true;
   }
+  return false;
+}
 
   onHit(target) {
-    // Dispara um evento global quando atinge o jogador
+    // Dispara um evento global quando atinge o jogador3
      if (typeof window.playerTakeDamage === 'function') {
     window.playerTakeDamage(this.config.damage);
     } else {

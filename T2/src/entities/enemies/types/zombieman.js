@@ -2,6 +2,7 @@ import * as THREE from '../../../../../build/three.module.js';
 import { Enemy } from '../base/enemies.js';
 import { ZombiemanProjectile } from '../systems/zombiemanProjectile.js';
 import { SpriteMixer } from '../../../../../libs/sprites/SpriteMixer.js';
+import { hitbox } from '../../player/player.js';
 
 export class Zombieman extends Enemy {
    constructor(position = [0, 0, 0], config = {}) {
@@ -27,6 +28,7 @@ export class Zombieman extends Enemy {
     this.actions = {};
     this.lastRunning = null;
     this.isMoving = false;
+    this.player = hitbox;
 
     this.loadSprite();
     this.createHitbox();
@@ -303,18 +305,14 @@ export class Zombieman extends Enemy {
     
     // Atualiza projéteis
      for (let i = this.activeProjectiles.length - 1; i >= 0; i--) {
-      const projectile = this.activeProjectiles[i];
-      projectile.update(delta);
-
-      // A checagem de colisão e o evento de dano continuam sendo responsabilidade do Zombieman
-      if (projectile.checkCollision({position: targetPosition, radius: 1.0})) {
-        this.emit('dealDamage', { damage: projectile.config.damage });
-        projectile.destroy(); // O projétil se remove da cena
-        this.activeProjectiles.splice(i, 1);
-      } else if (!projectile.isActive) { // Se ficou inativo por distância
-        this.activeProjectiles.splice(i, 1); // Apenas remove da lista, pois destroy() já foi chamado
-      }
+    const projectile = this.activeProjectiles[i];
+    
+    // Agora passamos o objeto 'player' para o projétil.
+    // Se o projétil retornar 'false', significa que ele se tornou inativo.
+    if (!projectile.update(delta, this.player)) {
+      this.activeProjectiles.splice(i, 1); // Removemos o projétil inativo da lista.
     }
+  }
 
     if (this.actionSprite) {
       this.actionSprite.quaternion.copy(camera.quaternion);
