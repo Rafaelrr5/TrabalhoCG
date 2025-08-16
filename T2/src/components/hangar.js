@@ -381,8 +381,6 @@ export async function createArea3(scene, materials, collidableObjects) {
     
     enableShadowsForAll(area3);
     
-    // Criar chave azul para acesso à área 4 (labirinto)
-    // Posicionada dentro do hangar para ser encontrada pelo jogador
     const blueKeyPosition = new THREE.Vector3(156.25, WORLD_CONFIG.AREA_Y_POSITION + 2, -80.0); // Dentro do hangar
     const blueKeyInstance = new Key('blue', blueKeyPosition);
     
@@ -391,41 +389,21 @@ export async function createArea3(scene, materials, collidableObjects) {
             blueKeyInstance.getMesh().position.copy(blueKeyPosition);
             blueKeyInstance.position.copy(blueKeyPosition);
             blueKeyInstance.originalY = blueKeyPosition.y;
-            console.log('[HANGAR] ✅ Chave azul criada para acesso à área 4');
         }
     }
-    
-    // Funções de debug/teste
-    setupHangarDebugFunctions(hangarModel);
 }
 
-// Funções para gerenciar colisões do hangar separadamente
 function markHangarStaticCollisions(area3, collidableObjects) {
     area3.traverse((child) => {
         if (child.isMesh) {
-            // Adicionar paredes do hangar às colisões (sempre ativas)
             if (child.userData?.isHangarWall) {
                 collidableObjects.push(child);
-                console.log('[HANGAR] Parede adicionada às colisões:', child.name || 'unnamed wall');
-            }
-            // NÃO adicionar portas nem bloqueador (serão gerenciados dinamicamente)
-            else if (child.userData?.isDoor) {
-                console.log('[HANGAR] Porta encontrada (será gerenciada dinamicamente):', child.name || 'unnamed door');
-            } else if (child.userData?.isDoorBlocker) {
-                console.log('[HANGAR] Bloqueador encontrado (será gerenciado dinamicamente):', child.name || 'unnamed blocker');
-            } else if (child.userData?.isHangarStructure) {
-                console.log('[HANGAR] Estrutura do hangar encontrada (sem colisão para movimento livre):', child.name || 'unnamed structure');
-            } else {
-                console.log('[HANGAR] Elemento do hangar ignorado:', child.name || 'unnamed element');
             }
         }
     });
-    
-    console.log('[HANGAR] ✅ Paredes do hangar adicionadas às colisões');
 }
 
 function setupDynamicDoorCollisions(hangarModel, collidableObjects) {
-    // Encontrar as portas
     const doors = [];
     hangarModel.traverse((child) => {
         if (child.userData && child.userData.isDoor) {
@@ -433,7 +411,6 @@ function setupDynamicDoorCollisions(hangarModel, collidableObjects) {
         }
     });
     
-    // Encontrar o bloqueador da porta
     let doorBlocker = null;
     hangarModel.traverse((child) => {
         if (child.userData && child.userData.isDoorBlocker) {
@@ -441,20 +418,16 @@ function setupDynamicDoorCollisions(hangarModel, collidableObjects) {
         }
     });
     
-    // Inicialmente, as portas estão fechadas, então:
-    // 1. Adicionar as portas às colisões
     doors.forEach(door => {
         collidableObjects.push(door);
         console.log('[HANGAR] Porta adicionada às colisões (fechada):', door.name || 'unnamed door');
     });
     
-    // 2. Adicionar o bloqueador da porta às colisões (porta fechada = bloqueada)
     if (doorBlocker) {
         collidableObjects.push(doorBlocker);
         console.log('[HANGAR] Bloqueador da porta adicionado às colisões (porta fechada)');
     }
     
-    // Salvar referências para gerenciamento posterior
     hangarModel.userData.doorCollisions = doors.map(door => ({
         door: door,
         inCollisions: true
@@ -471,13 +444,11 @@ function setupDynamicDoorCollisions(hangarModel, collidableObjects) {
 function manageDoorCollisions(hangarModel, collidableObjects, shouldOpen) {
     if (!hangarModel.userData.doorCollisions) return;
     
-    // Gerenciar colisões das portas
     hangarModel.userData.doorCollisions.forEach(doorData => {
         const { door } = doorData;
         const index = collidableObjects.indexOf(door);
         
         if (shouldOpen && index !== -1) {
-            // Remover porta das colisões quando abrir
             collidableObjects.splice(index, 1);
             console.log('[HANGAR] Porta removida das colisões (aberta):', door.name || 'unnamed door');
             doorData.inCollisions = false;
@@ -489,7 +460,6 @@ function manageDoorCollisions(hangarModel, collidableObjects, shouldOpen) {
         }
     });
     
-    // Gerenciar bloqueador da porta (sistema simplificado)
     if (hangarModel.userData.doorBlocker) {
         const { blocker } = hangarModel.userData.doorBlocker;
         const index = collidableObjects.indexOf(blocker);
@@ -606,43 +576,27 @@ export function updateHangarDoors(delta, camera, scene, collidableObjects, keyMa
     ); // Calcular distância apenas no plano horizontal (X, Z)
     
     const openDistance = 80; // Aumentar distância para abrir
-    const closeDistance = 120; // Aumentar distância para fechar
     
-    // Verificar se o jogador tem a chave da área 2 (chave amarela)
     const hasHangarKey = keyManager ? keyManager.hasKey('yellow') : false;
     
-    // Log de debug a cada 60 frames (aproximadamente 1 segundo)
-    if (Math.floor(Date.now() / 1000) % 2 === 0 && Math.random() < 0.1) {
-        console.log(`[HANGAR DEBUG] Distância: ${distance.toFixed(2)}, Tem chave amarela: ${hasHangarKey}, Portas abertas: ${hangar.userData.doorsOpen}, Animando: ${hangar.userData.animating}`);
-    }
-    
-    // Só abrir as portas se estiver perto E tiver a chave
     if (distance < openDistance && !hangar.userData.doorsOpen && !hangar.userData.animating) {
         if (hasHangarKey) {
             console.log('[HANGAR DEBUG] ✅ Abrindo portas do hangar!');
             
-            // Remover a chave amarela do inventário
             if (keyManager && keyManager.useKey) {
                 keyManager.useKey('yellow');
                 console.log('[HANGAR DEBUG] ✅ Chave amarela removida do inventário');
                 
-                // Disparar evento para atualizar UI
                 window.dispatchEvent(new CustomEvent('keyRemoved', { detail: { keyType: 'yellow' } }));
             }
             
             animateHangarDoors(hangar, true, collidableObjects);
             
-            // Marcar que as portas foram permanentemente abertas
             hangar.userData.permanentlyOpen = true;
-        } else {
-            console.log('[HANGAR DEBUG] ❌ Próximo do hangar mas sem chave amarela');
         }
     } 
-    // NÃO fechar as portas uma vez abertas - remover lógica de fechamento
-    // As portas permanecem abertas permanentemente após serem abertas com a chave
 }
 
-// Função para verificar se o jogador está dentro do hangar
 export function isPlayerInsideHangar(camera, scene) {
     const area3 = scene.getObjectByName('Area3');
     if (!area3) return false;
@@ -652,13 +606,10 @@ export function isPlayerInsideHangar(camera, scene) {
     
     const playerPos = camera.position;
     const hangarPos = hangar.position;
-    
-    // Dimensões do hangar (baseadas nos parâmetros usados na criação)
     const hangarWidth = 160;  // Atualizado para nova largura
     const hangarDepth = 120;  // Atualizado para nova profundidade
     const hangarHeight = 35;
     
-    // Calcular limites do hangar
     const minX = hangarPos.x - hangarWidth / 2;
     const maxX = hangarPos.x + hangarWidth / 2;
     const minY = hangarPos.y;
@@ -666,120 +617,9 @@ export function isPlayerInsideHangar(camera, scene) {
     const minZ = hangarPos.z - hangarDepth / 2;
     const maxZ = hangarPos.z + hangarDepth / 2;
     
-    // Verificar se o jogador está dentro das dimensões do hangar
     const insideX = playerPos.x >= minX && playerPos.x <= maxX;
     const insideY = playerPos.y >= minY && playerPos.y <= maxY;
     const insideZ = playerPos.z >= minZ && playerPos.z <= maxZ;
     
     return insideX && insideY && insideZ;
-}
-
-// Função para verificar se o jogador está na zona de entrada do hangar
-function isPlayerInHangarEntranceZone(camera, hangarModel) {
-    const playerPos = camera.position;
-    const hangarPos = hangarModel.position;
-    
-    // Zona de entrada na frente do hangar
-    const entranceWidth = 110; // Ligeiramente maior que a nova porta (era 90)
-    const entranceDepth = 25;  // Profundidade da zona de entrada aumentada
-    
-    const minX = hangarPos.x - entranceWidth / 2;
-    const maxX = hangarPos.x + entranceWidth / 2;
-    const minZ = hangarPos.z + 60; // Ajustado para a nova posição do hangar
-    const maxZ = hangarPos.z + 60 + entranceDepth;
-    
-    const inEntranceX = playerPos.x >= minX && playerPos.x <= maxX;
-    const inEntranceZ = playerPos.z >= minZ && playerPos.z <= maxZ;
-    
-    return inEntranceX && inEntranceZ;
-}
-
-// Configurar funções de debug
-function setupHangarDebugFunctions(hangarModel) {
-    window.testHangarVisibility = function() {            
-        hangarModel.visible = true;
-        hangarModel.traverse((child) => {
-            if (child.isMesh) {
-                child.visible = true;
-            }
-        });
-    };
-    
-    window.toggleHangarDoors = function() {
-        console.log('[DEBUG] Toggling hangar doors (bypass key check)...');
-        const collidableObjects = hangarModel.userData.collidableObjectsRef;
-        animateHangarDoors(hangarModel, !hangarModel.userData.doorsOpen, collidableObjects);
-    };
-    
-    // Função para testar o sistema de chaves
-    window.testHangarWithKey = function(hasKey = true) {
-        console.log(`[DEBUG] Testando hangar com chave amarela: ${hasKey}`);
-        
-        // Simular keyManager com ou sem chave
-        const mockKeyManager = { 
-            hasKey: (keyType) => hasKey && keyType === 'yellow' 
-        };
-        
-        const collidableObjects = hangarModel.userData.collidableObjectsRef;
-        
-        // Simular proximidade
-        const mockCamera = { position: hangarModel.position.clone() };
-        const mockScene = { getObjectByName: (name) => name === 'Area3' ? { getObjectByName: () => hangarModel } : null };
-        
-        updateHangarDoors(0, mockCamera, mockScene, collidableObjects, mockKeyManager);
-    };
-    
-    // Função para dar a chave vermelha ao jogador (debug)
-    window.giveRedKey = function() {
-        if (typeof window.keyManager !== 'undefined') {
-            window.keyManager.addKeyToInventory('red');
-            console.log('[DEBUG] Chave vermelha adicionada ao inventário!');
-            console.log('[DEBUG] Chaves no inventário:', window.keyManager.getCollectedKeys());
-        } else {
-            console.log('[DEBUG] KeyManager não disponível no escopo global');
-        }
-    };
-    
-    // Função para testar se tem chave
-    window.checkHangarKey = function() {
-        if (typeof window.keyManager !== 'undefined') {
-            const hasKey = window.keyManager.hasKey('red');
-            console.log(`[DEBUG] Jogador tem chave vermelha: ${hasKey}`);
-            console.log('[DEBUG] Chaves no inventário:', window.keyManager.getCollectedKeys());
-        } else {
-            console.log('[DEBUG] KeyManager não disponível');
-        }
-    };
-    
-    // Função de debug para mostrar informações do hangar
-    window.debugHangar = function() {
-        console.log('[DEBUG HANGAR] Estado das portas:', hangarModel.userData.doorsOpen ? 'ABERTAS' : 'FECHADAS');
-        console.log('[DEBUG HANGAR] Animando:', hangarModel.userData.animating);
-        console.log('[DEBUG HANGAR] Portas encontradas:', hangarModel.userData.doors?.length || 0);
-        console.log('[DEBUG HANGAR] Colisões de portas:', hangarModel.userData.doorCollisions?.length || 0);
-        console.log('[DEBUG HANGAR] Bloqueador de porta:', hangarModel.userData.doorBlocker ? 'ENCONTRADO' : 'NÃO ENCONTRADO');
-        
-        // Mostrar estado das colisões das portas
-        if (hangarModel.userData.doorCollisions) {
-            hangarModel.userData.doorCollisions.forEach((doorData, i) => {
-                console.log(`[DEBUG] Porta ${i + 1}: ${doorData.door.name} - ativa: ${doorData.inCollisions}`);
-            });
-        }
-        
-        // Mostrar estado do bloqueador
-        if (hangarModel.userData.doorBlocker) {
-            console.log(`[DEBUG] Bloqueador: ${hangarModel.userData.doorBlocker.blocker.name} - ativo: ${hangarModel.userData.doorBlocker.inCollisions}`);
-        }
-        
-        // Informações de posição
-        const playerPos = window.camera ? window.camera.position : { x: 0, y: 0, z: 0 };
-        const hangarPos = hangarModel.position;
-        const distance = Math.sqrt(
-            Math.pow(playerPos.x - hangarPos.x, 2) + 
-            Math.pow(playerPos.z - hangarPos.z, 2)
-        );
-        console.log(`[DEBUG] Distância do jogador ao hangar: ${distance.toFixed(2)}`);
-        console.log(`[DEBUG] Posição do jogador: (${playerPos.x.toFixed(2)}, ${playerPos.y.toFixed(2)}, ${playerPos.z.toFixed(2)})`);
-        console.log(`[DEBUG] Posição do hangar: (${hangarPos.x.toFixed(2)}, ${hangarPos.y.toFixed(2)}, ${hangarPos.z.toFixed(2)})`);
-    };
 }

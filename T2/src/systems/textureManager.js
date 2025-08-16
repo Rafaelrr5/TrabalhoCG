@@ -27,7 +27,6 @@ class SimpleTextureManager {
                 if (options.repeat) texture.repeat.set(options.repeat.x || 1, options.repeat.y || 1);
                 
                 this.cache.set(name, texture);
-                console.log(`✅ Textura carregada: ${name}`);
                 return texture;
             } catch (e) {
                 continue;

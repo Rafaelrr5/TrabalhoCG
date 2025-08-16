@@ -15,11 +15,8 @@ export async function applyTexture(object, textureName, materialType = 'standard
             }
         });
     }
-    
-    console.log(`✅ Textura ${textureName} aplicada`);
 }
 
-// Aplicar texturas por critérios
 export async function applyTextureByCriteria(scene, criteria, textureName, materialType = 'standard', properties = {}) {
     let count = 0;
     
@@ -44,7 +41,6 @@ function matchesCriteria(object, criteria) {
     return true;
 }
 
-// Presets rápidos para tipos comuns (usando configurações modulares)
 export const TexturePresets = {
     metal: (roughness = TEXTURE_CONFIG.MATERIAL_PRESETS.METAL.ROUGHNESS, metalness = TEXTURE_CONFIG.MATERIAL_PRESETS.METAL.METALNESS) => ({
         materialType: 'standard',
@@ -82,7 +78,6 @@ export const TexturePresets = {
     })
 };
 
-// Função para aplicar com preset
 export async function applyTextureWithPreset(object, textureName, presetName, customProps = {}) {
     const preset = TexturePresets[presetName];
     if (!preset) {
@@ -96,7 +91,6 @@ export async function applyTextureWithPreset(object, textureName, presetName, cu
     await applyTexture(object, textureName, config.materialType, finalProps);
 }
 
-// Aplicar texturas aleatórias
 export async function applyRandomTextures(objects, textureNames, materialType = 'standard') {
     for (const object of objects) {
         const randomTexture = textureNames[Math.floor(Math.random() * textureNames.length)];
@@ -104,7 +98,6 @@ export async function applyRandomTextures(objects, textureNames, materialType = 
     }
 }
 
-// Aplicar variações de um mesmo material
 export async function applyMaterialVariations(objects, textureName, variations) {
     for (let i = 0; i < objects.length; i++) {
         const variation = variations[i % variations.length];
