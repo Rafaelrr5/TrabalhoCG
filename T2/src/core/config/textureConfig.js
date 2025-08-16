@@ -83,18 +83,23 @@ export const TEXTURE_CONFIG = {
         METALNESS: 0.5
     },
 
-    // Textura para colunas romanas
     ROMAN_COLUMNS: {
-        NAME: 'pedradifusa.png',
+        NAME: 'rustic_stone_wall_02_diff_4k.jpg',        // Textura difusa (cor base)
+        NORMAL_MAP: 'rustic_stone_wall_02_nor_gl_4k.jpg', // Normal map para detalhes de iluminação
+        DISPLACEMENT_MAP: 'rustic_stone_wall_02_disp_4k.jpg', // Displacement map para relevo real
         REPEAT: { x: 2, y: 4 },
         ROUGHNESS: 0.8,
-        METALNESS: 0.0
+        METALNESS: 0.0,
+        MATERIAL_TYPE: 'standard',
+        NORMAL_SCALE: { x: 0.7, y: 0.7 },
+        DISPLACEMENT_SCALE: 0.3,
+        COLOR: 0xffffff  // Cor branca para não alterar a textura difusa
     },
     
     MATERIAL_PRESETS: {
         STONE: {
-            ROUGHNESS: 0.8,
-            METALNESS: 0.0
+            ROUGHNESS: 1.0,  // Máxima rugosidade para efeito difuso
+            METALNESS: 0.0   // Zero metalness para material não metálico
         },
         WOOD: {
             ROUGHNESS: 0.7,

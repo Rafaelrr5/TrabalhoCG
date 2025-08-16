@@ -105,14 +105,50 @@ export async function applyMaterialVariations(objects, textureName, variations) 
     }
 }
 
+// Função especializada para aplicar texturas avançadas com displacement e normal mapping
+export async function applyAdvancedTexture(object, config) {
+    const manager = getTextureManager();
+    
+    // Criar material com todas as configurações avançadas
+    const material = await manager.createMaterial(config.diffuse, 'standard', {
+        roughness: config.roughness || 0.5,
+        metalness: config.metalness || 0.0,
+        color: config.color || 0xffffff,
+        normalMap: config.normalMap,
+        normalScale: config.normalScale,
+        displacementMap: config.displacementMap,
+        displacementScale: config.displacementScale,
+        textureOptions: { repeat: config.repeat || { x: 1, y: 1 } }
+    });
+    
+    // Aplicar material ao objeto
+    if (object.isMesh) {
+        object.material = material;
+    } else {
+        object.traverse(child => {
+            if (child.isMesh) {
+                child.material = material;
+            }
+        });
+    }
+    
+    // Configurar repeat para todas as texturas
+    if (config.repeat) {
+        manager.setTextureOptions(material, config.repeat.x, config.repeat.y);
+    }
+}
+
 export const QuickTexture = {
     metal: async (object, textureName = TEXTURE_CONFIG.METAL_BLOCKS.NAME) => 
         await applyTextureWithPreset(object, textureName, 'metal'),
         
-    stone: async (object, textureName = 'pedra.jpg') => 
-        await applyTextureWithPreset(object, textureName, 'stone'),
+    stone: async (object, textureName = 'pedradifusa.png') => 
+        await applyTexture(object, textureName, 'lambert', {
+            // Material Lambert para melhor difusão da pedra
+            color: 0xf0f0f0, // Cor ligeiramente acinzentada para realçar a textura
+        }),
         
-    wood: async (object, textureName = 'madeira.jpg') => 
+    wood: async (object, textureName = 'difusa.jpg') => 
         await applyTextureWithPreset(object, textureName, 'wood'),
         
     floor: async (object, textureName = TEXTURE_CONFIG.FLOOR_TEXTURE.NAME) => 
@@ -192,10 +228,18 @@ export const QuickTexture = {
             textureOptions: { repeat: TEXTURE_CONFIG.HANGAR_WALLS.REPEAT }
         }),
 
-    romanColumns: async (object, textureName = TEXTURE_CONFIG.ROMAN_COLUMNS.NAME) => 
-        await applyTexture(object, textureName, 'standard', {
-            roughness: TEXTURE_CONFIG.ROMAN_COLUMNS.ROUGHNESS,
-            metalness: TEXTURE_CONFIG.ROMAN_COLUMNS.METALNESS,
-            textureOptions: { repeat: TEXTURE_CONFIG.ROMAN_COLUMNS.REPEAT }
-        }),
+    romanColumns: async (object, textureName = TEXTURE_CONFIG.ROMAN_COLUMNS.NAME) => {
+        const config = TEXTURE_CONFIG.ROMAN_COLUMNS;
+        await applyAdvancedTexture(object, {
+            diffuse: config.NAME,
+            roughness: config.ROUGHNESS,
+            metalness: config.METALNESS,
+            color: config.COLOR,
+            normalMap: config.NORMAL_MAP,
+            normalScale: config.NORMAL_SCALE,
+            displacementMap: config.DISPLACEMENT_MAP,
+            displacementScale: config.DISPLACEMENT_SCALE,
+            repeat: config.REPEAT
+        });
+    },
 };

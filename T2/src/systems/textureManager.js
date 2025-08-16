@@ -41,14 +41,43 @@ class SimpleTextureManager {
     async createMaterial(textureName, materialType = 'standard', properties = {}) {
         const texture = await this.load(textureName, properties.textureOptions);
         
+        // Carregar texturas adicionais se especificadas
+        let normalMap = null;
+        let displacementMap = null;
+        
+        if (properties.normalMap) {
+            normalMap = await this.load(properties.normalMap, properties.textureOptions);
+        }
+        
+        if (properties.displacementMap) {
+            displacementMap = await this.load(properties.displacementMap, properties.textureOptions);
+        }
+        
         // Separate textureOptions from material properties
-        const { textureOptions, ...materialProps } = properties;
+        const { textureOptions, normalMap: normalMapName, displacementMap: displacementMapName, 
+                normalScale, displacementScale, ...materialProps } = properties;
         
         const defaultProps = {
             map: texture,
-            color: 0xffffff,
+            color: properties.color || 0xffffff,
             ...materialProps  // Only spread actual material properties
         };
+
+        // Adicionar normal map se disponível
+        if (normalMap) {
+            defaultProps.normalMap = normalMap;
+            if (normalScale) {
+                defaultProps.normalScale = new THREE.Vector2(normalScale.x || 1, normalScale.y || 1);
+            }
+        }
+
+        // Adicionar displacement map se disponível
+        if (displacementMap) {
+            defaultProps.displacementMap = displacementMap;
+            if (displacementScale !== undefined) {
+                defaultProps.displacementScale = displacementScale;
+            }
+        }
 
         switch (materialType) {
             case 'standard':
@@ -66,6 +95,24 @@ class SimpleTextureManager {
                 });
             default:
                 return new THREE.MeshStandardMaterial(defaultProps);
+        }
+    }
+
+    // Função helper para configurar múltiplas texturas com repeat
+    setTextureOptions(material, repeatU, repeatV) {
+        if (material.map) {
+            material.map.repeat.set(repeatU, repeatV);
+            material.map.wrapS = material.map.wrapT = THREE.RepeatWrapping;
+        }
+        
+        if (material.normalMap) {
+            material.normalMap.repeat.set(repeatU, repeatV);
+            material.normalMap.wrapS = material.normalMap.wrapT = THREE.RepeatWrapping;
+        }
+        
+        if (material.displacementMap) {
+            material.displacementMap.repeat.set(repeatU, repeatV);
+            material.displacementMap.wrapS = material.displacementMap.wrapT = THREE.RepeatWrapping;
         }
     }
 }

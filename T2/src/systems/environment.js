@@ -467,14 +467,13 @@ function addWallDetails(wallsGroup, wallMaterial, wallHeight, hiddenMode = false
     });
 }
 
-// Cria colunas romanas ao redor da Área 1
 async function createRomanColumns(scene) {
     const columnsGroup = new THREE.Group();
     columnsGroup.name = "RomanColumns";
     const columnHeight = 12;
     const columnRadius = 2;
-    const columnSegments = 24; // Reduzido para performance, ainda mantendo qualidade
-    const columnHeightSegments = 8; // Reduzido para performance
+    const columnSegments = 24;
+    const columnHeightSegments = 8;
     const capitalHeight = 1.5;
     const baseHeight = 1;
     
@@ -502,21 +501,17 @@ async function createRomanColumns(scene) {
         { x: -152.25 + 50, z: -131.0 + 25 }
     ];
     
-    // Criar material base para as colunas (material temporário)
     const baseMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0xf5f5dc, // Bege claro (mármore/pedra)
+        color: 0xf5f5dc,
         roughness: 0.8,
         metalness: 0.0,
         transparent: false
     });
     
-    // Criar todas as colunas primeiro com material base
     columnPositions.forEach((pos, index) => {
         const column = createSingleColumn(columnRadius, columnHeight, columnSegments, columnHeightSegments, capitalHeight, baseHeight, baseMaterial);
-        // Posiciona a coluna apoiada sobre a superfície da área
         column.position.set(pos.x, WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT/2 + columnHeight/2, pos.z);
         
-        // Garantir que todas as meshes da coluna tenham sombras ativadas
         column.traverse((child) => {
             if (child.isMesh) {
                 child.castShadow = true;
@@ -527,35 +522,27 @@ async function createRomanColumns(scene) {
         columnsGroup.add(column);
     });
     
-    // Aplicar textura usando o sistema padronizado
     try {
         await QuickTexture.romanColumns(columnsGroup);
-        console.log('✅ Textura de pedra aplicada às colunas romanas usando sistema padronizado');
     } catch (error) {
-        console.warn('⚠️ Erro ao aplicar textura às colunas:', error);
-        console.log('Mantendo material base das colunas');
+        console.warn('Erro ao aplicar textura às colunas:', error);
     }
     
     return columnsGroup;
 }
 
-// Cria uma única coluna romana com base, fuste e capitel
 function createSingleColumn(radius, height, segments, heightSegments, capitalHeight, baseHeight, material) {
     const columnGroup = new THREE.Group();
-    
-    // Base da coluna (mais larga) - aumentar segmentos para displacement
     const baseGeometry = new THREE.CylinderGeometry(radius * 1.3, radius * 1.4, baseHeight, segments, 4);
     const base = new THREE.Mesh(baseGeometry, material);
     base.position.y = -height/2 + baseHeight/2;
     columnGroup.add(base);
     
-    // Fuste da coluna (corpo principal) - aumentar segmentos para displacement
     const shaftGeometry = new THREE.CylinderGeometry(radius, radius, height - capitalHeight - baseHeight, segments, heightSegments);
     const shaft = new THREE.Mesh(shaftGeometry, material);
     shaft.position.y = -capitalHeight/2;
     columnGroup.add(shaft);
     
-    // Capitel da coluna (topo decorativo) - aumentar segmentos para displacement
     const capitalGeometry = new THREE.CylinderGeometry(radius * 1.2, radius, capitalHeight, segments, 4);
     const capital = new THREE.Mesh(capitalGeometry, material);
     capital.position.y = height/2 - capitalHeight/2;
@@ -564,24 +551,19 @@ function createSingleColumn(radius, height, segments, heightSegments, capitalHei
     return columnGroup;
 }
 
-// Cria estruturas de pedra em ruínas que conectam 3 colunas
 function createRuinStructures(scene) {
     const ruinsGroup = new THREE.Group();
     ruinsGroup.name = "RuinStructures";
     
-    // Material das ruínas (pedra mais escura e desgastada)
     const ruinMaterial = new THREE.MeshLambertMaterial({ 
         color: 0xd2b48c, // Tom de pedra mais escuro
         transparent: false
     });
     
-    // Altura das colunas para calcular a posição das estruturas superiores
     const columnHeight = 12;
     const structureHeight = WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT/2 + columnHeight + 1.5; // Acima dos capitéis
     
     const ruinConnections = [
-        // Estrutura principal: Grande estrutura conectando todos os pilares do lado norte (oposto à escada)
-        // e se estendendo aos 2 primeiros pilares dos lados esquerdo e direito
         {
             columns: [
                 // Lado esquerdo - 2 primeiros pilares
