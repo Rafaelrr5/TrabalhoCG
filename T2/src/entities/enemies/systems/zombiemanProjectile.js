@@ -16,7 +16,6 @@ export class ZombiemanProjectile {
     this.traveledDistance = 0;
     this.isActive = true;
     
-    // 1. TORNAR O PROJÉTIL VISÍVEL (como no Cacodemon)
     const geometry = new THREE.SphereGeometry(this.config.radius, 8, 8);
     const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
     this.mesh = new THREE.Mesh(geometry, material);
@@ -25,23 +24,35 @@ export class ZombiemanProjectile {
     this.mesh.userData.projectile = this;
   }
   
- update(delta) { // Não precisa mais de outros parâmetros aqui
-    if (!this.isActive) return;
+  update(delta, player) {
+    if (!this.isActive) return false; // Retorna falso se inativo
 
     const moveDistance = this.config.speed * delta;
     this.mesh.position.addScaledVector(this.direction, moveDistance);
     this.traveledDistance += moveDistance;
 
-    if (this.traveledDistance >= this.config.maxDistance) {
-      this.destroy(); // O projétil se autodestrói ao atingir a distância máxima
+    // Verifica a colisão
+    if (this.checkCollision(player)) {
+      this.destroy();
+      return false; // Projétil se torna inativo após a colisão
     }
+
+    // Verifica a distância máxima
+    if (this.traveledDistance >= this.config.maxDistance) {
+      this.destroy();
+      return false; // Projétil se torna inativo
+    }
+
+    return true; // Permanece ativo
   }
 
   checkCollision(player) {
-    if (!this.isActive || !player) return false;
+    if (!this.isActive || !player || !player.position) return false;
 
+    const playerRadius = player.radius || 1.0; // Raio do jogador padrão
     const distanceToPlayer = this.mesh.position.distanceTo(player.position);
-    if (distanceToPlayer < this.config.radius + player.radius) {
+
+    if (distanceToPlayer < this.config.radius + playerRadius) {
       this.onHit(player);
       return true;
     }
@@ -49,13 +60,21 @@ export class ZombiemanProjectile {
   }
 
   onHit(target) {
-    this.isActive = false; // Apenas marca como inativo. O Zombieman cuidará da destruição.
+    // Dispara um evento global quando atinge o jogador
+     if (typeof window.playerTakeDamage === 'function') {
+    window.playerTakeDamage(this.config.damage);
+    } else {
+    console.warn('Função window.playerTakeDamage() não encontrada!');
+    }
   }
 
- destroy() {
+  destroy() {
     this.isActive = false;
     if (this.mesh.parent) {
       this.mesh.parent.remove(this.mesh);
     }
+    // Opcional: Liberar memória da geometria e material
+    if (this.mesh.geometry) this.mesh.geometry.dispose();
+    if (this.mesh.material) this.mesh.material.dispose();
   }
 }

@@ -116,14 +116,11 @@ export class CacodeemonProjectile {
   }
   
   onHit(hitInfo) {
-    this.createHitEffect(hitInfo.point);
-    if (hitInfo.object && hitInfo.object.userData && hitInfo.object.userData.isPlayer) {
-      if (typeof window !== 'undefined' && typeof window.playerTakeDamage === 'function') {
-        window.playerTakeDamage(this.config.damage);
-      }
+    if (typeof window.playerTakeDamage === 'function') {
+      window.playerTakeDamage(this.config.damage);
+    } else {
+      console.warn('Função window.playerTakeDamage() não encontrada!');
     }
-    
-    this.destroy();
   }
   
   createHitEffect(position) {
