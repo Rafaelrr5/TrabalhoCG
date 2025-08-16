@@ -437,8 +437,6 @@ function setupDynamicDoorCollisions(hangarModel, collidableObjects) {
         blocker: doorBlocker,
         inCollisions: true
     };
-    
-    console.log(`[HANGAR] ✅ Sistema dinâmico configurado: ${doors.length} portas + 1 bloqueador`);
 }
 
 function manageDoorCollisions(hangarModel, collidableObjects, shouldOpen) {
@@ -450,12 +448,9 @@ function manageDoorCollisions(hangarModel, collidableObjects, shouldOpen) {
         
         if (shouldOpen && index !== -1) {
             collidableObjects.splice(index, 1);
-            console.log('[HANGAR] Porta removida das colisões (aberta):', door.name || 'unnamed door');
             doorData.inCollisions = false;
         } else if (!shouldOpen && index === -1) {
-            // Adicionar porta às colisões quando fechar
             collidableObjects.push(door);
-            console.log('[HANGAR] Porta adicionada às colisões (fechada):', door.name || 'unnamed door');
             doorData.inCollisions = true;
         }
     });

@@ -80,7 +80,7 @@ export async function createAreas(scene, collidableObjects) {
     const updateProgress = window.updateLoadingProgress || function() {};
     
     updateProgress(52, 'Criando Área 1 (Templo Romano)...');
-    createArea1(scene, materials, collidableObjects);
+    await createArea1(scene, materials, collidableObjects);
     
     updateProgress(54, 'Criando Área 2 (Labirinto Vermelho)...');
     createArea2(scene, materials, collidableObjects);
@@ -144,7 +144,7 @@ async function applyEnvironmentTextures(scene) {
     console.log('[ENVIRONMENT] ✅ Texturas do ambiente processadas');
 }
 
-function createArea1(scene, materials, collidableObjects) {
+async function createArea1(scene, materials, collidableObjects) {
     let areaGeometry = new THREE.BoxGeometry(1, 1, 1);
     
     let area1_center = new THREE.Mesh(areaGeometry, materials.area1);
@@ -169,7 +169,7 @@ function createArea1(scene, materials, collidableObjects) {
     QuickTexture.grungeConcrete1(area1_right)
     QuickTexture.grungeConcrete2(area1_center)
     
-    const romanColumns = createRomanColumns(scene);
+    const romanColumns = await createRomanColumns(scene);
     area1.add(romanColumns);
     
     const ruinStructures = createRuinStructures(scene);
@@ -468,152 +468,9 @@ function addWallDetails(wallsGroup, wallMaterial, wallHeight, hiddenMode = false
 }
 
 // Cria colunas romanas ao redor da Área 1
-function createRomanColumns(scene) {
+async function createRomanColumns(scene) {
     const columnsGroup = new THREE.Group();
     columnsGroup.name = "RomanColumns";
-    
-    const textureLoader = new THREE.TextureLoader();
-    
-    const baseMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0xf5f5dc, // Bege claro (mármore/pedra)
-        roughness: 0.8,
-        metalness: 0.0,
-        transparent: false
-    });
-    
-    let columnMaterial = baseMaterial;
-    
-    textureLoader.load(
-        'assets/textures/pedradifusa.png',
-        function(stoneTexture) {
-            console.log('✅ Textura de pedra carregada com sucesso');
-            
-            stoneTexture.wrapS = THREE.RepeatWrapping;
-            stoneTexture.wrapT = THREE.RepeatWrapping;
-            stoneTexture.repeat.set(2, 4);
-            
-            textureLoader.load(
-                'assets/textures/pedradifusa.png',
-                function(displacementTexture) {
-                    console.log('✅ Textura para normal map carregada com sucesso');
-                    displacementTexture.wrapS = THREE.RepeatWrapping;
-                    displacementTexture.wrapT = THREE.RepeatWrapping;
-                    displacementTexture.repeat.set(2, 4);
-                    
-                    const texturedMaterial = new THREE.MeshStandardMaterial({
-                        map: stoneTexture,
-                        normalMap: stoneTexture,
-                        normalScale: new THREE.Vector2(0.8, 0.8), 
-                        roughness: 0.8,
-                        metalness: 0.0,
-                        color: 0xffffff,
-                        transparent: false
-                    });
-                    
-                    // Aplicar o material texturizado em todas as colunas existentes
-                    let texturedCount = 0;
-                    columnsGroup.traverse((child) => {
-                        if (child.isMesh) {
-                            child.material = texturedMaterial;
-                            child.material.needsUpdate = true;
-                            texturedCount++;
-                        }
-                    });
-                },
-                // onProgress para normal map
-                function(progress) {
-                    console.log('Carregando normal map:', (progress.loaded / progress.total * 100).toFixed(1) + '%');
-                },
-                function(error) {
-                    console.warn('⚠️ Erro ao carregar normal map:', error);
-                    console.log('Usando apenas textura difusa sem normal mapping...');
-                    // Usar apenas a textura difusa sem normal mapping
-                    const simpleTexturedMaterial = new THREE.MeshStandardMaterial({
-                        map: stoneTexture,
-                        roughness: 0.8,
-                        metalness: 0.0,
-                        color: 0xffffff,
-                        transparent: false
-                    });
-                    
-                    let texturedCount = 0;
-                    columnsGroup.traverse((child) => {
-                        if (child.isMesh) {
-                            child.material = simpleTexturedMaterial;
-                            child.material.needsUpdate = true;
-                            texturedCount++;
-                        }
-                    });
-                    console.log(`✅ Textura difusa aplicada a ${texturedCount} meshes das colunas`);
-                }
-            );
-        },
-        function(progress) {
-            if (progress.total > 0) {
-                const percent = (progress.loaded / progress.total * 100).toFixed(1);
-                console.log('Carregando textura principal:', percent + '%');
-            }
-        },
-        function(error) {
-            console.error('❌ Erro ao carregar textura de pedra:', error);
-            console.log('📁 Tentando caminhos alternativos...');
-            
-            const alternatePaths = [
-                '../assets/textures/pedradifusa.png',
-                '../../assets/textures/pedradifusa.png',
-                './assets/textures/pedradifusa.png',
-                'T2/assets/textures/pedradifusa.png',
-                'src/assets/textures/pedradifusa.png'
-            ];
-            
-            let pathIndex = 0;
-            function tryNextPath() {
-                if (pathIndex >= alternatePaths.length) {
-                    console.log('❌ Todos os caminhos de textura falharam. Usando material de pedra padrão (bege)');
-                    return;
-                }
-                
-                const currentPath = alternatePaths[pathIndex];
-                
-                textureLoader.load(
-                    currentPath,
-                    function(stoneTexture) {
-                        console.log(`✅ Textura encontrada em: ${currentPath}`);
-                        stoneTexture.wrapS = THREE.RepeatWrapping;
-                        stoneTexture.wrapT = THREE.RepeatWrapping;
-                        stoneTexture.repeat.set(2, 4);
-                        
-                        const simpleTexturedMaterial = new THREE.MeshStandardMaterial({
-                            map: stoneTexture,
-                            roughness: 0.8,
-                            metalness: 0.0,
-                            color: 0xffffff,
-                            transparent: false
-                        });
-                        
-                        let texturedCount = 0;
-                        columnsGroup.traverse((child) => {
-                            if (child.isMesh) {
-                                child.material = simpleTexturedMaterial;
-                                child.material.needsUpdate = true;
-                                texturedCount++;
-                            }
-                        });
-                        console.log(`✅ Textura alternativa aplicada a ${texturedCount} meshes das colunas`);
-                    },
-                    undefined,
-                    function(altError) {
-                        console.log(`❌ Falhou: ${currentPath}`);
-                        pathIndex++;
-                        tryNextPath();
-                    }
-                );
-            }
-            
-            tryNextPath();
-        }
-    );
-    
     const columnHeight = 12;
     const columnRadius = 2;
     const columnSegments = 24; // Reduzido para performance, ainda mantendo qualidade
@@ -645,8 +502,17 @@ function createRomanColumns(scene) {
         { x: -152.25 + 50, z: -131.0 + 25 }
     ];
     
+    // Criar material base para as colunas (material temporário)
+    const baseMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0xf5f5dc, // Bege claro (mármore/pedra)
+        roughness: 0.8,
+        metalness: 0.0,
+        transparent: false
+    });
+    
+    // Criar todas as colunas primeiro com material base
     columnPositions.forEach((pos, index) => {
-        const column = createSingleColumn(columnRadius, columnHeight, columnSegments, columnHeightSegments, capitalHeight, baseHeight, columnMaterial);
+        const column = createSingleColumn(columnRadius, columnHeight, columnSegments, columnHeightSegments, capitalHeight, baseHeight, baseMaterial);
         // Posiciona a coluna apoiada sobre a superfície da área
         column.position.set(pos.x, WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT/2 + columnHeight/2, pos.z);
         
@@ -660,6 +526,15 @@ function createRomanColumns(scene) {
         
         columnsGroup.add(column);
     });
+    
+    // Aplicar textura usando o sistema padronizado
+    try {
+        await QuickTexture.romanColumns(columnsGroup);
+        console.log('✅ Textura de pedra aplicada às colunas romanas usando sistema padronizado');
+    } catch (error) {
+        console.warn('⚠️ Erro ao aplicar textura às colunas:', error);
+        console.log('Mantendo material base das colunas');
+    }
     
     return columnsGroup;
 }

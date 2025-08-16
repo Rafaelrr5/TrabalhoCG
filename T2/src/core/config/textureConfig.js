@@ -82,6 +82,14 @@ export const TEXTURE_CONFIG = {
         ROUGHNESS: 0.8,
         METALNESS: 0.5
     },
+
+    // Textura para colunas romanas
+    ROMAN_COLUMNS: {
+        NAME: 'pedradifusa.png',
+        REPEAT: { x: 2, y: 4 },
+        ROUGHNESS: 0.8,
+        METALNESS: 0.0
+    },
     
     MATERIAL_PRESETS: {
         STONE: {

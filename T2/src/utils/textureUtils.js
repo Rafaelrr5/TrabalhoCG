@@ -191,4 +191,11 @@ export const QuickTexture = {
             metalness: TEXTURE_CONFIG.HANGAR_WALLS.METALNESS,
             textureOptions: { repeat: TEXTURE_CONFIG.HANGAR_WALLS.REPEAT }
         }),
+
+    romanColumns: async (object, textureName = TEXTURE_CONFIG.ROMAN_COLUMNS.NAME) => 
+        await applyTexture(object, textureName, 'standard', {
+            roughness: TEXTURE_CONFIG.ROMAN_COLUMNS.ROUGHNESS,
+            metalness: TEXTURE_CONFIG.ROMAN_COLUMNS.METALNESS,
+            textureOptions: { repeat: TEXTURE_CONFIG.ROMAN_COLUMNS.REPEAT }
+        }),
 };
