@@ -12,6 +12,7 @@ export class Zombieman extends Enemy {
       attackCooldown: 1.5,
       speed: 2.0,
       radius: 0.5,
+      height: 4.0,
       isFlying: false,
       ...config
     };
@@ -33,6 +34,12 @@ export class Zombieman extends Enemy {
     this.camera = null;
     this.scene = null;
     this.attack = this.attack.bind(this);
+
+    if (this.healthBar && this.healthBar.healthBarGroup) {
+      const zombiemanHeight = 4.0; // Altura do sprite do Zombieman
+      const offset = 0.3; // Espaço extra acima da cabeça
+      this.healthBar.healthBarGroup.position.y = zombiemanHeight + offset;
+    }
   }
 
   loadSprite() {
@@ -229,22 +236,31 @@ export class Zombieman extends Enemy {
 
 
   fireProjectile(targetPosition) {
-    // Garante que o inimigo esteja na cena para encontrar o 'parent'
     if (!this.mesh.parent) {
       console.error("Zombieman não pode atirar: a malha do inimigo não foi adicionada a uma cena.");
       return;
     }
 
-    const projectileDirection = new THREE.Vector3().subVectors(targetPosition, this.mesh.position).normalize();
+    const fireOffset = new THREE.Vector3(0, 1.0, 0); 
+    const startPosition = this.mesh.position.clone().add(fireOffset);
+    
+    // Cria uma cópia da posição do alvo para não modificar o vetor original.
+    const aimTargetPosition = targetPosition.clone();
+
+    // Iguala a altura do alvo à altura de onde o projétil é disparado.
+    // Isso garante que o tiro seja perfeitamente reto no plano horizontal.
+    aimTargetPosition.y = startPosition.y;
+
+    // Calcula a direção usando a posição do alvo "achatada".
+    const projectileDirection = new THREE.Vector3().subVectors(aimTargetPosition, startPosition).normalize();
+
     const projectile = new ZombiemanProjectile(
-      this.mesh.position.clone(),
-      projectileDirection,
+      startPosition,
+      projectileDirection, // Usa a nova direção reta
       { damage: this.config.damage }
     );
 
     this.activeProjectiles.push(projectile);
-    
-    // A MÁGICA ACONTECE AQUI: Adiciona o projétil ao mesmo 'parent' do Zombieman (a cena)
     this.mesh.parent.add(projectile.mesh);
   }
   
