@@ -13,7 +13,7 @@ export class Zombieman extends Enemy {
       attackCooldown: 1.5,
       speed: 2.0,
       radius: 0.5,
-      height: 4.0,
+      height: 6.0,
       isFlying: false,
       ...config
     };

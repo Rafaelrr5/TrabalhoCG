@@ -1213,6 +1213,13 @@ export function isPlayerInArea2(camera) {
     return inCenter || inLeft || inRight;
 }
 
+export function isPlayerInArea3(camera) {
+    if (!camera) return false;
+    
+    // Usar a mesma lógica do isPlayerInsideHangar para consistência
+    return isPlayerInsideHangar(camera, camera.parent);
+}
+
 function raisePlatform(platformGroup, delta) {
     const platform = platformGroup.userData.platform;
     const keyInstance = platformGroup.userData.keyInstance;

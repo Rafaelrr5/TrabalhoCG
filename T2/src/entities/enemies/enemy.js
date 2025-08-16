@@ -6,7 +6,7 @@ import { PainElemental } from './types/painElemental.js';
 import { DEBUG_CONFIG } from '../../core/config/debugConfig.js';
 import { WORLD_CONFIG } from '../../core/config/worldConfig.js';
 import { PLAYER_CONFIG } from '../../core/config/playerConfig.js';
-import { isPlayerInArea1, isPlayerInArea2 } from '../../systems/environment.js';
+import { isPlayerInArea1, isPlayerInArea2, isPlayerInArea3, isPlayerInsideHangar } from '../../systems/environment.js';
 import { cleanupAllProjectiles } from './systems/cacodeemonProjectile.js';
 import { forceShowAllHealthBars, debugAllHealthBars } from './base/enemies.js';
 import { Zombieman } from './types/zombieman.js';
@@ -15,10 +15,7 @@ export const enemies = [];
 
 let area1LostSoulsActivated = false;
 let area2CacodemonsActivated = false;
-
-// Health bar debugging - remove this in production
-let healthBarDebugCounter = 0;
-const HEALTH_BAR_DEBUG_INTERVAL = 300; // Every 5 seconds at 60fps
+let area3ZombiemenActivated = false;
 
 export async function preloadEnemies() {
   await preloadSkullModel();
@@ -68,14 +65,32 @@ export async function createEnemies(scene) {
   scene.add(painElemental.mesh);
   console.log(`Created PainElemental at 0, 10, 180`);
 
-  //adiciona o Zombieman para teste
-  const zombieman = new Zombieman([-200, 0, 0], {
-    alwaysActive: true  // Garante que estará sempre ativo
+  const zombiemanY = WORLD_CONFIG.AREA_Y_POSITION - 2; // Ligeiramente acima do chão
+  const hangarCenterX = 156.25; // Centro do hangar em X
+  const hangarCenterZ = -130.0; // Centro do hangar em Z
+  const hangarBackZ = hangarCenterZ - 10;
+  
+  const zombiemanPositions = [
+    // Linha traseira (4 Zombiemen)
+    [hangarCenterX - 30, zombiemanY, hangarBackZ],
+    [hangarCenterX - 10, zombiemanY, hangarBackZ],
+    [hangarCenterX + 10, zombiemanY, hangarBackZ],
+    [hangarCenterX + 30, zombiemanY, hangarBackZ],
+    // Linha do meio (4 Zombiemen)
+    [hangarCenterX - 25, zombiemanY, hangarBackZ + 15],
+    [hangarCenterX - 5, zombiemanY, hangarBackZ + 15],
+    [hangarCenterX + 5, zombiemanY, hangarBackZ + 15],
+    [hangarCenterX + 25, zombiemanY, hangarBackZ + 15]
+  ];
+
+  zombiemanPositions.forEach(([x, y, z], index) => {
+    const enemy = new Zombieman([x, y, z]);
+    enemy.area = 'area3';
+    enemy.enemyType = 'Zombieman';
+    enemies.push(enemy);
+    scene.add(enemy.mesh);
   });
-  zombieman.enemyType = 'Zombieman';
-  enemies.push(zombieman);
-  scene.add(zombieman.mesh);
-  console.log('Created test Zombieman at (-200, 0, 0)');
+
 }
 
 export function shouldUpdateEnemy(camera, enemy) {
@@ -98,6 +113,10 @@ export function shouldUpdateEnemy(camera, enemy) {
     return true;
   }
 
+  if (enemy.area === 'area3' && area3ZombiemenActivated) {
+    return true;
+  }
+
   // 3. Inimigos que já viram o jogador
   if (enemy.detection?.hasSeenPlayer) {
     return true;
@@ -116,6 +135,7 @@ export function updateEnemies(delta, scene, camera, gun = null, collidableObject
   const aliveEnemies = enemies.filter(e => e.isAlive);
   const inArea1 = isPlayerInArea1(camera);
   const inArea2 = isPlayerInArea2(camera);
+  const inArea3 = isPlayerInArea3(camera);
 
   // Ativação única das áreas
   if (inArea1 && !area1LostSoulsActivated) {
@@ -124,6 +144,10 @@ export function updateEnemies(delta, scene, camera, gun = null, collidableObject
 
   if (inArea2 && !area2CacodemonsActivated) {
     activateCacodemonsInArea2();
+  }
+
+  if (inArea3 && !area3ZombiemenActivated) {
+    activateZombiemenInArea3();
   }
 
    enemies.forEach(enemy => {
@@ -176,6 +200,11 @@ export function areAllArea4EnemiesDefeated() {
   return area4Enemies.length > 0 && area4Enemies.every(e => !e.isAlive);
 }
 
+export function areAllArea3EnemiesDefeated() {
+  const area3Enemies = enemies.filter(e => e.area === 'area3');
+  return area3Enemies.length > 0 && area3Enemies.every(e => !e.isAlive);
+}
+
 export function getAliveEnemies() {
   return enemies.filter(e => e.isAlive);
 }
@@ -188,12 +217,20 @@ export function getCacodemons() {
   return enemies.filter(e => e.enemyType === 'Cacodemon');
 }
 
+export function getZombiemen() {
+  return enemies.filter(e => e.enemyType === 'Zombieman');
+}
+
 export function addEnemy(scene, position, type = 'LostSoul') {
   let enemy;
   if (type === 'Cacodemon') {
     enemy = new Cacodemon(position);
     enemy.area = 'area2';
     enemy.enemyType = 'Cacodemon';
+  } else if (type === 'Zombieman') {
+    enemy = new Zombieman(position);
+    enemy.area = 'area3';
+    enemy.enemyType = 'Zombieman';
   } else {
     enemy = new LostSoul(position);
     enemy.area = 'area1';
@@ -213,6 +250,7 @@ export function damageEnemiesInArea(center, radius, damage) {
 export function getEnemyCount() {
   const lostSouls = getLostSouls();
   const cacodemons = getCacodemons();
+  const zombiemen = getZombiemen();
   
   return {
     lostSouls: {
@@ -225,6 +263,11 @@ export function getEnemyCount() {
       alive: cacodemons.filter(e => e.isAlive).length,
       dead: cacodemons.filter(e => !e.isAlive).length
     },
+    zombiemen: {
+      total: zombiemen.length,
+      alive: zombiemen.filter(e => e.isAlive).length,
+      dead: zombiemen.filter(e => !e.isAlive).length
+    },
     total: {
       total: enemies.length,
       alive: enemies.filter(e => e.isAlive).length,
@@ -235,7 +278,20 @@ export function getEnemyCount() {
 
 export function cleanupAllEnemyProjectiles(scene) {
   const cacodemons = getCacodemons();
+  const zombiemen = getZombiemen();
   cleanupAllProjectiles(scene, cacodemons);
+  
+  // Limpar projéteis dos Zombiemen também
+  zombiemen.forEach(zombieman => {
+    if (zombieman.activeProjectiles) {
+      zombieman.activeProjectiles.forEach(projectile => {
+        if (projectile.mesh && projectile.mesh.parent) {
+          projectile.mesh.parent.remove(projectile.mesh);
+        }
+      });
+      zombieman.activeProjectiles = [];
+    }
+  });
 }
 
 export function activateCacodemonsInArea2() {
@@ -257,6 +313,29 @@ export function activateCacodemonsInArea2() {
 
 export function resetArea2Activation() {
   area2CacodemonsActivated = false;
+}
+
+export function activateZombiemenInArea3() {
+  if (area3ZombiemenActivated) return;
+  
+  const zombiemen = getZombiemen().filter(z => z.area === 'area3' && z.isAlive);
+  console.log(`[AREA3_HANGAR] Activating ${zombiemen.length} Zombiemen in Area 3`);
+  
+  zombiemen.forEach(zombieman => {
+    if (zombieman.ai.state === 'IDLE') {
+      zombieman.ai.changeState('PATROL');
+    }
+    if (zombieman.playSightSound) {
+      zombieman.playSightSound();
+    }
+    console.log(`[AREA3_HANGAR] Activated Zombieman at ${zombieman.mesh.position.toArray()}`);
+  });
+  
+  area3ZombiemenActivated = true;
+}
+
+export function resetArea3Activation() {
+  area3ZombiemenActivated = false;
 }
 
 // ============================================================================
@@ -318,6 +397,7 @@ if (typeof window !== 'undefined') {
   window.getEnemies = () => enemies;
   window.getCacodemons = () => getCacodemons();
   window.getLostSouls = () => getLostSouls();
+  window.getZombiemen = () => getZombiemen();
   
   // Additional utility functions
   window.resetEnemies = () => {
@@ -338,9 +418,11 @@ if (typeof window !== 'undefined') {
   window.fixEnemyCount = (scene) => {
     const maxLostSouls = 5;
     const maxCacodemons = 3;
+    const maxZombiemen = 8;
     
     const lostSouls = getLostSouls();
     const cacodemons = getCacodemons();
+    const zombiemen = getZombiemen();
     
     if (lostSouls.length > maxLostSouls) {
       const extraLostSouls = lostSouls.splice(maxLostSouls);
@@ -361,6 +443,22 @@ if (typeof window !== 'undefined') {
     if (cacodemons.length > maxCacodemons) {
       const extraCacodemons = cacodemons.splice(maxCacodemons);
       extraCacodemons.forEach((enemy) => {
+        if (enemy.mesh.parent) {
+          enemy.mesh.parent.remove(enemy.mesh);
+        }
+        if (enemy.dispose) {
+          enemy.dispose();
+        }
+        const index = enemies.indexOf(enemy);
+        if (index > -1) {
+          enemies.splice(index, 1);
+        }
+      });
+    }
+
+    if (zombiemen.length > maxZombiemen) {
+      const extraZombiemen = zombiemen.splice(maxZombiemen);
+      extraZombiemen.forEach((enemy) => {
         if (enemy.mesh.parent) {
           enemy.mesh.parent.remove(enemy.mesh);
         }

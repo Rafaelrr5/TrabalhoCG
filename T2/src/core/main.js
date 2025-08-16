@@ -4,10 +4,10 @@ import { CAMERA_CONFIG } from './config/cameraConfig.js';
 import { PLAYER_CONFIG } from './config/playerConfig.js';
 import { WORLD_CONFIG } from './config/worldConfig.js';
 import { DEBUG_CONFIG } from './config/debugConfig.js';
-import { createWalls, createAreas, updateArea1, updateArea2, area1KeyPlatform, area2KeyPlatform, isPlayerInArea1, isPlayerInArea2 } from '../systems/environment.js';
+import { createWalls, createAreas, updateArea1, updateArea2, area1KeyPlatform, area2KeyPlatform, isPlayerInArea1, isPlayerInArea2, isPlayerInArea3 } from '../systems/environment.js';
 import { updateHangarDoors } from '../components/hangar.js';
 import { createWeaponManager, updateProjectiles } from '../components/weaponManager.js';
-import { createEnemies, updateEnemies, cleanupDeadEnemies, enemies, cleanupAllEnemyProjectiles, resetArea2Activation, resetArea1Activation, areAllArea4EnemiesDefeated } from '../entities/enemies/enemy.js';
+import { createEnemies, updateEnemies, cleanupDeadEnemies, enemies, cleanupAllEnemyProjectiles, resetArea2Activation, resetArea1Activation, resetArea3Activation, areAllArea4EnemiesDefeated } from '../entities/enemies/enemy.js';
 import { setupEventListeners, updateCameraMovement, continuousCameraDebug } from '../systems/controls.js';
 import { lightingSystem } from '../systems/lights.js';
 import { initHangarLighting, updateHangarLighting, resetHangarLighting } from '../systems/hangarLights.js';
@@ -763,6 +763,8 @@ function updateAmbientMusic() {
     newArea = 'area1';
   } else if (isPlayerInArea2(camera)) {
     newArea = 'area2';
+  } else if (isPlayerInArea3(camera)) {
+    newArea = 'area3';
   }
   
   if (newArea !== currentPlayerArea) {
@@ -817,6 +819,7 @@ async function resetGameAreas() {
     // Reset enemy activation states
     resetArea1Activation();
     resetArea2Activation();
+    resetArea3Activation();
     
     if (area1KeyPlatform) {
       console.log('[RESTART] Resetting area 1 platform');
