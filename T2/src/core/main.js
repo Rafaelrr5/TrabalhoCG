@@ -1,20 +1,30 @@
 import * as THREE from '../../../build/three.module.js';
 import { PointerLockControls } from '../../../build/jsm/controls/PointerLockControls.js';
-import { CONFIG } from './config.js';
-import { createWalls, createAreas, updateArea1, updateArea2, area1KeyPlatform, area2KeyPlatform, isPlayerInArea1, isPlayerInArea2, updateHangarDoors } from '../systems/environment.js';
-import { createGun } from '../components/weapon.js';
+import { CAMERA_CONFIG } from './config/cameraConfig.js';
+import { PLAYER_CONFIG } from './config/playerConfig.js';
+import { WORLD_CONFIG } from './config/worldConfig.js';
+import { DEBUG_CONFIG } from './config/debugConfig.js';
+import { createWalls, createAreas, updateArea1, updateArea2, area1KeyPlatform, area2KeyPlatform, isPlayerInArea1, isPlayerInArea2, isPlayerInArea3 } from '../systems/environment.js';
+import { updateHangarDoors } from '../components/hangar.js';
 import { createWeaponManager, updateProjectiles } from '../components/weaponManager.js';
-import { createEnemies, updateEnemies, cleanupDeadEnemies, enemies, cleanupAllEnemyProjectiles, resetArea2Activation, resetArea1Activation } from '../entities/enemies/enemy.js';
+import { createEnemies, updateEnemies, cleanupDeadEnemies, enemies, cleanupAllEnemyProjectiles, resetArea2Activation, resetArea1Activation, resetArea3Activation, areAllArea4EnemiesDefeated } from '../entities/enemies/enemy.js';
 import { setupEventListeners, updateCameraMovement, continuousCameraDebug } from '../systems/controls.js';
 import { lightingSystem } from '../systems/lights.js';
+import { initHangarLighting, updateHangarLighting, resetHangarLighting } from '../systems/hangarLights.js';
 import { applyGravity} from '../systems/collision.js';
 import { createHitbox, hitbox, player } from '../entities/player/player.js';
 import { updateElevator } from '../systems/elevator.js';
 import { keyManager } from '../entities/items/key.js';
 import { ambientAudioManager, playerAudioManager, gameAudioManager, audioManager } from '../systems/index.js';
 import { updateTotem, updateDoorAnimation, updateKeyAnimation, totem } from '../systems/door.js';
+import { updateArea4Totem, updateArea4KeyAnimation, updateArea4WallsAnimation } from '../systems/area4Access.js';
+import { updateHangarTotem, updateHangarKeyAnimation, updateHangarDoorsAnimation } from '../systems/hangarAccess.js';
+import { loadSky } from '../systems/sky.js';
+import { initializeArea4Victory, checkArea4Victory, updateArea4Victory, resetArea4Victory } from '../systems/area4Victory.js';
 
-// Global function to handle player damage (called by Lost Soul kamikaze attacks)
+// Expor keyManager globalmente para debug
+window.keyManager = keyManager;
+
 window.playerTakeDamage = function(damage) {
   const isAlive = player.takeDamage(damage);
   
@@ -25,56 +35,57 @@ window.playerTakeDamage = function(damage) {
   }
 };
 
-// Update health display on screen
 function updatePlayerHealthDisplay() {
-  const healthDisplay = document.getElementById('player-health');
-  if (healthDisplay) {
-    // Hide health display if player is immortal
-    if (CONFIG.PLAYER_IMMORTAL) {
-      healthDisplay.style.display = 'none';
-      return;
+  const healthStatus = player.getHealthStatus();
+  const healthPercentage = healthStatus.percentage;
+  
+  // Atualizar a barra de vida 3D - sempre visível
+  const healthBarGroup = camera.getObjectByName('PlayerHealthBar');
+  if (healthBarGroup) {
+    healthBarGroup.visible = true;
+    
+    const healthBarFill = healthBarGroup.getObjectByName('PlayerHealthBarFill');
+    if (healthBarFill) {
+      // Atualizar escala da barra baseada na porcentagem de vida
+      healthBarFill.scale.x = Math.max(0.01, healthPercentage); // Mínimo para ser visível
+      
+      // Mudar cor baseada na porcentagem de vida
+      if (healthPercentage < 0.3) {
+        healthBarFill.material.color.setHex(0xff0000); // Vermelho
+      } else if (healthPercentage < 0.6) {
+        healthBarFill.material.color.setHex(0xffaa00); // Laranja
+      } else {
+        healthBarFill.material.color.setHex(0x00ff00); // Verde
+      }
     }
-    
-    // Show health display if player is not immortal
-    healthDisplay.style.display = 'block';
-    
-    const healthStatus = player.getHealthStatus();
-    healthDisplay.textContent = `Health: ${healthStatus.current}/${healthStatus.max}`;
-    
-    // Color coding based on health percentage
-    const healthPercentage = healthStatus.percentage;
-    if (healthPercentage < 0.3) {
-      healthDisplay.style.color = 'red';
-    } else if (healthPercentage < 0.6) {
-      healthDisplay.style.color = 'orange';
+  }
+  
+  const healthText = document.getElementById('player-health-text');
+  if (healthText) {
+    healthText.style.display = 'block';
+    if (PLAYER_CONFIG.PLAYER_IMMORTAL) {
     } else {
-      healthDisplay.style.color = 'green';
+      healthText.textContent = `${healthStatus.current}/${healthStatus.max}`;
     }
   }
 }
 
-// Handle player death
 function handlePlayerDeath() {
-  // Unlock pointer controls to allow interaction with popup
   if (controls.isLocked) {
     controls.unlock();
   }
   
-  // Show game over popup
   showGameOverPopup();
 }
 
-// Show game over popup with restart option
 function showGameOverPopup() {
   console.log('[RESTART] Creating game over popup');
   
-  // Remove any existing popup first
   const existingOverlay = document.getElementById('game-over-overlay');
   if (existingOverlay) {
     document.body.removeChild(existingOverlay);
   }
   
-  // Create overlay
   const overlay = document.createElement('div');
   overlay.id = 'game-over-overlay';
   overlay.style.cssText = `
@@ -138,7 +149,6 @@ function showGameOverPopup() {
   `;
   restartButton.textContent = 'Continuar';
   
-  // Add event listeners directly
   restartButton.addEventListener('mouseenter', () => {
     restartButton.style.backgroundColor = '#ff6666';
   });
@@ -153,7 +163,6 @@ function showGameOverPopup() {
     event.stopPropagation();
     
     try {
-      // Remove the overlay
       if (overlay.parentNode) {
         overlay.parentNode.removeChild(overlay);
       }
@@ -181,39 +190,70 @@ function showGameOverPopup() {
   }, 100);
 }
 
-// Create simple health HUD
 function createPlayerHealthHUD() {
-    const healthDisplay = document.createElement('div');
-    healthDisplay.id = 'player-health';
-    healthDisplay.style.position = 'fixed';
-    healthDisplay.style.top = '20px';
-    healthDisplay.style.left = '20px';
-    healthDisplay.style.color = 'green';
-    healthDisplay.style.fontSize = '20px';
-    healthDisplay.style.fontWeight = 'bold';
-    healthDisplay.style.zIndex = '1000';
-    healthDisplay.style.textShadow = '2px 2px 4px rgba(0,0,0,0.8)';
+    // Criar um grupo para a barra de vida 3D
+    const healthBarGroup = new THREE.Group();
+    healthBarGroup.name = 'PlayerHealthBar';
     
-    // Hide health display if player is immortal
-    if (CONFIG.PLAYER_IMMORTAL) {
-        healthDisplay.style.display = 'none';
-    } else {
-        const healthStatus = player.getHealthStatus();
-        healthDisplay.textContent = `Health: ${healthStatus.current}/${healthStatus.max}`;
-    }
+    // Configurações da barra
+    const barWidth = 0.8;
+    const barHeight = 0.06;
+    const barDepth = 0.01;
+    
+    // Background da barra (preto)
+    const bgGeometry = new THREE.BoxGeometry(barWidth, barHeight, barDepth);
+    const bgMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x000000, 
+        transparent: true, 
+        opacity: 0.8 
+    });
+    const healthBarBg = new THREE.Mesh(bgGeometry, bgMaterial);
+    
+    // Preenchimento da barra (verde inicialmente)
+    const fillGeometry = new THREE.BoxGeometry(barWidth, barHeight * 0.8, barDepth * 1.1);
+    const fillMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    const healthBarFill = new THREE.Mesh(fillGeometry, fillMaterial);
+    healthBarFill.name = 'PlayerHealthBarFill';
+    
+    // Posicionar no canto superior esquerdo da tela
+    healthBarGroup.position.set(-2.6, 1.4, -2);
+    
+    healthBarGroup.add(healthBarBg);
+    healthBarGroup.add(healthBarFill);
+    
+    // Adicionar à câmera para que siga o jogador
+    camera.add(healthBarGroup);
+    
+    // Criar texto para mostrar valores numéricos
+    const healthDisplay = document.createElement('div');
+    healthDisplay.id = 'player-health-text';
+    healthDisplay.style.cssText = `
+        position: fixed;
+        top: 50px;
+        left: 20px;
+        color: white;
+        font-size: 14px;
+        font-weight: bold;
+        z-index: 1000;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        font-family: Arial, sans-serif;
+    `;
+    
+    healthBarGroup.visible = true;
     
     document.body.appendChild(healthDisplay);
 }
 
-// Initialize immortality indicator
 function initializeImmortalityIndicator() {
     const immortalityIndicator = document.getElementById('immortality-indicator');
     if (immortalityIndicator) {
-        immortalityIndicator.style.display = CONFIG.PLAYER_IMMORTAL ? 'block' : 'none';
+        immortalityIndicator.style.display = PLAYER_CONFIG.PLAYER_IMMORTAL ? 'block' : 'none';
     }
+    
+    // Manter a barra de vida sempre visível, apenas atualizar o texto
+    updatePlayerHealthDisplay();
 }
 
-// Create keys HUD
 function createKeysHUD() {
     const keysDisplay = document.createElement('div');
     keysDisplay.id = 'keys-display';
@@ -335,7 +375,6 @@ function createLoadingScreen() {
         position: relative;
     `;
     
-    // Animated shine effect
     const shine = document.createElement('div');
     shine.style.cssText = `
         position: absolute;
@@ -348,7 +387,6 @@ function createLoadingScreen() {
     `;
     progressBar.appendChild(shine);
     
-    // Progress percentage
     const progressPercent = document.createElement('div');
     progressPercent.id = 'loading-percent';
     progressPercent.style.cssText = `
@@ -359,7 +397,6 @@ function createLoadingScreen() {
     `;
     progressPercent.textContent = '0%';
     
-    // Loading dots animation
     const loadingDots = document.createElement('div');
     loadingDots.style.cssText = `
         font-size: 20px;
@@ -369,7 +406,6 @@ function createLoadingScreen() {
     `;
     loadingDots.textContent = '...';
     
-    // Controls instruction
     const controlsInfo = document.createElement('div');
     controlsInfo.style.cssText = `
         position: absolute;
@@ -387,7 +423,6 @@ function createLoadingScreen() {
         <p>1/2 - Trocar Arma</p>
     `;
     
-    // Add CSS animations
     const style = document.createElement('style');
     style.textContent = `
         @keyframes pulse {
@@ -410,7 +445,6 @@ function createLoadingScreen() {
     `;
     document.head.appendChild(style);
     
-    // Assembly
     progressContainer.appendChild(progressBar);
     overlay.appendChild(title);
     overlay.appendChild(loadingText);
@@ -423,7 +457,6 @@ function createLoadingScreen() {
     return overlay;
 }
 
-// Update loading progress
 function updateLoadingProgress(percent, text) {
     const progressBar = document.getElementById('loading-progress');
     const progressPercent = document.getElementById('loading-percent');
@@ -434,14 +467,11 @@ function updateLoadingProgress(percent, text) {
     if (loadingText && text) loadingText.textContent = text;
 }
 
-// Make loading progress available globally
 window.updateLoadingProgress = updateLoadingProgress;
 
-// Remove loading screen
 function removeLoadingScreen() {
     const overlay = document.getElementById('loading-overlay');
     if (overlay) {
-        // Fade out animation
         overlay.style.transition = 'opacity 0.5s ease';
         overlay.style.opacity = '0';
         
@@ -452,13 +482,38 @@ function removeLoadingScreen() {
         }, 500);
     }
 }
+// At the end of loading, show Start button for player to enter the game
+function showStartButton() {
+  const overlay = document.getElementById('loading-overlay');
+  if (!overlay) return;
+
+  const startBtn = document.createElement('button');
+  startBtn.id = 'start-button';
+  startBtn.textContent = 'START';
+  startBtn.style.cssText = `
+    margin-top: 20px;
+    padding: 15px 30px;
+    font-size: 20px;
+    color: white;
+    background-color: #28a745;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    outline: none;
+    z-index: 100001;
+  `;
+  startBtn.addEventListener('click', () => {
+    removeLoadingScreen();
+    if (controls && controls.lock) controls.lock();
+  });
+  overlay.appendChild(startBtn);
+  startBtn.focus();
+}
 
 async function init() {
-    // Create and show loading screen
     loadingScreen = createLoadingScreen();
     updateLoadingProgress(0, 'Inicializando sistema...');
     
-    // Small delay to ensure loading screen is visible
     await new Promise(resolve => setTimeout(resolve, 100));
     
     updateLoadingProgress(10, 'Configurando cena 3D...');
@@ -469,6 +524,7 @@ async function init() {
     
     updateLoadingProgress(30, 'Configurando iluminação...');
     lightingSystem.init(scene, renderer);
+    initHangarLighting(scene);
     
     updateLoadingProgress(40, 'Carregando ambiente e modelos...');
     await createEnvironment();
@@ -477,7 +533,6 @@ async function init() {
     createHitbox(scene);
     
     updateLoadingProgress(80, 'Posicionando jogador...');
-    // Reset player position AFTER environment is fully loaded
     resetPlayerPosition();
     
     updateLoadingProgress(85, 'Configurando controles...');
@@ -494,51 +549,42 @@ async function init() {
     
     updateLoadingProgress(100, 'Carregamento concluído!');
     
-    // Wait a moment before removing loading screen
-    await new Promise(resolve => setTimeout(resolve, 500));
-    removeLoadingScreen();
+  await new Promise(resolve => setTimeout(resolve, 500));
+  // Show start button to let player enter the game
+  showStartButton();
     
-    // Atualizar HUD das chaves após criar o ambiente
     setTimeout(() => {
         updateKeysDisplay();
     }, 100);
     
-    // Configurar callback para atualizar HUD quando inventário de chaves mudar
     keyManager.onInventoryChange((inventoryData) => {
         const { action, keyType, collectedKeys, collectedKeyCount } = inventoryData;
         
-        // Atualizar display das chaves
         updateKeysDisplay();
         
-        // Log da mudança para debug
-        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+        if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
             console.log(`[MAIN] Inventory changed - Action: ${action}, Key: ${keyType}, Total: ${collectedKeyCount}`);
         }
     });
     
-    // Event listener para atualizar o display quando uma chave é removida (compatibilidade)
     window.addEventListener('keyRemoved', () => {
         updateKeysDisplay();
     });
     
-    // Force start ambient music after everything is loaded
     setTimeout(() => {
         console.log('[MAIN] Force starting ambient music...');
         ambientAudioManager.forcePlayAreaMusic('none');
-    }, 500); // Reduced delay
+    }, 500);
     
-    // Mark game as fully initialized
     window.gameInitialized = true;
 }
 
 function setupScene() {
     scene = new THREE.Scene();
-    // Enable antialiasing to smooth edges and prevent black artifacts
     renderer = new THREE.WebGLRenderer({
         antialias: true,
         powerPreference: "high-performance"
     });
-    // Use device pixel ratio for crisp rendering on high-DPI screens
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     const container = document.getElementById('webgl-output') || document.body;
@@ -546,13 +592,34 @@ function setupScene() {
 }
 
 function setupCamera() {
-    camera = new THREE.PerspectiveCamera(CONFIG.CAMERA_FOV, window.innerWidth/window.innerHeight, CONFIG.CAMERA_NEAR, CONFIG.CAMERA_FAR);
-    camera.position.y = CONFIG.CAMERA_HEIGHT;
-    // Adiciona listener de áudio à câmera para sons 3D
+    camera = new THREE.PerspectiveCamera(CAMERA_CONFIG.CAMERA_FOV, window.innerWidth/window.innerHeight, CAMERA_CONFIG.CAMERA_NEAR, CAMERA_CONFIG.CAMERA_FAR);
+    camera.position.y = CAMERA_CONFIG.CAMERA_HEIGHT;
     window.listener = new THREE.AudioListener();
+    
+    const originalSetMasterVolume = window.listener.setMasterVolume;
+    window.listener.setMasterVolume = function(value) {
+        if (isFinite(value) && value >= 0 && value <= 1) {
+            originalSetMasterVolume.call(this, value);
+        }
+    };
+    
+    const originalUpdateMatrixWorld = window.listener.updateMatrixWorld;
+    window.listener.updateMatrixWorld = function(force) {
+        try {
+            if (this.parent && this.parent.position) {
+                const pos = this.parent.position;
+                if (!isFinite(pos.x) || !isFinite(pos.y) || !isFinite(pos.z)) {
+                    pos.set(0, PLAYER_CONFIG.INITIAL_PLAYER_HEIGHT || 7, 0);
+                }
+            }
+            originalUpdateMatrixWorld.call(this, force);
+        } catch (error) {
+            console.warn('[AUDIO] AudioListener update error:', error.message);
+        }
+    };
+    
     camera.add(window.listener);
     
-    // Initialize ambient audio system
     console.log('[MAIN] Initializing audio systems...');
     ambientAudioManager.init(window.listener);
     playerAudioManager.init(window.listener);
@@ -560,21 +627,15 @@ function setupCamera() {
 }
 
 function resetPlayerPosition() {
-    // Use a fixed safe height for initial positioning
-    const safeHeight = CONFIG.INITIAL_PLAYER_HEIGHT;
-    
+    const safeHeight = PLAYER_CONFIG.INITIAL_PLAYER_HEIGHT;   
     camera.position.set(0, safeHeight, 0);
     player.resetPosition();
-    
-    console.log('[MAIN] Player position reset to:', camera.position);
 }
 
 function setupControls() {
     controls = new PointerLockControls(camera, document.body);
 
-    // Add click listener only to canvas/renderer element, not entire document
     renderer.domElement.addEventListener('click', () => {
-        // Only try to lock if not in a popup/modal
         const gameOverPopup = document.getElementById('game-over-overlay');
         if (!gameOverPopup) {
             controls.lock();
@@ -582,16 +643,11 @@ function setupControls() {
     });
     scene.add(controls.getObject());
     
-    // Adiciona handler de resize específico do main.js
     window.addEventListener('resize', onWindowResize);
 }
 
 async function createEnvironment() {
-    // Limpar estado anterior das chaves
     keyManager.clearAll();
-    
-    // Temporariamente comentando o reset para debug
-    // resetAllEnemies();
     
     updateLoadingProgress(45, 'Criando paredes e chão...');
     createWalls(scene, collidableObjects);
@@ -599,13 +655,16 @@ async function createEnvironment() {
     updateLoadingProgress(50, 'Carregando áreas do jogo...');
     await createAreas(scene, collidableObjects);
     
+    updateLoadingProgress(55, 'Carregando céu...');
+    // Load sky
+    loadSky(scene, 'panorama1Red.jpg');
+    
     updateLoadingProgress(65, 'Criando inimigos...');
-    //gun = createGun(camera); // Captura a referência da arma
-    //gun.init(scene); // Inicializa a arma com a cena
-    // Spawn Lost Soul enemies (they will idle until Area 1 entry)
     createEnemies(scene);
     
-    // Mark environment as fully loaded
+    updateLoadingProgress(70, 'Inicializando sistema de vitória...');
+    initializeArea4Victory(scene);
+    
     environmentLoaded = true;
     console.log('[MAIN] Environment fully loaded, enabling gravity');
 }
@@ -614,6 +673,14 @@ function animate() {
     requestAnimationFrame(animate);
     
     const delta = clock.getDelta();
+    
+    // Validar valores da câmera para evitar problemas de áudio
+    if (camera && camera.position) {
+        const pos = camera.position;
+        if (!isFinite(pos.x)) pos.x = 0;
+        if (!isFinite(pos.y)) pos.y = PLAYER_CONFIG.INITIAL_PLAYER_HEIGHT || 7;
+        if (!isFinite(pos.z)) pos.z = 0;
+    }
     
     // Only proceed with camera/controls dependent updates if they are initialized
     if (camera && controls) {
@@ -624,8 +691,11 @@ function animate() {
             applyGravity(delta, collidableObjects, camera);
         }
         
-        updateCameraMovement(delta, controls);
+        updateCameraMovement(delta, controls, collidableObjects);
         updateEnemies(delta, scene, camera, gun, collidableObjects);
+        
+        // Verificar vitória na área 4
+        checkArea4Victory(areAllArea4EnemiesDefeated);
         
         // Update ambient music based on player position
         updateAmbientMusic();
@@ -642,7 +712,11 @@ function animate() {
             console.log(`[KEYS] Available key types:`, keyManager.getCollectedKeys());
         }
         
-        updateHangarDoors(delta, camera, scene); // Atualiza animação das portas do hangar
+        // Sistema de acesso ao hangar baseado em proximidade (área 3)
+        updateHangarDoors(delta, camera, scene, collidableObjects, keyManager);
+        
+        // Sistema de iluminação do hangar
+        updateHangarLighting(delta, camera);
     }
     
     // These updates don't require camera/controls, so they can run always
@@ -650,9 +724,18 @@ function animate() {
     updateArea1(delta);
     updateArea2(delta);
     updateElevator(delta);
-    updateTotem(delta, scene, hitbox, 'red', collidableObjects);
-    updateKeyAnimation(delta, scene); // Atualiza animação da chave
-    updateDoorAnimation(delta, scene); // Atualiza animação da porta
+    updateTotem(delta, scene, hitbox, 'red', collidableObjects); // Totem da área 2 (requer chave vermelha)
+    updateArea4Totem(delta, scene, hitbox, collidableObjects); // Totem da área 4 (chave verde)
+    updateKeyAnimation(delta, scene); // Atualiza animação da chave (área 2)
+    updateDoorAnimation(delta, scene); // Atualiza animação da porta (área 2)
+    updateArea4KeyAnimation(delta, scene); // Atualiza animação da chave (área 4)
+    updateArea4WallsAnimation(delta, scene); // Atualiza animação dos muros (área 4)
+    updateHangarTotem(delta, scene, hitbox, collidableObjects); // Sistema de acesso ao hangar com totem
+    updateHangarKeyAnimation(delta, scene); // Animação da chave do hangar
+    updateHangarDoorsAnimation(delta, scene, collidableObjects); // Animação das portas do hangar
+    
+    // Sistema de vitória da área 4
+    updateArea4Victory(delta);
     
     // Ensure ambient music keeps playing
     ambientAudioManager.ensureAmbientMusicPlaying();
@@ -660,7 +743,7 @@ function animate() {
     // Atualizar sistema de chaves
     keyManager.updateKeys(delta);
     
-    // Only do rendering if scene exists
+    // Only do rendering if scene exists and camera position is valid
     if (scene && camera && renderer) {
         continuousCameraDebug(camera, controls, delta);
         renderer.render(scene, camera);
@@ -680,6 +763,8 @@ function updateAmbientMusic() {
     newArea = 'area1';
   } else if (isPlayerInArea2(camera)) {
     newArea = 'area2';
+  } else if (isPlayerInArea3(camera)) {
+    newArea = 'area3';
   }
   
   if (newArea !== currentPlayerArea) {
@@ -694,7 +779,7 @@ async function restartGame() {
     updatePlayerHealthDisplay();
     
     // Reset player to safe position using fixed height
-    const safeHeight = CONFIG.INITIAL_PLAYER_HEIGHT;
+    const safeHeight = PLAYER_CONFIG.INITIAL_PLAYER_HEIGHT;
     camera.position.set(0, safeHeight, 0);
     camera.rotation.set(0, 0, 0);
     
@@ -713,6 +798,12 @@ async function restartGame() {
     keyManager.clearAll();
     updateKeysDisplay();
     
+    // Reset iluminação do hangar
+    resetHangarLighting();
+    
+    // Reset sistema de vitória da área 4
+    resetArea4Victory();
+    
     currentPlayerArea = 'none';
     ambientAudioManager.playAreaMusic('none');
     
@@ -728,6 +819,7 @@ async function resetGameAreas() {
     // Reset enemy activation states
     resetArea1Activation();
     resetArea2Activation();
+    resetArea3Activation();
     
     if (area1KeyPlatform) {
       console.log('[RESTART] Resetting area 1 platform');
@@ -738,10 +830,10 @@ async function resetGameAreas() {
       const keyInstance = area1KeyPlatform.userData.keyInstance;
       
       if (platform) {
-        platform.position.y = CONFIG.AREA_Y_POSITION - 2;
+        platform.position.y = WORLD_CONFIG.AREA_Y_POSITION - 2;
       }
       if (keyInstance && keyInstance.getMesh()) {
-        keyInstance.getMesh().position.y = CONFIG.AREA_Y_POSITION - 1.0;
+        keyInstance.getMesh().position.y = WORLD_CONFIG.AREA_Y_POSITION - 1.0;
         keyInstance.getMesh().visible = false;
       }
     } else {
@@ -757,10 +849,10 @@ async function resetGameAreas() {
       const keyInstance = area2KeyPlatform.userData.keyInstance;
       
       if (centralBlock) {
-        centralBlock.position.y = CONFIG.AREA_Y_POSITION + 6; // Posição original do bloco
+        centralBlock.position.y = WORLD_CONFIG.AREA_Y_POSITION + 6; // Posição original do bloco
       }
       if (keyInstance && keyInstance.getMesh()) {
-        const redKeyTargetY = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT/2 + 0.5;
+        const redKeyTargetY = WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT/2 + 0.5;
         const finalKeyHeight = redKeyTargetY + 1.0; // Mesma altura da chave vermelha após subir
         keyInstance.getMesh().position.y = finalKeyHeight;
         keyInstance.getMesh().position.x = 0.0;
@@ -851,4 +943,128 @@ window.testHangarDoors = function() {
   } else {
     console.log('[DEBUG] Area3 not found');
   }
+};
+
+// Debug function to test dynamic texture application
+window.testDynamicTextures = function() {
+  console.log('[DEBUG] Testando aplicação dinâmica de texturas...');
+  
+  // Import the dynamic texture system
+  import('../systems/dynamicTextures.js').then(module => {
+    const { DynamicTextureApplicator, QuickTexture } = module;
+    
+    // Criar instância do aplicador
+    const textureApplicator = new DynamicTextureApplicator(scene);
+    
+    // Aplicar textura de metal nos blocos da área 2
+    QuickTexture.applyMetal(scene, 'MetalBlocks', 'caixametal.jpg')
+      .then(success => {
+        if (success) {
+          console.log('[DEBUG] ✅ Textura de metal aplicada nos blocos!');
+        } else {
+          console.log('[DEBUG] ❌ Falha ao aplicar textura de metal');
+        }
+      });
+      
+    // Aplicar texturas em objetos por critério
+    textureApplicator.applyTextureByCriteria(
+      { userData: { isBlock: true } },
+      'caixametal.jpg',
+      { materialType: 'metal', roughness: 0.2, metalness: 0.95 }
+    ).then(count => {
+      console.log(`[DEBUG] Texturas aplicadas em ${count} blocos por critério`);
+    });
+    
+    // Mostrar informações sobre texturas aplicadas
+    setTimeout(() => {
+      const info = textureApplicator.getAppliedTexturesInfo();
+      console.log('[DEBUG] Informações sobre texturas aplicadas:', info);
+    }, 2000);
+  });
+};
+
+// Function to demonstrate different texture applications
+window.applyTextureVariations = function() {
+  console.log('[DEBUG] Aplicando variações de texturas...');
+  
+  import('../systems/dynamicTextures.js').then(module => {
+    const { DynamicTextureApplicator } = module;
+    const applicator = new DynamicTextureApplicator(scene);
+    
+    // Lista de variações de textura para testar
+    const textureVariations = [
+      { name: 'MetalBlocks', texture: 'caixametal.jpg', type: 'metal' },
+      // Adicione mais variações conforme necessário
+    ];
+    
+    textureVariations.forEach(async (variation, index) => {
+      setTimeout(async () => {
+        try {
+          const success = await applicator.applyTextureByName(
+            variation.name, 
+            variation.texture, 
+            { 
+              materialType: variation.type,
+              roughness: 0.2 + (index * 0.2),
+              metalness: 0.9 - (index * 0.1)
+            }
+          );
+          
+          if (success) {
+            console.log(`[DEBUG] ✅ Variação ${index + 1} aplicada: ${variation.texture}`);
+          }
+        } catch (error) {
+          console.log(`[DEBUG] ❌ Erro na variação ${index + 1}:`, error);
+        }
+      }, index * 1000);
+    });
+  });
+};
+
+// Initialize dynamic texture system on game start
+window.initializeDynamicTextures = function() {
+  if (!scene) {
+    console.log('[DEBUG] Cena não está pronta ainda');
+    return;
+  }
+  
+  import('../systems/dynamicTextures.js').then(module => {
+    const { getGlobalTextureApplicator } = module;
+    const applicator = getGlobalTextureApplicator(scene);
+    
+    // Aplicar texturas padrão
+    applicator.applyDefaultTextures().then(() => {
+      console.log('[DEBUG] ✅ Sistema de texturas dinâmicas inicializado');
+    });
+  });
+};
+
+// Debug functions for hangar lighting system
+window.testHangarLighting = function() {
+  import('../systems/hangarLights.js').then(module => {
+    const { getHangarLightingStatus } = module;
+    const status = getHangarLightingStatus();
+    console.log('[DEBUG] Status da iluminação do hangar:', status);
+  });
+};
+
+window.resetHangarLights = function() {
+  import('../systems/hangarLights.js').then(module => {
+    const { resetHangarLighting } = module;
+    resetHangarLighting();
+    console.log('[DEBUG] Iluminação do hangar resetada');
+  });
+};
+
+window.configureHangarLighting = function(hangarIntensity = 2.5, ambientIntensity = 0.4, transitionSpeed = 2.0) {
+  import('../systems/hangarLights.js').then(module => {
+    const { hangarLightingSystem } = module;
+    hangarLightingSystem.setHangarLightIntensity(hangarIntensity);
+    hangarLightingSystem.setHangarAmbientIntensity(ambientIntensity);
+    hangarLightingSystem.setTransitionSpeed(transitionSpeed);
+    console.log(`[DEBUG] Configuração da iluminação do hangar atualizada:
+    - Intensidade do hangar: ${hangarIntensity}
+    - Intensidade ambiente: ${ambientIntensity}
+    - Velocidade de transição: ${transitionSpeed}`);
+  });
 };

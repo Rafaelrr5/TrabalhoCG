@@ -1,11 +1,15 @@
 import * as THREE from '../../../../../build/three.module.js';
-import { CONFIG } from '../../../core/config.js';
+import { DEBUG_CONFIG } from '../../../core/config/debugConfig.js';
+import { WORLD_CONFIG } from '../../../core/config/worldConfig.js';
 import { SimpleEventEmitter } from '../components/SimpleEventEmitter.js';
 import { EnemyAudio } from '../components/EnemyAudio.js';
 import { EnemyHealthBar } from '../components/EnemyHealthBar.js';
 import { EnemyMovement } from '../components/EnemyMovement.js';
 import { EnemyCollision } from '../components/EnemyCollision.js';
 import { EnemyDeathEffects } from '../components/EnemyDeathEffects.js';
+import { EnemyIdleBehaviors } from '../components/EnemyIdleBehaviors.js';
+import { player } from '../../player/player.js';
+//import { EnemyAI } from './components/EnemyAI.js';
 
 export const DEFAULT_ENEMY_CONFIG = {
   radius: 0.5,
@@ -83,22 +87,6 @@ export class Enemy extends SimpleEventEmitter {
     // Merge user config with defaults
     this.config = mergeEnemyConfig(config);
     
-    // Ensure health bar config exists
-    if (!this.config.healthBar) {
-      this.config.healthBar = {
-        enabled: true,
-        offset: 0.5,
-        width: 1.0,
-        height: {
-          background: 0.1,
-          fill: 0.08
-        }
-      };
-    }
-    
-    // Validate configuration
-    this.validateConfig();
-
     // Basic properties
     this.id = this.generateId();
     this.mesh = new THREE.Group();
@@ -118,31 +106,21 @@ export class Enemy extends SimpleEventEmitter {
     this.movement = new EnemyMovement(this);
     this.collision = new EnemyCollision(this);
     this.deathEffects = new EnemyDeathEffects(this);
+
+    //configurações de deecção visual
+    this.detection ={
+      fovAngle: Math.PI / 3, // 60º
+      maxDistance: 15, // Distância máxima de visão
+      isPlayerVisible: false, // Inicialmente o jogador não está visível
+      lastSeenPosition: null, // Posição onde o jogador foi visto pela última vez
+      detectionCooldown: 3000,
+      cooldownTimer: null, // Timer para cooldown de detecção
+      hasSeenPlayer: false // Indica se o inimigo já viu o jogador
+    }
+
+    this.ai = new EnemyAI(this);
     
     this.initialize();
-  }
-
-  /**
-   * Validates the enemy configuration
-   * @throws {Error} If configuration is invalid
-   */
-  validateConfig() {
-    if (this.config.maxHealth <= 0) {
-      throw new Error(`[ENEMY] Invalid maxHealth: ${this.config.maxHealth}. Must be > 0`);
-    }
-    
-    if (this.config.speed < 0) {
-      throw new Error(`[ENEMY] Invalid speed: ${this.config.speed}. Must be >= 0`);
-    }
-    
-    if (this.config.radius <= 0) {
-      throw new Error(`[ENEMY] Invalid radius: ${this.config.radius}. Must be > 0`);
-    }
-    
-    // Set collision radius to radius if not specified
-    if (this.config.collisionRadius === null) {
-      this.config.collisionRadius = this.config.radius;
-    }
   }
 
   initialize() {
@@ -151,13 +129,107 @@ export class Enemy extends SimpleEventEmitter {
     this.collision.updateBoundingBox();
   }
 
-  generateId() {
-    return `enemy_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+ takeDamage(damage) {
+    if (!this.isAlive || this.isDying) return false;
+
+    this.currentHealth -= damage;
+    this.emit('damaged', { enemy: this, damage: damage });
+
+    if (this.currentHealth <= 0) {
+        this.currentHealth = 0;
+        this.isAlive = false;
+        this.isDying = true;
+        this.deathEffects.start(); // Inicia a animação de morte
+        this.emit('death', { enemy: this });
+        return true; // Inimigo morreu
+    }
+
+    return false; // Inimigo ainda está vivo
+}
+
+removeFromScene() {
+    if (this.mesh && this.mesh.parent) {
+        this.mesh.parent.remove(this.mesh);
+    }
+    this.dispose(); // Limpa recursos
+}
+
+checkPlayerVisibility(playerPosition, collidableObjects = []) {
+  const enemyPos = this.mesh.position;
+  const toPlayer = new THREE.Vector3().subVectors(playerPosition, enemyPos);
+  const distance = toPlayer.length();
+
+  // Verificação de distância mais rápida
+  if (distance > this.detection.maxDistance) {
+    this.detection.isPlayerVisible = false;
+    return false;
   }
 
-  // Wrapper method for backward compatibility
-  updateHealthBar() {
-    this.healthBar.update();
+  // Verificação de ângulo mais eficiente
+  const forward = new THREE.Vector3();
+  this.mesh.getWorldDirection(forward);
+  const direction = toPlayer.normalize();
+  
+  const angleToPlayer = forward.angleTo(direction);
+  const halfFOV = this.detection.fovAngle / 2;
+
+  if (angleToPlayer > halfFOV) {
+    this.detection.isPlayerVisible = false;
+    return false;
+  }
+
+  // Verificação de obstáculos otimizada
+  if (collidableObjects.length > 0) {
+    const raycaster = new THREE.Raycaster(
+      enemyPos,
+      direction,
+      0.5, // Aumentamos o offset inicial
+      distance
+    );
+
+    // Filtra objetos colidíveis relevantes
+    const relevantObjects = collidableObjects.filter(obj => {
+      const objPos = obj.position || (obj.geometry ? obj.geometry.boundingSphere.center : null);
+      return objPos && enemyPos.distanceTo(objPos) <= distance;
+    });
+
+    const intersects = raycaster.intersectObjects(relevantObjects, true);
+    
+    if (intersects.length > 0 && intersects[0].distance < distance) {
+      this.detection.isPlayerVisible = false;
+      return false;
+    }
+  }
+
+  // Jogador visível
+  this.detection.isPlayerVisible = true;
+  this.detection.lastSeenPosition = playerPosition.clone();
+  return true;
+}
+
+
+
+moveTowards(targetPosition, options = {}) {
+  // Delega totalmente para EnemyMovement
+  return this.movement.moveTowards(
+    targetPosition, 
+    options.delta || 0.016, 
+    {
+      use6DOF: this.config.isFlying,
+      enableCollision: options.enableCollision,
+      collidableObjects: options.collidableObjects || [],
+      speedMultiplier: options.speedMultiplier || 1.0
+    }
+  );
+}
+  
+updateDetection(playerPosition, collidableObjects) {
+  this.collidableObjects = collidableObjects;
+  return this.checkPlayerVisibility(playerPosition);
+}
+    
+  generateId() {
+    return `enemy_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
   // Audio wrappers for backward compatibility
@@ -214,93 +286,29 @@ export class Enemy extends SimpleEventEmitter {
     return this.collision.preventOverlap(collidableObjects, delta);
   }
 
-  takeDamage(damage) {
-    if (!this.isAlive) return false;
-    
-    const validDamage = Math.max(0, Number(damage) || 0);
-    if (validDamage === 0) return false;
-
-    const previousHealth = this.currentHealth;
-    this.currentHealth = Math.max(0, this.currentHealth - validDamage);
-    
-    this.healthBar.update();
-    this.audio.playHitSound();
-    
-    // Emit damage event
-    this.emit('damaged', {
-      enemy: this,
-      damage: validDamage,
-      previousHealth,
-      currentHealth: this.currentHealth,
-      healthPercent: this.currentHealth / this.maxHealth
-    });
-    
-    if (this.currentHealth <= 0) {
-      this.die();
-      return true;
-    }
-    return false;
-  }
-
-  die() {
-    this.isAlive = false;
-    this.emit('death', {
-      enemy: this,
-      position: this.mesh.position.clone(),
-      finalHealth: this.currentHealth
-    });
-
-    this.healthBar.hide();
-    this.audio.playDeathSound();
-    this.deathEffects.start();
-    
-    // Call onDeath hook for derived classes
-    this.onDeath();
-  }
-  
-  // Override this method in derived classes for custom death behavior
-  onDeath() {
-    // Base implementation - can be overridden
-  }
-
-  // Base collision check (can be overridden by specific enemies)
-  checkPlayerCollision(playerPosition, options = {}) {
-    const result = this.collision.checkPlayerCollision(playerPosition, options);
-    
-    if (result) {
-      this.emit('playerCollision', {
-        enemy: this,
-        playerPosition: playerPosition.clone(),
-        damage: options.damage || this.config.damage
-      });
-      
-      this.audio.playAttackSound();
-    }
-    
-    return result;
-  }
-
   // Base update method (specific enemies should override this)
-  update(delta, camera, targetPosition, collidableObjects = [], otherEnemies = []) {
-    if (this.deathEffects.isDying) {
-      this.deathEffects.update();
-      return;
+  update(delta, camera, targetPosition, collidableObjects) {
+    if (this.isDying) {
+        this.deathEffects.update(); // Garante que o fade-out continue
+        return;
     }
+    
+    if (!this.isAlive) return;
 
     if (!this.isAlive) return;
 
-    this.audio.updateProximity(camera?.position);
-    this.healthBar.update(camera);
-    this.collision.updateBoundingBox();
-  }
+  // Atualiza a IA (que agora gerencia completamente o comportamento)
+  this.ai.update(delta, targetPosition, collidableObjects);
 
-  removeFromScene() {
-    if (this.mesh?.parent) {
-      this.mesh.parent.remove(this.mesh);
-    }
-    this.dispose();
-  }
-
+  // Atualiza componentes visuais/auditivos
+  this.audio.updateProximity(camera?.position);
+  this.healthBar.update(camera);
+  this.collision.updateBoundingBox();
+  
+  // Aplica forças de separação entre inimigos
+  const { separationForce } = this.collision.checkEnemyCollisions(otherEnemies);
+  this.collision.applySeparationForce(separationForce, delta);
+}
   dispose() {
     // Emit dispose event before cleanup
     this.emit('disposing', { enemy: this });
@@ -424,50 +432,53 @@ export class EnemyManager extends SimpleEventEmitter {
     return this.enemies.has(enemyId);
   }
 
-  update(delta, camera, targetPosition) {
-    const deadEnemies = [];
+  attack(targetPosition) {
+    // Método base que pode ser sobrescrito por inimigos específicos
+    this.playAttackSound();
     
-    // Update all enemies and collect dead ones
-    this.enemies.forEach((enemy, enemyId) => {
-      if (enemy.isAlive) {
-        try {
-          enemy.update(delta, camera, targetPosition);
-        } catch (error) {
-          console.error(`[ENEMY_MANAGER] Update error for enemy ${enemyId}:`, error);
-          // Mark as dead if update fails
-          enemy.isAlive = false;
-          deadEnemies.push(enemyId);
+    // Verifica colisão simples com o jogador
+    const distance = this.mesh.position.distanceTo(targetPosition);
+    if (distance <= (this.config.attackRange || 3.0)) {
+      this.dealDamageToPlayer(this.config.damage || 10);
+    }
+    
+    // Emite evento de ataque
+    this.emit('attacked', {
+      enemy: this,
+      position: this.mesh.position.clone(),
+      damage: this.config.damage || 10
+    });
+  }
+
+  dealDamageToPlayer(damage) {
+    if (typeof window.playerTakeDamage === 'function') {
+      window.playerTakeDamage(damage);
+    }
+  }
+
+ update(delta, camera, targetPosition, collidableObjects = [], otherEnemies = []) {
+    if (this.isDying || !this.isAlive) {
+        if (this.deathEffects.isDying) {
+            this.deathEffects.update();
+        } else {
+            this.deathEffects.start();
         }
-      } else {
-        deadEnemies.push(enemyId);
-      }
-    });
+        return;
+    }
+
+    // Atualiza a IA (que agora gerencia completamente o comportamento)
+    this.ai.update(delta, targetPosition, collidableObjects);
+
+    // Atualiza componentes visuais/auditivos
+    this.audio.updateProximity(camera?.position);
+    this.healthBar.update(camera);
+    this.collision.updateBoundingBox();
     
-    // Remove dead enemies
-    deadEnemies.forEach(enemyId => {
-      this.removeEnemy(enemyId);
-    });
-  }
+    // Aplica forças de separação entre inimigos
+    const { separationForce } = this.collision.checkEnemyCollisions(otherEnemies);
+    this.collision.applySeparationForce(separationForce, delta);
+}
 
-  getAliveEnemies() {
-    const aliveEnemies = [];
-    this.enemies.forEach(enemy => {
-      if (enemy.isAlive) {
-        aliveEnemies.push(enemy);
-      }
-    });
-    return aliveEnemies;
-  }
-
-  getEnemiesByType(enemyType) {
-    const typeEnemies = [];
-    this.enemies.forEach(enemy => {
-      if (enemy.constructor.name === enemyType) {
-        typeEnemies.push(enemy);
-      }
-    });
-    return typeEnemies;
-  }
 
   getEnemiesInRadius(position, radius) {
     const nearbyEnemies = [];
@@ -510,6 +521,13 @@ export class EnemyManager extends SimpleEventEmitter {
     // Clear all event listeners
     this.removeAllListeners();
   }
+
+  removeFromScene() {
+    if (this.mesh && this.mesh.parent) {
+        this.mesh.parent.remove(this.mesh);
+    }
+    this.dispose(); // Limpa recursos
+}
 }
 
 // ============================================================================
@@ -537,4 +555,208 @@ export function debugAllHealthBars(enemies) {
       // Debug information available but not logged
     }
   });
+}
+
+export class EnemyAI {
+  constructor(enemy) {
+    this.enemy = enemy;
+  this.state = 'IDLE';
+  this.lastStateChange = 0;
+  this.patrolPoints = [];
+  this.currentPatrolIndex = 0;
+  this.idleTime = 0;
+  this.maxIdleTime = 3 + Math.random() * 4;
+  this.hasSeenPlayer = false;
+  this.lastAttackTime = 0;
+  this.attackCooldown = 2.0;
+  this.disengageTime = 0;
+  this.disengageDuration = 3.0;
+  
+  this.currentDirection = new THREE.Vector3(
+    Math.random() - 0.5,
+    0,
+    Math.random() - 0.5
+  ).normalize();
+  this.changeDirectionTime = 0;
+  this.directionChangeInterval = 2 + Math.random() * 3;
+  this.movementSpeed = this.enemy.config.speed * 0.5;
+  }
+
+ update(delta, playerPosition, collidableObjects) {
+    if (!this.enemy.isAlive) return;
+
+    // Verifica visibilidade com obstáculos
+    const canSeePlayer = this.enemy.checkPlayerVisibility(playerPosition, collidableObjects);
+    const distanceToPlayer = this.enemy.mesh.position.distanceTo(playerPosition);
+
+    // Atualiza o estado apenas se realmente puder ver o jogador
+    if (canSeePlayer) {
+        this.hasSeenPlayer = true;
+        
+        if (distanceToPlayer > this.enemy.config.attackRange) {
+            if (this.state !== 'CHASE') {
+                this.changeState('CHASE');
+            }
+        } else if (distanceToPlayer <= this.enemy.config.attackRange) {
+            if (this.state !== 'ATTACK') {
+                this.changeState('ATTACK');
+            }
+        }
+    } 
+    // Só entra em DISENGAGE se já tiver visto o jogador antes
+    else if (this.hasSeenPlayer && (this.state === 'CHASE' || this.state === 'ATTACK')) {
+        this.changeState('DISENGAGE');
+    }
+    // Volta para IDLE após desengajar
+    else if (this.state === 'DISENGAGE' && (Date.now()/1000 - this.lastStateChange) > this.disengageDuration) {
+        this.changeState('IDLE');
+        this.hasSeenPlayer = false; // Reseta após desengajar completamente
+    }
+
+    // Comportamentos
+    switch (this.state) {
+        case 'IDLE':
+            this.idleBehavior(delta);
+            break;
+        case 'PATROL':
+            this.movingBehavior(delta, playerPosition, canSeePlayer);
+            break;
+        case 'CHASE':
+            this.chaseBehavior(delta, playerPosition, collidableObjects);
+            break;
+        case 'ATTACK':
+            this.attackBehavior(delta, playerPosition);
+            break;
+        case 'DISENGAGE':
+            this.disengageBehavior(delta);
+            break;
+    }
+}
+
+  changeState(newState) {
+  if (this.state === newState) return;
+  
+  console.log(`Enemy ${this.enemy.id} changing state from ${this.state} to ${newState}`);
+  this.state = newState;
+  this.lastStateChange = Date.now() / 1000;
+  
+  // Resetar tempos quando necessário
+  if (newState === 'DISENGAGE') {
+    this.disengageTime = this.lastStateChange;
+  }
+}
+
+  chaseBehavior(delta, playerPosition, collidableObjects) {
+    const moveOptions = {
+      speedMultiplier: 1.0,
+      enableCollision: true,
+      collidableObjects: collidableObjects,
+      use6DOF: this.enemy.config.isFlying
+    };
+    
+    this.enemy.movement.moveTowards(playerPosition, delta, moveOptions);
+  }
+
+
+  idleBehavior(delta) {
+    // Comportamento quando não está ativado
+    EnemyIdleBehaviors.combinedIdleBehavior(this.enemy, delta, {
+      movement: this.enemy.config.isFlying ? '6dof' : 'ground'
+    });
+  }
+
+  movingBehavior(delta, playerPosition, isPlayerVisible) {
+  // Garante que temos uma direção válida
+  if (!this.currentDirection || this.currentDirection.length() === 0) {
+    this.changeRandomDirection();
+  }
+
+  try {
+    // Muda de direção periodicamente
+    this.changeDirectionTime += delta;
+    if (this.changeDirectionTime >= this.directionChangeInterval) {
+      this.changeDirectionTime = 0;
+      this.directionChangeInterval = 2 + Math.random() * 3;
+      this.changeRandomDirection();
+    }
+
+    // Movimento seguro com verificação de direção
+    if (this.currentDirection && this.currentDirection.length() > 0) {
+      const moveAmount = this.movementSpeed * delta;
+      this.enemy.mesh.position.addScaledVector(this.currentDirection, moveAmount);
+
+      // Rotação suave
+      const forward = new THREE.Vector3(0, 0, 1);
+      const targetQuat = new THREE.Quaternion().setFromUnitVectors(
+        forward, 
+        this.currentDirection.clone().normalize()
+      );
+      this.enemy.mesh.quaternion.slerp(targetQuat, 0.1);
+    }
+
+    // Verifica se detectou o jogador
+    if (isPlayerVisible) {
+      this.changeState('CHASE');
+    }
+  } catch (error) {
+    console.error('Error in movingBehavior:', error);
+    this.changeRandomDirection();
+  }
+}
+
+  changeRandomDirection() {
+  // Cria uma nova direção aleatória com verificação de segurança
+  try {
+    this.currentDirection = new THREE.Vector3(
+      Math.random() - 0.5,
+      this.enemy.config.isFlying ? (Math.random() - 0.5) * 0.5 : 0,
+      Math.random() - 0.5
+    ).normalize();
+    
+    // Garante que a direção seja válida
+    if (isNaN(this.currentDirection.x)) {
+      this.currentDirection.set(1, 0, 0);
+    }
+  } catch (error) {
+    console.error('Error generating random direction:', error);
+    this.currentDirection = new THREE.Vector3(1, 0, 0);
+  }
+}
+
+  attackBehavior(delta, playerPosition) {
+    // Executa o ataque uma vez
+    if (this.enemy.attack) {
+      this.enemy.attack(playerPosition);
+    }
+
+    // Muda para estado de desengajamento após o ataque
+    this.state = 'DISENGAGE';
+    this.disengageTime = Date.now() / 1000;
+
+    // Define uma nova direção aleatória para desengajar
+    this.changeRandomDirection();
+  }
+
+  disengageBehavior(delta) {
+  const currentTime = Date.now() / 1000;
+  
+  // Verifica se currentDirection existe antes de usar
+  if (this.currentDirection && this.currentDirection.length() > 0) {
+    this.enemy.mesh.position.addScaledVector(
+      this.currentDirection, 
+      this.movementSpeed * 0.7 * delta
+    );
+  }
+
+  if (currentTime - this.disengageTime >= this.disengageDuration) {
+    this.changeState('IDLE');
+  }
+}
+
+  reset() {
+    this.state = 'IDLE';
+    this.hasSeenPlayer = false;
+    this.changeDirectionTime = 0;
+    this.currentDirection.set(0, 0, 0);
+  }
 }

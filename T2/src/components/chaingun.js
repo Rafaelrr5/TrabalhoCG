@@ -1,18 +1,19 @@
 import * as THREE from '../../../build/three.module.js';
-import { CONFIG } from '../core/config.js';
+import { WEAPONS_CONFIG } from '../core/config/weaponsConfig.js';
+import { DEBUG_CONFIG } from '../core/config/debugConfig.js';
 import { BaseWeapon } from './baseWeapon.js';
 import { SpriteMixer } from '../utils/spriteMixer.js';
 
 export class Chaingun extends BaseWeapon {
     constructor(camera) {
-        super(camera, CONFIG.WEAPONS.CHAINGUN);
+        super(camera, WEAPONS_CONFIG.WEAPONS.CHAINGUN);
         
-        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+        if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
             console.log('[CHAINGUN] Constructor called');
         }
         
         // Chaingun specific properties
-        this.activationDelay = CONFIG.WEAPONS.CHAINGUN.ACTIVATION_DELAY;
+        this.activationDelay = WEAPONS_CONFIG.WEAPONS.CHAINGUN.ACTIVATION_DELAY;
         this.activationTimer = 0;
         this.isActivating = false;
         this.actions = {};
@@ -33,9 +34,6 @@ export class Chaingun extends BaseWeapon {
         this.audioLoader = new THREE.AudioLoader();
         this.isAudioInitialized = false;
         
-        if (CONFIG.DEBUG_CONSOLE_LOGS) {
-            console.log(`[CHAINGUN] Constructor finished, ID: ${this.id}`);
-        }
     }
 
     // Sobrescreve o método abstrato da BaseWeapon
@@ -59,37 +57,45 @@ export class Chaingun extends BaseWeapon {
         
         this.fireSound = new THREE.Audio(window.listener);
         
-        // Load chaingun fire sound
-        this.audioLoader.load('../../assets/sounds/weapon/chaingun_fire.wav', (buffer) => {
-            this.fireSound.setBuffer(buffer);
-            this.fireSound.setVolume(0.3);
-            this.isAudioInitialized = true;
-        }, undefined, (error) => {
-            console.warn('[CHAINGUN] Failed to load chaingun fire sound:', error);
-        });
+        const possibleAudioPaths = [
+            'assets/sounds/weapon/chaingun_fire.wav',
+            '../assets/sounds/weapon/chaingun_fire.wav',
+            '../../assets/sounds/weapon/chaingun_fire.wav'
+        ];
+        
+        const tryLoadAudio = (pathIndex = 0) => {
+            if (pathIndex >= possibleAudioPaths.length) {
+                console.warn('[CHAINGUN] All audio paths failed, chaingun will be silent');
+                return;
+            }
+            
+            const currentPath = possibleAudioPaths[pathIndex];
+            this.audioLoader.load(currentPath, (buffer) => {
+                this.fireSound.setBuffer(buffer);
+                this.fireSound.setVolume(0.3);
+                this.isAudioInitialized = true;
+                if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
+                    console.log(`[CHAINGUN] Audio loaded from: ${currentPath}`);
+                }
+            }, undefined, (error) => {
+                tryLoadAudio(pathIndex + 1);
+            });
+        };
+        
+        tryLoadAudio();
     }
 
     onStartShooting() {
-    this.isActivating = true;
-    this.activationTimer = 0;
-}
-
-    onStopShooting() {
-    this.isActivating = false;
-    this.activationTimer = 0;
-    this.isShootingAnimationActive = false; // Reseta o estado
-
-    if (this.onLoop) {
-        this.actions.shooting.stop();
-        this.onLoop = false;
+        this.isActivating = true;
+        this.activationTimer = 0;
     }
-    if (this.chaingunSprite) {
-        this.chaingunSprite.setFrame(0);
-    }
-}
 
 startShooting() {
     if (this.isMousePressed) return; // Já está disparando, não faz nada
+    if (!this.isLoaded || !this.actions || !this.actions.shooting) {
+        console.warn('[CHAINGUN] Cannot start shooting - sprite not loaded yet');
+        return;
+    }
 
     this.isMousePressed = true;
     this.onStartShooting();
@@ -102,14 +108,12 @@ startShooting() {
             this.isActivating = false;
 
             // Verifica se a animação de shooting já está rodando
-            
-
             if (this.onLoop) {
                 this.shoot();
                 return;
             }
                         
-            if (!this.onLoop) {
+            if (!this.onLoop && this.actions && this.actions.shooting) {
                 this.actions.shooting.playLoop();
                 this.onLoop = true;
             }
@@ -124,12 +128,22 @@ onStopShooting() {
     this.activationTimer = 0;
     this.isShootingAnimationActive = false;
 
-    if (this.onLoop) {
-        this.actions.shooting.stop();
-        this.onLoop = false;
+    if (this.onLoop && this.actions && this.actions.shooting) {
+        try {
+            this.actions.shooting.stop();
+            this.onLoop = false;
+        } catch (error) {
+            console.warn('[CHAINGUN] Error stopping shooting animation:', error);
+            this.onLoop = false;
+        }
     }
-        if (this.chaingunSprite) {
-        this.chaingunSprite.setFrame(0);
+    
+    if (this.chaingunSprite && typeof this.chaingunSprite.setFrame === 'function') {
+        try {
+            this.chaingunSprite.setFrame(0);
+        } catch (error) {
+            console.warn('[CHAINGUN] Error setting frame:', error);
+        }
     }
 }
     onShoot() {
@@ -159,13 +173,13 @@ onStopShooting() {
         
         if (this.isLoaded && this.chaingunSprite) {
             this.chaingunSprite.visible = visible;
-            if (CONFIG.DEBUG_CONSOLE_LOGS) {
+            if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
                 console.log(`[CHAINGUN] Weapon visibility set to: ${visible ? 'VISIBLE' : 'HIDDEN'}`);
             }
         } else {
             // Salva para aplicar quando carregar
             this.pendingVisibility = visible;
-            if (CONFIG.DEBUG_CONSOLE_LOGS) {
+            if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
                 console.log(`[CHAINGUN] Weapon visibility pending: ${visible ? 'VISIBLE' : 'HIDDEN'}`);
             }
         }
@@ -185,6 +199,8 @@ onStopShooting() {
             this.loader = new THREE.TextureLoader();
             
             const possiblePaths = [
+                'assets/sprites/ChaingunSpriteAtirando.png',
+                '../assets/sprites/ChaingunSpriteAtirando.png',
                 '../../assets/sprites/ChaingunSpriteAtirando.png'
             ];
             
@@ -196,13 +212,10 @@ onStopShooting() {
                 }
                 
                 const currentPath = possiblePaths[pathIndex];
-                if (CONFIG.DEBUG_CONSOLE_LOGS) {
-                    console.log(`[Chaingun] Tentando carregar: ${currentPath}`);
-                }
                 
                 this.loader.load(currentPath, 
                     (texture) => {
-                        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+                        if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
                             console.log(`[Chaingun] Sucesso ao carregar: ${currentPath}`);
                         }
                         
@@ -222,7 +235,7 @@ onStopShooting() {
                         }
                         
                         this.actions.shooting = this.spriteMixer.Action(this.chaingunSprite, 1, 2, 40);
-                        this.chaingunSprite.position.set(CONFIG.GUN_POSITION.x, CONFIG.GUN_POSITION.y , CONFIG.GUN_POSITION.z -1.0);
+                        this.chaingunSprite.position.set(WEAPONS_CONFIG.GUN_POSITION.x, WEAPONS_CONFIG.GUN_POSITION.y , WEAPONS_CONFIG.GUN_POSITION.z -1.0);
                         
                         if (this.chaingunSprite.geometry) {
                             this.chaingunSprite.scale.set(1, 0.8, 0.9);
@@ -236,17 +249,16 @@ onStopShooting() {
                         this.chaingunSprite.visible = finalVisibility;
                         this.isVisible = finalVisibility;
                         
-                        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+                        if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
                             console.log(`[Chaingun] Sprite carregado! Visibilidade: ${finalVisibility ? 'VISÍVEL' : 'OCULTA'}`);
                         }
                     },
                     (progress) => {
-                        if (CONFIG.DEBUG_CONSOLE_LOGS && progress.total > 0) {
+                        if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS && progress.total > 0) {
                             console.log(`[Chaingun] Carregando sprite: ${Math.round((progress.loaded / progress.total) * 100)}%`);
                         }
                     },
                     (error) => {
-                        console.warn(`[Chaingun] Falha ao carregar: ${currentPath}`, error);
                         tryLoadTexture(pathIndex + 1);
                     }
                 );
@@ -262,12 +274,12 @@ onStopShooting() {
 
     createFallbackMesh() {
         // Cria um modelo 3D simples como fallback
-        const gunGeometry = new THREE.CylinderGeometry(CONFIG.GUN_RADIUS, CONFIG.GUN_RADIUS, CONFIG.GUN_LENGTH);
+        const gunGeometry = new THREE.CylinderGeometry(WEAPONS_CONFIG.GUN_RADIUS, WEAPONS_CONFIG.GUN_RADIUS, WEAPONS_CONFIG.GUN_LENGTH);
         const gunMaterial = new THREE.MeshLambertMaterial({color:'darkgrey'});
         this.chaingunSprite = new THREE.Mesh(gunGeometry, gunMaterial);
         
         this.chaingunSprite.rotation.x = Math.PI / 2;
-        this.chaingunSprite.position.set(CONFIG.GUN_POSITION.x, CONFIG.GUN_POSITION.y - 0.2, CONFIG.GUN_POSITION.z - 0.4);
+        this.chaingunSprite.position.set(WEAPONS_CONFIG.GUN_POSITION.x, WEAPONS_CONFIG.GUN_POSITION.y - 0.2, WEAPONS_CONFIG.GUN_POSITION.z - 0.4);
         
         this.camera.add(this.chaingunSprite);
         this.mesh = this.chaingunSprite;
@@ -301,8 +313,10 @@ export function initGun(scene) {
 }
 
 export function startShooting() {
-    if (gun) {
+    if (gun && gun.isReady()) {
         gun.startShooting();
+    } else if (gun && !gun.isReady()) {
+        console.warn('[CHAINGUN] Cannot start shooting - weapon not ready yet');
     }
 }
 

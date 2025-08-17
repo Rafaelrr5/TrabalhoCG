@@ -325,4 +325,18 @@ export class EnemyCollision {
     this.boundingBox = null;
     this.enemy = null;
   }
+
+  getValidMovementDirection(targetPosition, collidableObjects, lookahead = 2.0) {
+  this.updateBoundingBox();
+  
+  // 1. Verifica colisão direta
+  const directCollision = this.checkEnvironmentCollision(collidableObjects, targetPosition);
+  if (!directCollision.hasCollision) {
+    return new THREE.Vector3().subVectors(targetPosition, this.enemy.mesh.position).normalize();
+  }
+
+  // 2. Calcula direção de evasão
+  const avoidance = this.getAvoidanceDirection(collidableObjects, targetPosition, lookahead);
+  return avoidance || directCollision.normal;
+}
 }

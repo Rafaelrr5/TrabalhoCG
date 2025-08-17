@@ -1,5 +1,6 @@
 import * as THREE from '../../../../../../build/three.module.js';
-import { CONFIG } from '../../../core/config.js';
+import { DEBUG_CONFIG } from '../../../core/config/debugConfig.js';
+import { WORLD_CONFIG } from '../../../core/config/worldConfig.js';
 
 export class EnemyDeathEffects {
   constructor(enemy) {
@@ -14,7 +15,7 @@ export class EnemyDeathEffects {
   start() {
     if (this.isDying) return;
     
-    if (!CONFIG.ENEMY_DEATH_FADE_ENABLED) {
+    if (!DEBUG_CONFIG.ENEMY_DEATH_FADE_ENABLED) {
       this.enemy.removeFromScene();
       return;
     }
@@ -43,8 +44,8 @@ export class EnemyDeathEffects {
     try {
       const currentTime = performance.now();
       const elapsedTime = (currentTime - this.deathStartTime) / 1000;
-      const fadeDelay = CONFIG.ENEMY_DEATH_FADE_DELAY || 0.5;
-      const fadeDuration = CONFIG.ENEMY_DEATH_FADE_DURATION || 2.0;
+      const fadeDelay = DEBUG_CONFIG.ENEMY_DEATH_FADE_DELAY || 0.5;
+      const fadeDuration = DEBUG_CONFIG.ENEMY_DEATH_FADE_DURATION || 2.0;
       
       if (elapsedTime < fadeDelay) return;
       
@@ -63,7 +64,7 @@ export class EnemyDeathEffects {
         this.fadeCompleted = true;
         setTimeout(() => {
           this.enemy.removeFromScene();
-        }, (CONFIG.ENEMY_DEATH_REMOVE_DELAY || 0.2) * 1000);
+        }, (DEBUG_CONFIG.ENEMY_DEATH_REMOVE_DELAY || 0.2) * 1000);
       }
     } catch (error) {
       console.error(`[DEATH_EFFECTS] Update error:`, error);
@@ -90,14 +91,14 @@ export class EnemyDeathEffects {
   }
 
   applyScaleEffect(fadeFactor) {
-    if (CONFIG.ENEMY_DEATH_SCALE_EFFECT && this.originalScale) {
+    if (DEBUG_CONFIG.ENEMY_DEATH_SCALE_EFFECT && this.originalScale) {
       const scaleMultiplier = 1.0 + (1.0 - fadeFactor) * 0.2;
       this.enemy.mesh.scale.copy(this.originalScale).multiplyScalar(scaleMultiplier);
     }
   }
 
   applyRotationEffect(fadeFactor) {
-    if (CONFIG.ENEMY_DEATH_ROTATION_EFFECT) {
+    if (DEBUG_CONFIG.ENEMY_DEATH_ROTATION_EFFECT) {
       const rotationAmount = (1.0 - fadeFactor) * Math.PI * 2;
       this.enemy.mesh.rotation.y = rotationAmount;
     }

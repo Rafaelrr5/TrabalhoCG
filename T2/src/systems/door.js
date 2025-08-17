@@ -1,7 +1,6 @@
-// door.js - versão corrigida
 import * as THREE from '../../../build/three.module.js';
-import { CONFIG } from '../core/config.js';
 import { keyManager } from '../entities/items/key.js';
+import { QuickTexture } from '../utils/textureUtils.js';
 import { gameAudioManager } from './index.js';
 
 export let door = null;
@@ -46,6 +45,7 @@ export function createDoor(scene, collidableObjects, x, z, doorWidth, doorHeight
     doorAnimationState.targetOffset = new THREE.Vector3(0, -doorHeight, 0); // Porta desce para baixo
     
     scene.add(door);
+    QuickTexture.finishedConcrete(door)
     collidableObjects.push(door);
     door.castShadow = true;
     door.receiveShadow = true;

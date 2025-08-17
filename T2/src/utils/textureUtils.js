@@ -1,0 +1,245 @@
+import { getTextureManager } from '../systems/textureManager.js';
+import { TEXTURE_CONFIG } from '../core/config/textureConfig.js';
+
+// Função principal - aplicar textura simples
+export async function applyTexture(object, textureName, materialType = 'standard', properties = {}) {
+    const manager = getTextureManager();
+    const material = await manager.createMaterial(textureName, materialType, properties);
+    
+    if (object.isMesh) {
+        object.material = material;
+    } else {
+        object.traverse(child => {
+            if (child.isMesh) {
+                child.material = material;
+            }
+        });
+    }
+}
+
+export async function applyTextureByCriteria(scene, criteria, textureName, materialType = 'standard', properties = {}) {
+    let count = 0;
+    
+    scene.traverse(object => {
+        if (matchesCriteria(object, criteria)) {
+            applyTexture(object, textureName, materialType, properties);
+            count++;
+        }
+    });
+    
+    console.log(`Textura ${textureName} aplicada em ${count} objetos`);
+    return count;
+}
+
+function matchesCriteria(object, criteria) {
+    if (criteria.name && !object.name.includes(criteria.name)) return false;
+    if (criteria.userData) {
+        for (const [key, value] of Object.entries(criteria.userData)) {
+            if (object.userData[key] !== value) return false;
+        }
+    }
+    return true;
+}
+
+export const TexturePresets = {
+    metal: (roughness = TEXTURE_CONFIG.MATERIAL_PRESETS.METAL.ROUGHNESS, metalness = TEXTURE_CONFIG.MATERIAL_PRESETS.METAL.METALNESS) => ({
+        materialType: 'standard',
+        properties: { roughness, metalness }
+    }),
+    
+    stone: (roughness = TEXTURE_CONFIG.MATERIAL_PRESETS.STONE.ROUGHNESS) => ({
+        materialType: 'standard', 
+        properties: { roughness, metalness: TEXTURE_CONFIG.MATERIAL_PRESETS.STONE.METALNESS }
+    }),
+    
+    wood: (roughness = TEXTURE_CONFIG.MATERIAL_PRESETS.WOOD.ROUGHNESS) => ({
+        materialType: 'standard',
+        properties: { roughness, metalness: TEXTURE_CONFIG.MATERIAL_PRESETS.WOOD.METALNESS }
+    }),
+    
+    concrete: (roughness = TEXTURE_CONFIG.MATERIAL_PRESETS.CONCRETE.ROUGHNESS) => ({
+        materialType: 'standard',
+        properties: { roughness, metalness: TEXTURE_CONFIG.MATERIAL_PRESETS.CONCRETE.METALNESS }
+    }),
+
+    plastic: (roughness = TEXTURE_CONFIG.MATERIAL_PRESETS.PLASTIC.ROUGHNESS) => ({
+        materialType: 'standard',
+        properties: { roughness, metalness: TEXTURE_CONFIG.MATERIAL_PRESETS.PLASTIC.METALNESS }
+    }),
+
+    glass: (opacity = 0.3) => ({
+        materialType: 'standard',
+        properties: { roughness: 0.0, metalness: 0.0, transparent: true, opacity }
+    }),
+
+    fabric: (roughness = 0.9) => ({
+        materialType: 'lambert',
+        properties: { roughness }
+    })
+};
+
+export async function applyTextureWithPreset(object, textureName, presetName, customProps = {}) {
+    const preset = TexturePresets[presetName];
+    if (!preset) {
+        console.warn(`Preset ${presetName} não encontrado`);
+        return;
+    }
+    
+    const config = preset();
+    const finalProps = { ...config.properties, ...customProps };
+    
+    await applyTexture(object, textureName, config.materialType, finalProps);
+}
+
+export async function applyRandomTextures(objects, textureNames, materialType = 'standard') {
+    for (const object of objects) {
+        const randomTexture = textureNames[Math.floor(Math.random() * textureNames.length)];
+        await applyTexture(object, randomTexture, materialType);
+    }
+}
+
+export async function applyMaterialVariations(objects, textureName, variations) {
+    for (let i = 0; i < objects.length; i++) {
+        const variation = variations[i % variations.length];
+        await applyTexture(objects[i], textureName, 'standard', variation);
+    }
+}
+
+// Função especializada para aplicar texturas avançadas com displacement e normal mapping
+export async function applyAdvancedTexture(object, config) {
+    const manager = getTextureManager();
+    
+    // Criar material com todas as configurações avançadas
+    const material = await manager.createMaterial(config.diffuse, 'standard', {
+        roughness: config.roughness || 0.5,
+        metalness: config.metalness || 0.0,
+        color: config.color || 0xffffff,
+        normalMap: config.normalMap,
+        normalScale: config.normalScale,
+        displacementMap: config.displacementMap,
+        displacementScale: config.displacementScale,
+        textureOptions: { repeat: config.repeat || { x: 1, y: 1 } }
+    });
+    
+    // Aplicar material ao objeto
+    if (object.isMesh) {
+        object.material = material;
+    } else {
+        object.traverse(child => {
+            if (child.isMesh) {
+                child.material = material;
+            }
+        });
+    }
+    
+    // Configurar repeat para todas as texturas
+    if (config.repeat) {
+        manager.setTextureOptions(material, config.repeat.x, config.repeat.y);
+    }
+}
+
+export const QuickTexture = {
+    metal: async (object, textureName = TEXTURE_CONFIG.METAL_BLOCKS.NAME) => 
+        await applyTextureWithPreset(object, textureName, 'metal'),
+        
+    stone: async (object, textureName = 'pedradifusa.png') => 
+        await applyTexture(object, textureName, 'lambert', {
+            // Material Lambert para melhor difusão da pedra
+            color: 0xf0f0f0, // Cor ligeiramente acinzentada para realçar a textura
+        }),
+        
+    wood: async (object, textureName = 'difusa.jpg') => 
+        await applyTextureWithPreset(object, textureName, 'wood'),
+        
+    floor: async (object, textureName = TEXTURE_CONFIG.FLOOR_TEXTURE.NAME) => 
+        await applyTexture(object, textureName, 'standard', {
+            roughness: TEXTURE_CONFIG.FLOOR_TEXTURE.ROUGHNESS,
+            metalness: TEXTURE_CONFIG.FLOOR_TEXTURE.METALNESS,
+            textureOptions: { repeat: TEXTURE_CONFIG.FLOOR_TEXTURE.REPEAT }
+        }),
+        
+    wall: async (object, textureName = TEXTURE_CONFIG.WALL_TEXTURE.NAME) => 
+        await applyTexture(object, textureName, 'standard', {
+            roughness: TEXTURE_CONFIG.WALL_TEXTURE.ROUGHNESS,
+            metalness: TEXTURE_CONFIG.WALL_TEXTURE.METALNESS,
+            textureOptions: { repeat: TEXTURE_CONFIG.WALL_TEXTURE.REPEAT }
+        }),
+        
+    area4Walls: async (object, textureName = TEXTURE_CONFIG.AREA4_WALLS.NAME) => 
+        await applyTexture(object, textureName, 'standard', {
+            roughness: TEXTURE_CONFIG.AREA4_WALLS.ROUGHNESS,
+            metalness: TEXTURE_CONFIG.AREA4_WALLS.METALNESS,
+            textureOptions: { repeat: TEXTURE_CONFIG.AREA4_WALLS.REPEAT }
+        }),
+
+    metallicScratched1: async (object, textureName = TEXTURE_CONFIG.METALLIC_SCRATCHED1.NAME) => 
+    await applyTexture(object, textureName, 'standard', {
+        roughness: TEXTURE_CONFIG.METALLIC_SCRATCHED1.ROUGHNESS,
+        metalness: TEXTURE_CONFIG.METALLIC_SCRATCHED1.METALNESS,
+        textureOptions: { repeat: TEXTURE_CONFIG.METALLIC_SCRATCHED1.REPEAT }
+    }),
+
+    metallicScratched2: async (object, textureName = TEXTURE_CONFIG.METALLIC_SCRATCHED2.NAME) => 
+    await applyTexture(object, textureName, 'standard', {
+        roughness: TEXTURE_CONFIG.METALLIC_SCRATCHED2.ROUGHNESS,
+        metalness: TEXTURE_CONFIG.METALLIC_SCRATCHED2.METALNESS,
+        textureOptions: { repeat: TEXTURE_CONFIG.METALLIC_SCRATCHED2.REPEAT }
+    }),
+
+    finishedConcrete: async (object, textureName = TEXTURE_CONFIG.FINISHED_CONCRETE.NAME) => 
+        await applyTexture(object, textureName, 'standard', {
+            roughness: TEXTURE_CONFIG.FINISHED_CONCRETE.ROUGHNESS,
+            metalness: TEXTURE_CONFIG.FINISHED_CONCRETE.METALNESS,
+            textureOptions: { repeat: TEXTURE_CONFIG.FINISHED_CONCRETE.REPEAT }
+        }),
+
+    dirtyConcrete: async (object, textureName = TEXTURE_CONFIG.DIRTY_CONCRETE.NAME) => 
+        await applyTexture(object, textureName, 'standard', {
+            roughness: TEXTURE_CONFIG.DIRTY_CONCRETE.ROUGHNESS,
+            metalness: TEXTURE_CONFIG.DIRTY_CONCRETE.METALNESS,
+            textureOptions: { repeat: TEXTURE_CONFIG.DIRTY_CONCRETE.REPEAT }
+        }),
+
+    grungeConcrete1: async (object, textureName = TEXTURE_CONFIG.GRUNGE_CONCRETE1.NAME) => 
+        await applyTexture(object, textureName, 'standard', {
+            roughness: TEXTURE_CONFIG.GRUNGE_CONCRETE1.ROUGHNESS,
+            metalness: TEXTURE_CONFIG.GRUNGE_CONCRETE1.METALNESS,
+            textureOptions: { repeat: TEXTURE_CONFIG.GRUNGE_CONCRETE1.REPEAT }
+        }),
+
+    grungeConcrete2: async (object, textureName = TEXTURE_CONFIG.GRUNGE_CONCRETE2.NAME) => 
+        await applyTexture(object, textureName, 'standard', {
+            roughness: TEXTURE_CONFIG.GRUNGE_CONCRETE2.ROUGHNESS,
+            metalness: TEXTURE_CONFIG.GRUNGE_CONCRETE2.METALNESS,
+            textureOptions: { repeat: TEXTURE_CONFIG.GRUNGE_CONCRETE2.REPEAT }
+        }),
+
+    hangarFloor: async (object, textureName = TEXTURE_CONFIG.HANGAR_FLOOR.NAME) => 
+        await applyTexture(object, textureName, 'standard', {
+            roughness: TEXTURE_CONFIG.HANGAR_FLOOR.ROUGHNESS,
+            metalness: TEXTURE_CONFIG.HANGAR_FLOOR.METALNESS,
+            textureOptions: { repeat: TEXTURE_CONFIG.HANGAR_FLOOR.REPEAT }
+        }),
+
+    hangarWalls: async (object, textureName = TEXTURE_CONFIG.HANGAR_WALLS.NAME) => 
+        await applyTexture(object, textureName, 'standard', {
+            roughness: TEXTURE_CONFIG.HANGAR_WALLS.ROUGHNESS,
+            metalness: TEXTURE_CONFIG.HANGAR_WALLS.METALNESS,
+            textureOptions: { repeat: TEXTURE_CONFIG.HANGAR_WALLS.REPEAT }
+        }),
+
+    romanColumns: async (object, textureName = TEXTURE_CONFIG.ROMAN_COLUMNS.NAME) => {
+        const config = TEXTURE_CONFIG.ROMAN_COLUMNS;
+        await applyAdvancedTexture(object, {
+            diffuse: config.NAME,
+            roughness: config.ROUGHNESS,
+            metalness: config.METALNESS,
+            color: config.COLOR,
+            normalMap: config.NORMAL_MAP,
+            normalScale: config.NORMAL_SCALE,
+            displacementMap: config.DISPLACEMENT_MAP,
+            displacementScale: config.DISPLACEMENT_SCALE,
+            repeat: config.REPEAT
+        });
+    },
+};

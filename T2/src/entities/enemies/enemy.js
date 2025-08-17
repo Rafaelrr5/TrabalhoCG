@@ -2,20 +2,22 @@ import * as THREE from '../../../../build/three.module.js';
 import { LostSoul } from './types/lostSoul.js';
 import { Cacodemon } from './types/cacodemon.js';
 import { preloadSkullModel } from '../../utils/skullLoader.js';
-import { CONFIG } from '../../core/config.js';
-import { isPlayerInArea1, isPlayerInArea2 } from '../../systems/environment.js';
+import { PainElemental } from './types/painElemental.js';
+import { DEBUG_CONFIG } from '../../core/config/debugConfig.js';
+import { WORLD_CONFIG } from '../../core/config/worldConfig.js';
+import { PLAYER_CONFIG } from '../../core/config/playerConfig.js';
+import { isPlayerInArea1, isPlayerInArea2, isPlayerInArea3, isPlayerInsideHangar, isPlayerInArea4 } from '../../systems/environment.js';
 import { cleanupAllProjectiles } from './systems/cacodeemonProjectile.js';
-import { EnemyPersistentPursuitManager } from './components/EnemyPersistentPursuitBehavior.js';
 import { forceShowAllHealthBars, debugAllHealthBars } from './base/enemies.js';
+import { Zombieman } from './types/zombieman.js';
+import { spawnPoints } from '../../systems/environment.js';
 
 export const enemies = [];
 
 let area1LostSoulsActivated = false;
 let area2CacodemonsActivated = false;
-
-// Health bar debugging - remove this in production
-let healthBarDebugCounter = 0;
-const HEALTH_BAR_DEBUG_INTERVAL = 300; // Every 5 seconds at 60fps
+let area3ZombiemenActivated = false;
+let area4EnemiesActivated = false;
 
 export async function preloadEnemies() {
   await preloadSkullModel();
@@ -24,15 +26,16 @@ export async function preloadEnemies() {
 export async function createEnemies(scene) {
   await preloadEnemies();
   
-  const lostSoulY = CONFIG.AREA_Y_POSITION + CONFIG.AREA_HEIGHT / 2 + 8.0;
+  // --- DEMAIS INIMIGOS (Áreas 1, 2, 3) ---
+  // (O código das outras áreas permanece o mesmo, omitido por brevidade)
+  const lostSoulY = WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT / 2 + 8.0;
   const lostSoulPositions = [
-    [-170, lostSoulY, -140],
+    [-170, 6.0, -140],
     [-160, lostSoulY, -130],
     [-150, lostSoulY, -135],
     [-155, lostSoulY, -120],
     [-140, lostSoulY, -145]
   ];
-  
   lostSoulPositions.forEach(([x, y, z]) => {
     const enemy = new LostSoul([x, y, z]);
     enemy.area = 'area1';
@@ -40,13 +43,11 @@ export async function createEnemies(scene) {
     enemies.push(enemy);
     scene.add(enemy.mesh);
   });
-
   const cacodeemonPositions = [
     [-22.5, 20, -155.5],
     [25.5, 20, -123.5],
     [-6.5, 20, -107.0],
   ];
-
   cacodeemonPositions.forEach(([x, y, z]) => {
     const enemy = new Cacodemon([x, y, z]);
     enemy.area = 'area2';
@@ -54,61 +55,206 @@ export async function createEnemies(scene) {
     enemies.push(enemy);
     scene.add(enemy.mesh);
   });
+  const zombiemanY = WORLD_CONFIG.AREA_Y_POSITION - 2;
+  const hangarCenterX = 156.25;
+  const hangarCenterZ = -130.0;
+  const hangarBackZ = hangarCenterZ - 10;
+  const zombiemanPositions = [
+    [hangarCenterX - 30, zombiemanY, hangarBackZ],
+    [hangarCenterX - 10, zombiemanY, hangarBackZ],
+    [hangarCenterX + 10, zombiemanY, hangarBackZ],
+    [hangarCenterX + 30, zombiemanY, hangarBackZ],
+    [hangarCenterX - 25, zombiemanY, hangarBackZ + 15],
+    [hangarCenterX - 5, zombiemanY, hangarBackZ + 15],
+    [hangarCenterX + 5, zombiemanY, hangarBackZ + 15],
+    [hangarCenterX + 25, zombiemanY, hangarBackZ + 15]
+  ];
+  zombiemanPositions.forEach(([x, y, z], index) => {
+    const enemy = new Zombieman([x, y, z]);
+    enemy.area = 'area3';
+    enemy.enemyType = 'Zombieman';
+    enemies.push(enemy);
+    scene.add(enemy.mesh);
+  });
+  // --- FIM DOS OUTROS INIMIGOS ---
+
+
+  // --- LÓGICA DE SPAWN DA ÁREA 4 (LABIRINTO) - CORRIGIDO COM DESLOCAMENTO ---
+
+  // NOVO: Defina o mesmo vetor de deslocamento usado em labirinth.js
+  const mazeDisplacement = { x: 0, y: 0, z: 131.0 };
+
+  console.log('[DEBUG] Verificando spawnPoints para a Área 4. Total de pontos:', spawnPoints.length);
+  if (spawnPoints.length > 0) {
+      console.log('[DEBUG] Conteúdo original de spawnPoints:', JSON.stringify(spawnPoints));
+  } else {
+      console.warn('[DEBUG] O array spawnPoints está VAZIO. Nenhum inimigo da Área 4 será criado.');
+  }
+
+  if (spawnPoints && spawnPoints.length > 0) {
+    // Pain Elemental
+    const painElementalPosObj = spawnPoints[0];
+    // CORREÇÃO: Aplica o deslocamento ao criar o array de posição
+    const painElementalPosArray = [
+      painElementalPosObj.x + mazeDisplacement.x,
+      painElementalPosObj.y + mazeDisplacement.y,
+      painElementalPosObj.z + mazeDisplacement.z
+    ];
+    
+    const painElemental = new PainElemental(painElementalPosArray);
+    painElemental.area = 'area4';
+    painElemental.enemyType = 'PainElemental';
+    enemies.push(painElemental);
+    scene.add(painElemental.mesh);
+    console.log(`[ÁREA 4] Inimigo 'PainElemental' criado na posição final: x=${painElementalPosArray[0]}, y=${painElementalPosArray[1]}, z=${painElementalPosArray[2]}`);
+
+    // Cacodemons
+    for (let i = 1; i < 5; i++) {
+      if (spawnPoints[i]) {
+        const cacodemonPosObj = spawnPoints[i];
+        // CORREÇÃO: Aplica o deslocamento ao criar o array de posição
+        const cacodemonPosArray = [
+          cacodemonPosObj.x + mazeDisplacement.x,
+          cacodemonPosObj.y + mazeDisplacement.y,
+          cacodemonPosObj.z + mazeDisplacement.z
+        ];
+        
+        const cacodemon = new Cacodemon(cacodemonPosArray);
+        cacodemon.area = 'area4';
+        cacodemon.enemyType = 'Cacodemon';
+        enemies.push(cacodemon);
+        scene.add(cacodemon.mesh);
+        console.log(`[ÁREA 4] Inimigo 'Cacodemon' #${i} criado na posição final: x=${cacodemonPosArray[0]}, y=${cacodemonPosArray[1]}, z=${cacodemonPosArray[2]}`);
+      } else {
+        console.warn(`[ÁREA 4] Ponto de spawn de índice ${i} não encontrado no array spawnPoints.`);
+      }
+    }
+  }
 }
 
+export function shouldUpdateEnemy(camera, enemy) {
+  if (enemy.area === 'area4') {
+    return area4EnemiesActivated;
+  }
+
+ 
+  if ( enemy.alwaysActive || 
+      (enemy.spawner && enemy.spawner.enemyType === 'PainElemental') ||
+      enemy.isSpawned ||
+      enemy.detection?.hasSeenPlayer) {
+    return true;
+  }
+  
+  // 2. Inimigos ativados por área
+  if (enemy.area === 'area1' && area1LostSoulsActivated) {
+    return true;
+  }
+  
+  if (enemy.area === 'area2' && area2CacodemonsActivated) {
+    return true;
+  }
+
+  if (enemy.area === 'area3' && area3ZombiemenActivated) {
+    return true;
+  }
+
+  // 3. Inimigos que já viram o jogador (redundante com a verificação no ponto 1, mas mantido por segurança)
+  if (enemy.detection?.hasSeenPlayer) {
+    return true;
+  }
+
+  return false;
+}
+
+// --- FUNÇÃO updateEnemies - ALTERADO ---
 export function updateEnemies(delta, scene, camera, gun = null, collidableObjects = []) {
   const hitboxTop = new THREE.Vector3(
     camera.position.x,
-    CONFIG.CAMERA_HEIGHT + CONFIG.PLAYER_HEIGHT,
+    PLAYER_CONFIG.CAMERA_HEIGHT + PLAYER_CONFIG.PLAYER_HEIGHT,
     camera.position.z
   );
   
   const aliveEnemies = enemies.filter(e => e.isAlive);
-  
-  // Health bar debugging - periodically check and force visibility
-  healthBarDebugCounter++;
-  if (healthBarDebugCounter >= HEALTH_BAR_DEBUG_INTERVAL) {
-    forceShowAllHealthBars(aliveEnemies);
-    healthBarDebugCounter = 0;
+  const inArea1 = isPlayerInArea1(camera);
+  const inArea2 = isPlayerInArea2(camera);
+  const inArea3 = isPlayerInArea3(camera);
+  const inArea4 = isPlayerInArea4(camera);
+
+  // Ativação única das áreas 1, 2 e 3
+  if (inArea1 && !area1LostSoulsActivated) {
+    activateLostSoulsInArea1();
   }
-  
-  enemies.forEach(enemy => {
-    if (shouldUpdateEnemy(camera, enemy)) {
+
+  if (inArea2 && !area2CacodemonsActivated) {
+    activateCacodemonsInArea2();
+  }
+
+  if (inArea3 && !area3ZombiemenActivated) {
+    activateZombiemenInArea3();
+  }
+
+  // NOVO: Lógica de ativação/desativação para a Área 4
+  if (inArea4 && !area4EnemiesActivated) {
+    activateArea4Enemies();
+  } else if (!inArea4 && area4EnemiesActivated) {
+    deactivateArea4Enemies();
+  }
+
+   enemies.forEach(enemy => {
+    const shouldUpdate = shouldUpdateEnemy(camera, enemy);
+
+    if (shouldUpdate) {
+      // Força o estado 'PATROL' se a IA estiver em 'IDLE' ao ser ativada
+      if (enemy.ai.state === 'IDLE') {
+        enemy.ai.changeState('PATROL');
+      }
+      
       const otherEnemies = aliveEnemies.filter(e => e !== enemy);
       enemy.update(delta, camera, hitboxTop, collidableObjects, otherEnemies);
     } else if (typeof enemy.idleBehavior === 'function') {
+      // Este bloco só deve ser executado para inimigos inativos
       enemy.idleBehavior(delta);
     }
   });
 }
 
-function shouldUpdateEnemy(camera, enemy) {
-  switch (enemy.area) {
-    case 'area1':
-      const playerInArea1 = isPlayerInArea1(camera);
-      if (playerInArea1) {
-        activateLostSoulsInArea1();
-      }
-      
-      if (enemy.enemyType === 'LostSoul' && enemy.pursuitBehavior && enemy.pursuitBehavior.hasBeenActivated) {
-        return true;
-      }
-      return playerInArea1;
-    case 'area2':
-      const playerInArea2 = isPlayerInArea2(camera);
-      if (playerInArea2) {
-        activateCacodemonsInArea2();
-      }
-      
-      if (enemy.enemyType === 'Cacodemon' && enemy.pursuitBehavior && enemy.pursuitBehavior.hasBeenActivated) {
-        return true;
-      }
-      
-      return playerInArea2;
-    default:
-      return true;
-  }
+
+
+export function activateArea4Enemies() {
+  if (area4EnemiesActivated) return;
+  area4EnemiesActivated = true;
+  
+  const area4Enemies = enemies.filter(e => e.area === 'area4' && e.isAlive);
+  console.log(`[AREA4_LABIRINTO] Ativando ${area4Enemies.length} inimigos.`);
+
+  area4Enemies.forEach(enemy => {
+    if (enemy.ai.state === 'IDLE') {
+      enemy.ai.changeState('PATROL');
+    }
+    if (typeof enemy.playSightSound === 'function') {
+      enemy.playSightSound();
+    }
+  });
 }
+
+export function deactivateArea4Enemies() {
+  if (!area4EnemiesActivated) return;
+  area4EnemiesActivated = false;
+
+  const area4Enemies = enemies.filter(e => e.area === 'area4');
+  console.log(`[AREA4_LABIRINTO] Desativando ${area4Enemies.length} inimigos.`);
+
+  area4Enemies.forEach(enemy => {
+    // Reseta o estado da IA para IDLE para que não fiquem "travados"
+    enemy.ai.changeState('IDLE');
+    // Reseta o estado de detecção para que não ataquem imediatamente ao reentrar
+    if (enemy.detection) {
+      enemy.detection.hasSeenPlayer = false;
+    }
+  });
+}
+
+
 
 export function cleanupDeadEnemies(scene) {
   for (let i = enemies.length - 1; i >= 0; i--) {
@@ -137,6 +283,16 @@ export function areAllArea2EnemiesDefeated() {
   return area2Enemies.length > 0 && area2Enemies.every(e => !e.isAlive);
 }
 
+export function areAllArea4EnemiesDefeated() {
+  const area4Enemies = enemies.filter(e => e.area === 'area4');
+  return area4Enemies.length > 0 && area4Enemies.every(e => !e.isAlive);
+}
+
+export function areAllArea3EnemiesDefeated() {
+  const area3Enemies = enemies.filter(e => e.area === 'area3');
+  return area3Enemies.length > 0 && area3Enemies.every(e => !e.isAlive);
+}
+
 export function getAliveEnemies() {
   return enemies.filter(e => e.isAlive);
 }
@@ -149,12 +305,20 @@ export function getCacodemons() {
   return enemies.filter(e => e.enemyType === 'Cacodemon');
 }
 
+export function getZombiemen() {
+  return enemies.filter(e => e.enemyType === 'Zombieman');
+}
+
 export function addEnemy(scene, position, type = 'LostSoul') {
   let enemy;
   if (type === 'Cacodemon') {
     enemy = new Cacodemon(position);
     enemy.area = 'area2';
     enemy.enemyType = 'Cacodemon';
+  } else if (type === 'Zombieman') {
+    enemy = new Zombieman(position);
+    enemy.area = 'area3';
+    enemy.enemyType = 'Zombieman';
   } else {
     enemy = new LostSoul(position);
     enemy.area = 'area1';
@@ -174,6 +338,7 @@ export function damageEnemiesInArea(center, radius, damage) {
 export function getEnemyCount() {
   const lostSouls = getLostSouls();
   const cacodemons = getCacodemons();
+  const zombiemen = getZombiemen();
   
   return {
     lostSouls: {
@@ -186,6 +351,11 @@ export function getEnemyCount() {
       alive: cacodemons.filter(e => e.isAlive).length,
       dead: cacodemons.filter(e => !e.isAlive).length
     },
+    zombiemen: {
+      total: zombiemen.length,
+      alive: zombiemen.filter(e => e.isAlive).length,
+      dead: zombiemen.filter(e => !e.isAlive).length
+    },
     total: {
       total: enemies.length,
       alive: enemies.filter(e => e.isAlive).length,
@@ -196,30 +366,64 @@ export function getEnemyCount() {
 
 export function cleanupAllEnemyProjectiles(scene) {
   const cacodemons = getCacodemons();
+  const zombiemen = getZombiemen();
   cleanupAllProjectiles(scene, cacodemons);
+  
+  // Limpar projéteis dos Zombiemen também
+  zombiemen.forEach(zombieman => {
+    if (zombieman.activeProjectiles) {
+      zombieman.activeProjectiles.forEach(projectile => {
+        if (projectile.mesh && projectile.mesh.parent) {
+          projectile.mesh.parent.remove(projectile.mesh);
+        }
+      });
+      zombieman.activeProjectiles = [];
+    }
+  });
 }
 
 export function activateCacodemonsInArea2() {
   if (area2CacodemonsActivated) return;
   
   const cacodemons = getCacodemons().filter(c => c.area === 'area2' && c.isAlive);
+  console.log(`Activating ${cacodemons.length} Cacodemons in Area 2`);
   
   cacodemons.forEach(cacodemon => {
-    if (cacodemon.pursuitBehavior) {
-      cacodemon.pursuitBehavior.activate();
+    if (cacodemon.ai.state === 'IDLE') {
+      cacodemon.ai.changeState('PATROL');
     }
-    if (cacodemon.aiState === 'IDLE') {
-      cacodemon.changeState('ACTIVATED');
-    }
+    cacodemon.playSightSound();
+    console.log(`Activated Cacodemon at ${cacodemon.mesh.position.toArray()}`);
   });
   
   area2CacodemonsActivated = true;
-  console.log(`Activated ${cacodemons.length} Cacodemons in Area 2!`);
 }
 
 export function resetArea2Activation() {
   area2CacodemonsActivated = false;
-  EnemyPersistentPursuitManager.resetAllPursuitBehaviors(getCacodemons());
+}
+
+export function activateZombiemenInArea3() {
+  if (area3ZombiemenActivated) return;
+  
+  const zombiemen = getZombiemen().filter(z => z.area === 'area3' && z.isAlive);
+  console.log(`[AREA3_HANGAR] Activating ${zombiemen.length} Zombiemen in Area 3`);
+  
+  zombiemen.forEach(zombieman => {
+    if (zombieman.ai.state === 'IDLE') {
+      zombieman.ai.changeState('PATROL');
+    }
+    if (zombieman.playSightSound) {
+      zombieman.playSightSound();
+    }
+    console.log(`[AREA3_HANGAR] Activated Zombieman at ${zombieman.mesh.position.toArray()}`);
+  });
+  
+  area3ZombiemenActivated = true;
+}
+
+export function resetArea3Activation() {
+  area3ZombiemenActivated = false;
 }
 
 // ============================================================================
@@ -256,21 +460,23 @@ export function activateLostSoulsInArea1() {
   if (area1LostSoulsActivated) return;
   
   const lostSouls = getLostSouls().filter(ls => ls.area === 'area1' && ls.isAlive);
+  console.log(`Activating ${lostSouls.length} Lost Souls in Area 1`);
   
   lostSouls.forEach(lostSoul => {
-    if (lostSoul.pursuitBehavior) {
-      lostSoul.pursuitBehavior.activate();
+    // A mudança de estado é crucial aqui
+    if (lostSoul.ai.state === 'IDLE') {
+      lostSoul.ai.changeState('PATROL'); 
     }
     lostSoul.playSightSound();
+    console.log(`Activated LostSoul at ${lostSoul.mesh.position.toArray()}`);
   });
   
   area1LostSoulsActivated = true;
-  console.log(`Activated ${lostSouls.length} Lost Souls in Area 1!`);
 }
+
 
 export function resetArea1Activation() {
   area1LostSoulsActivated = false;
-  EnemyPersistentPursuitManager.resetAllPursuitBehaviors(getLostSouls());
 }
 
 // Debug functions for development
@@ -279,6 +485,7 @@ if (typeof window !== 'undefined') {
   window.getEnemies = () => enemies;
   window.getCacodemons = () => getCacodemons();
   window.getLostSouls = () => getLostSouls();
+  window.getZombiemen = () => getZombiemen();
   
   // Additional utility functions
   window.resetEnemies = () => {
@@ -293,20 +500,17 @@ if (typeof window !== 'undefined') {
       if (enemy.stateChangeTime !== undefined) {
         enemy.stateChangeTime = 0;
       }
-      
-      // Reset pursuit behavior if available
-      if (enemy.pursuitBehavior) {
-        enemy.pursuitBehavior.reset();
-      }
     });
   };
   
   window.fixEnemyCount = (scene) => {
     const maxLostSouls = 5;
     const maxCacodemons = 3;
+    const maxZombiemen = 8;
     
     const lostSouls = getLostSouls();
     const cacodemons = getCacodemons();
+    const zombiemen = getZombiemen();
     
     if (lostSouls.length > maxLostSouls) {
       const extraLostSouls = lostSouls.splice(maxLostSouls);
@@ -327,6 +531,22 @@ if (typeof window !== 'undefined') {
     if (cacodemons.length > maxCacodemons) {
       const extraCacodemons = cacodemons.splice(maxCacodemons);
       extraCacodemons.forEach((enemy) => {
+        if (enemy.mesh.parent) {
+          enemy.mesh.parent.remove(enemy.mesh);
+        }
+        if (enemy.dispose) {
+          enemy.dispose();
+        }
+        const index = enemies.indexOf(enemy);
+        if (index > -1) {
+          enemies.splice(index, 1);
+        }
+      });
+    }
+
+    if (zombiemen.length > maxZombiemen) {
+      const extraZombiemen = zombiemen.splice(maxZombiemen);
+      extraZombiemen.forEach((enemy) => {
         if (enemy.mesh.parent) {
           enemy.mesh.parent.remove(enemy.mesh);
         }

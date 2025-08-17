@@ -1,5 +1,6 @@
 import * as THREE from '../../../build/three.module.js';
-import { CONFIG } from '../core/config.js';
+import { WEAPONS_CONFIG } from '../core/config/weaponsConfig.js';
+import { DEBUG_CONFIG } from '../core/config/debugConfig.js';
 import { enemies, getCacodemons } from '../entities/enemies/enemy.js';
 
 export class BaseWeapon {
@@ -15,7 +16,7 @@ export class BaseWeapon {
         this.collisionDistance = weaponConfig.PROJECTILE_SIZE * 2;
         
         // Weapon properties from config
-        this.isVisible = CONFIG.DEBUG_SHOW_WEAPON;
+        this.isVisible = DEBUG_CONFIG.DEBUG_SHOW_WEAPON;
         this.damage = weaponConfig.DAMAGE;
         this.shootRate = weaponConfig.SHOOT_RATE;
         this.projectileSpeed = weaponConfig.PROJECTILE_SPEED;
@@ -42,7 +43,7 @@ export class BaseWeapon {
         this.scene = scene;
         this.createWeaponMesh();
         
-        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+        if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
             console.log(`[${this.constructor.name}] Weapon created with ID: ${this.id}`);
         }
         
@@ -56,13 +57,13 @@ export class BaseWeapon {
 
     startShooting() {
         if (this.isMousePressed || this.shootInterval) {
-            if (CONFIG.DEBUG_CONSOLE_LOGS) {
+            if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
                 console.log(`[${this.constructor.name}] startShooting() called but already shooting or interval exists`);
             }
             return;
         }
         
-        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+        if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
             console.log(`[${this.constructor.name}] Starting shooting`);
         }
         
@@ -92,7 +93,7 @@ export class BaseWeapon {
             clearInterval(this.shootInterval);
             this.shootInterval = null;
             
-            if (CONFIG.DEBUG_CONSOLE_LOGS) {
+            if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
                 console.log(`[${this.constructor.name}] Shooting stopped, interval cleared`);
             }
         }
@@ -129,7 +130,7 @@ export class BaseWeapon {
         this.mesh.getWorldPosition(gunWorldPosition);
         
         // Calcula offset da ponta da arma no espaço local
-        const gunTipOffset = new THREE.Vector3(0, 0, CONFIG.GUN_TIP_OFFSET);
+        const gunTipOffset = new THREE.Vector3(0, 0, WEAPONS_CONFIG.GUN_TIP_OFFSET);
         
         // Quando soma o vetor que representa a ponta da arma à posição global da arma, o projétil sai exatamente na ponta do cano
         const cameraRotationMatrix = new THREE.Matrix4();
@@ -151,7 +152,7 @@ export class BaseWeapon {
 
         this.onShoot();
 
-        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+        if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
             console.log(`[${this.constructor.name}] Projectile fired. Active projectiles: ${this.projectiles.length}`);
         }
     }
@@ -170,6 +171,10 @@ export class BaseWeapon {
             
             projectileData.timeAlive += delta;
             
+            // Log para depuração: Mostra a posição do projétil a cada frame
+            console.log(`Projétil ${i} Posição:`, projectile.position);
+
+
             // Verifica colisão com paredes usando Raycaster
             this.raycaster.set(projectile.position, projectileData.direction);
             this.raycaster.far = this.projectileSpeed * delta + this.collisionDistance;
@@ -256,14 +261,14 @@ export class BaseWeapon {
         
         if (this.mesh) {
             this.mesh.visible = visible;
-            if (CONFIG.DEBUG_CONSOLE_LOGS) {
+            if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
                 console.log(`[${this.constructor.name}] Weapon visibility set to: ${visible ? 'VISIBLE' : 'HIDDEN'}`);
             }
         }
     }
 
     debugInfo() {
-        if (!CONFIG.DEBUG_CONSOLE_LOGS) return;
+        if (!DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) return;
         
         console.log(`=== DEBUG ${this.constructor.name.toUpperCase()} ===`);
         console.log(`ID: ${this.id}`);
@@ -336,7 +341,7 @@ export class BaseWeapon {
         this.scene = null;
         this.camera = null;
         
-        if (CONFIG.DEBUG_CONSOLE_LOGS) {
+        if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
             console.log(`[${this.constructor.name}] Weapon ${this.id} destroyed`);
         }
     }

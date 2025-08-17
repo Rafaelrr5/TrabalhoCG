@@ -7,7 +7,7 @@
 import * as THREE from '../../../build/three.module.js';
 import { Gun } from './weapon.js';
 import { Chaingun } from './chaingun.js';
-import { CONFIG } from '../core/config.js';
+import { DEBUG_CONFIG } from '../core/config/debugConfig.js';
 
 export class WeaponManager {
     constructor(camera, scene) {
@@ -31,7 +31,7 @@ export class WeaponManager {
         this.weapons.forEach((weapon, index) => {
             weapon.init(this.scene);
             // Apenas a primeira arma começa visível se DEBUG_SHOW_WEAPON for true
-            weapon.setVisibility(index === 0 ? CONFIG.DEBUG_SHOW_WEAPON : false);
+            weapon.setVisibility(index === 0 ? DEBUG_CONFIG.DEBUG_SHOW_WEAPON : false);
         });
         
         // Define o índice da arma atual
@@ -51,9 +51,9 @@ export class WeaponManager {
             const newWeapon = this.weapons[this.currentWeaponIndex];
             
             // Define visibilidade - a arma vai lidar com o carregamento internamente
-            newWeapon.setVisibility(CONFIG.DEBUG_SHOW_WEAPON);
+            newWeapon.setVisibility(DEBUG_CONFIG.DEBUG_SHOW_WEAPON);
             
-            if (CONFIG.DEBUG_CONSOLE_LOGS) {
+            if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
                 console.log(`[WEAPON] Switched to weapon ${index}`);
                 console.log(`[WEAPON] New weapon type: ${newWeapon.constructor.name}`);
                 
