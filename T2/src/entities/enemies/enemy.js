@@ -17,6 +17,8 @@ export const enemies = [];
 let area1LostSoulsActivated = false;
 let area2CacodemonsActivated = false;
 let area3ZombiemenActivated = false;
+// NOVO: Variável de estado para a Área 4 (Labirinto)
+let area4EnemiesActivated = false;
 
 export async function preloadEnemies() {
   await preloadSkullModel();
@@ -58,13 +60,31 @@ export async function createEnemies(scene) {
     console.log(`Created Cacodemon at ${x}, ${y}, ${z}`);
   });
 
-  // Adiciona o Pain Elemental na área 4 (labirinto)
-  const painElemental = new PainElemental([0, 10, 180]); // Posição no centro do labirinto
-  painElemental.area = 'area4';
-  painElemental.enemyType = 'PainElemental';
-  enemies.push(painElemental);
-  scene.add(painElemental.mesh);
-  console.log(`Created PainElemental at 0, 10, 180`);
+  // --- LÓGICA DE SPAWN DA ÁREA 4 (LABIRINTO) - ALTERADO ---
+  if (spawnPoints && spawnPoints.length > 0) {
+    // O primeiro ponto de spawn é para o Pain Elemental
+    const painElemental = new PainElemental(spawnPoints[0]);
+    painElemental.area = 'area4';
+    painElemental.enemyType = 'PainElemental';
+    enemies.push(painElemental);
+    scene.add(painElemental.mesh);
+    console.log(`Created PainElemental for Area 4 at ${spawnPoints[0]}`);
+
+    // Os 4 pontos seguintes são para os Cacodemons
+    for (let i = 1; i < 5; i++) {
+      if (spawnPoints[i]) {
+        const cacodemon = new Cacodemon(spawnPoints[i]);
+        cacodemon.area = 'area4';
+        cacodemon.enemyType = 'Cacodemon';
+        enemies.push(cacodemon);
+        scene.add(cacodemon.mesh);
+        console.log(`Created Cacodemon for Area 4 at ${spawnPoints[i]}`);
+      }
+    }
+  } else {
+    console.warn("spawnPoints array is empty or not defined. Cannot create Area 4 enemies.");
+  }
+  // --- FIM DA LÓGICA DE SPAWN DA ÁREA 4 ---
 
   const zombiemanY = WORLD_CONFIG.AREA_Y_POSITION - 2; // Ligeiramente acima do chão
   const hangarCenterX = 156.25; // Centro do hangar em X
@@ -91,11 +111,16 @@ export async function createEnemies(scene) {
     enemies.push(enemy);
     scene.add(enemy.mesh);
   });
-
 }
 
+// --- FUNÇÃO shouldUpdateEnemy - ALTERADO ---
 export function shouldUpdateEnemy(camera, enemy) {
-  // 1. Inimigos que devem estar sempre ativos
+  // Lógica especial para a Área 4: só depende do estado de ativação da área
+  if (enemy.area === 'area4') {
+    return area4EnemiesActivated;
+  }
+
+  // 1. Inimigos que devem estar sempre ativos (exceto os da Área 4, já tratados)
   if ( enemy.alwaysActive || 
       (enemy.spawner && enemy.spawner.enemyType === 'PainElemental') ||
       enemy.isSpawned ||
@@ -116,7 +141,7 @@ export function shouldUpdateEnemy(camera, enemy) {
     return true;
   }
 
-  // 3. Inimigos que já viram o jogador
+  // 3. Inimigos que já viram o jogador (redundante com a verificação no ponto 1, mas mantido por segurança)
   if (enemy.detection?.hasSeenPlayer) {
     return true;
   }
@@ -124,6 +149,7 @@ export function shouldUpdateEnemy(camera, enemy) {
   return false;
 }
 
+// --- FUNÇÃO updateEnemies - ALTERADO ---
 export function updateEnemies(delta, scene, camera, gun = null, collidableObjects = []) {
   const hitboxTop = new THREE.Vector3(
     camera.position.x,
@@ -135,8 +161,9 @@ export function updateEnemies(delta, scene, camera, gun = null, collidableObject
   const inArea1 = isPlayerInArea1(camera);
   const inArea2 = isPlayerInArea2(camera);
   const inArea3 = isPlayerInArea3(camera);
+  const inArea4 = isPlayerInArea4(camera);
 
-  // Ativação única das áreas
+  // Ativação única das áreas 1, 2 e 3
   if (inArea1 && !area1LostSoulsActivated) {
     activateLostSoulsInArea1();
   }
@@ -149,11 +176,18 @@ export function updateEnemies(delta, scene, camera, gun = null, collidableObject
     activateZombiemenInArea3();
   }
 
+  // NOVO: Lógica de ativação/desativação para a Área 4
+  if (inArea4 && !area4EnemiesActivated) {
+    activateArea4Enemies();
+  } else if (!inArea4 && area4EnemiesActivated) {
+    deactivateArea4Enemies();
+  }
+
    enemies.forEach(enemy => {
     const shouldUpdate = shouldUpdateEnemy(camera, enemy);
 
     if (shouldUpdate) {
-      // Força o estado 'PATROL' se a IA estiver em 'IDLE'
+      // Força o estado 'PATROL' se a IA estiver em 'IDLE' ao ser ativada
       if (enemy.ai.state === 'IDLE') {
         enemy.ai.changeState('PATROL');
       }
@@ -166,6 +200,44 @@ export function updateEnemies(delta, scene, camera, gun = null, collidableObject
     }
   });
 }
+
+// --- NOVAS FUNÇÕES DE ATIVAÇÃO/DESATIVAÇÃO PARA A ÁREA 4 ---
+
+export function activateArea4Enemies() {
+  if (area4EnemiesActivated) return;
+  area4EnemiesActivated = true;
+  
+  const area4Enemies = enemies.filter(e => e.area === 'area4' && e.isAlive);
+  console.log(`[AREA4_LABIRINTO] Ativando ${area4Enemies.length} inimigos.`);
+
+  area4Enemies.forEach(enemy => {
+    if (enemy.ai.state === 'IDLE') {
+      enemy.ai.changeState('PATROL');
+    }
+    if (typeof enemy.playSightSound === 'function') {
+      enemy.playSightSound();
+    }
+  });
+}
+
+export function deactivateArea4Enemies() {
+  if (!area4EnemiesActivated) return;
+  area4EnemiesActivated = false;
+
+  const area4Enemies = enemies.filter(e => e.area === 'area4');
+  console.log(`[AREA4_LABIRINTO] Desativando ${area4Enemies.length} inimigos.`);
+
+  area4Enemies.forEach(enemy => {
+    // Reseta o estado da IA para IDLE para que não fiquem "travados"
+    enemy.ai.changeState('IDLE');
+    // Reseta o estado de detecção para que não ataquem imediatamente ao reentrar
+    if (enemy.detection) {
+      enemy.detection.hasSeenPlayer = false;
+    }
+  });
+}
+
+// --- O RESTANTE DO ARQUIVO PERMANECE IGUAL ---
 
 export function cleanupDeadEnemies(scene) {
   for (let i = enemies.length - 1; i >= 0; i--) {
