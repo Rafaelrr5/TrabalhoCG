@@ -51,9 +51,11 @@ function checkWallCollisions(collidableObjects, camera) {
     wallColide.x = false;
     wallColide.z = false;
     
-    if (obj.userData.enemyOnly) return false;
-
+    // O filtro agora contém a lógica correta
     const validObjects = collidableObjects.filter(obj => {
+        // ✅ CORREÇÃO AQUI: A verificação foi movida para dentro do filtro
+        if (obj.userData.enemyOnly) return false; 
+
         if (!obj?.isMesh || !obj.visible) return false;
         const isStair = obj.parent && obj.parent.name.includes("Escada");
         if (obj.isGroup) {
@@ -67,14 +69,15 @@ function checkWallCollisions(collidableObjects, camera) {
         }
         return !isStair;
     });
+
     for (const ray of rays) {
         const origin = hitbox.position.clone().add(ray.offset);
+        // Use `validObjects` que já foi filtrado
         const intercepts = detectRayCollisions(origin, ray.dir, validObjects, raySize * 0.95, false);
         
         if (intercepts.length > 0 && intercepts[0].distance < raySize * 0.95) {
             const correction = (intercepts[0].distance - raySize) * PLAYER_CONFIG.WALL_COLLISION_FACTOR;
             
-            // Trate colisões diagonais diferentemente
             if (ray.axis === 'xz') {
                 wallColide.x = true;
                 wallColide.z = true;
@@ -94,11 +97,10 @@ function checkWallCollisions(collidableObjects, camera) {
         }
     }
     
-    // Verificação adicional com sphere casting
     const sphereCollisions = checkSphereCollisions(
         hitbox.position.clone(), 
         PLAYER_CONFIG.PLAYER_RADIUS || 0.5, 
-        validObjects
+        validObjects // Use `validObjects` aqui também
     );
     
     for (const collision of sphereCollisions) {
@@ -462,27 +464,22 @@ export function calculateSafeMovement(movementVector, collidableObjects) {
     const movementDirection = movementVector.clone().normalize();
     const movementDistance = movementVector.length();
 
-    // Configura o raycaster para verificar todo o caminho do movimento
     sweepRaycaster.set(playerPosition, movementDirection);
     sweepRaycaster.far = movementDistance;
 
-    // Filtra objetos para colisão, similar a checkWallCollisions
-    const validObjects = collidableObjects.filter(obj => obj?.isMesh && obj.visible && (!obj.parent || !obj.parent.name.includes("Escada")));
+    // AQUI ESTÁ A CORREÇÃO IMPORTANTE
+    const validObjects = collidableObjects.filter(obj => {
+        if (obj.userData.enemyOnly) return false; // Ignora a hitbox do inimigo
+        return obj?.isMesh && obj.visible && (!obj.parent || !obj.parent.name.includes("Escada"));
+    });
 
     const intercepts = sweepRaycaster.intersectObjects(validObjects, true);
-
-    // Adiciona uma pequena margem para evitar que o jogador grude na parede
-    const collisionOffset = 0.1; 
+    const collisionOffset = 0.1;
 
     if (intercepts.length > 0 && intercepts[0].distance < movementDistance) {
-        // Colisão detectada no caminho!
-        // Calcula a nova distância segura, subtraindo o offset.
         const safeDistance = Math.max(0, intercepts[0].distance - collisionOffset);
-        
-        // Retorna o vetor de movimento limitado à distância segura.
         return movementDirection.clone().multiplyScalar(safeDistance);
     }
 
-    // Nenhuma colisão detectada, o caminho é livre. Retorna o vetor de movimento original.
     return movementVector;
 }
