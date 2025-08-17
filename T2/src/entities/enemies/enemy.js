@@ -17,7 +17,6 @@ export const enemies = [];
 let area1LostSoulsActivated = false;
 let area2CacodemonsActivated = false;
 let area3ZombiemenActivated = false;
-// NOVO: Variável de estado para a Área 4 (Labirinto)
 let area4EnemiesActivated = false;
 
 export async function preloadEnemies() {
@@ -131,17 +130,14 @@ export async function createEnemies(scene) {
       }
     }
   }
-  // --- FIM DA LÓGICA DE SPAWN DA ÁREA 4 ---
 }
 
-// --- FUNÇÃO shouldUpdateEnemy - ALTERADO ---
 export function shouldUpdateEnemy(camera, enemy) {
-  // Lógica especial para a Área 4: só depende do estado de ativação da área
   if (enemy.area === 'area4') {
     return area4EnemiesActivated;
   }
 
-  // 1. Inimigos que devem estar sempre ativos (exceto os da Área 4, já tratados)
+ 
   if ( enemy.alwaysActive || 
       (enemy.spawner && enemy.spawner.enemyType === 'PainElemental') ||
       enemy.isSpawned ||
@@ -222,7 +218,7 @@ export function updateEnemies(delta, scene, camera, gun = null, collidableObject
   });
 }
 
-// --- NOVAS FUNÇÕES DE ATIVAÇÃO/DESATIVAÇÃO PARA A ÁREA 4 ---
+
 
 export function activateArea4Enemies() {
   if (area4EnemiesActivated) return;
@@ -258,7 +254,7 @@ export function deactivateArea4Enemies() {
   });
 }
 
-// --- O RESTANTE DO ARQUIVO PERMANECE IGUAL ---
+
 
 export function cleanupDeadEnemies(scene) {
   for (let i = enemies.length - 1; i >= 0; i--) {
