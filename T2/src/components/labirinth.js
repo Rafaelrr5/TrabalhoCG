@@ -167,9 +167,9 @@ export function createMazeArea(opts = {}, spawnPointsArray = null) {
     }
   }
 
-  // <<< INÍCIO DA ÚNICA PARTE ADICIONADA >>>
+  
   if (spawnPointsArray && Array.isArray(spawnPointsArray)) {
-    // 1. Criar uma lista de todas as células livres (corredores)
+    
     const freeCells = [];
     for (let i = 0; i < gridRows; i++) {
       for (let j = 0; j < gridCols; j++) {
@@ -179,19 +179,19 @@ export function createMazeArea(opts = {}, spawnPointsArray = null) {
       }
     }
 
-    // 2. Encontrar e adicionar o ponto central da área livre
+    
     const centerRow = finalStartRow + Math.floor(finalAreaDepth / 2);
     const centerCol = finalStartCol + Math.floor(finalAreaWidth / 2);
     const centerPointPos = cellToPos(centerRow, centerCol);
     spawnPointsArray.push(new THREE.Vector3(centerPointPos.x, 0, centerPointPos.z));
 
-    // 3. Remover o ponto central da lista de candidatos para os outros pontos
+    
     const centerPointIndex = freeCells.findIndex(cell => cell.row === centerRow && cell.col === centerCol);
     if (centerPointIndex > -1) {
       freeCells.splice(centerPointIndex, 1);
     }
     
-    // 4. Escolher os 4 pontos restantes de forma aleatória da lista de células livres
+    
     const remainingPoints = 4;
     for (let i = 0; i < remainingPoints && freeCells.length > 0; i++) {
       const randomIndex = Math.floor(Math.random() * freeCells.length);
@@ -199,11 +199,11 @@ export function createMazeArea(opts = {}, spawnPointsArray = null) {
       const randomPointPos = cellToPos(randomCell.row, randomCell.col);
       spawnPointsArray.push(new THREE.Vector3(randomPointPos.x, 0, randomPointPos.z));
 
-      // Remover a célula escolhida para garantir que não haja duplicatas
+      
       freeCells.splice(randomIndex, 1);
     }
   }
-  // <<< FIM DA ÚNICA PARTE ADICIONADA >>>
+ 
 
   const group = new THREE.Group();
   group.position.copy(position);
@@ -298,17 +298,19 @@ export function createArea4Maze(scene, collidableObjects, WORLD_CONFIG, outSpawn
     wallHeight: WORLD_CONFIG.AREA_HEIGHT * 2,
     wallThickness: 1,
     wallColor: 0x2d5a2d,
-    position: new THREE.Vector3(0, WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT/2, 131),
-    southEntrance: true
-  }, outSpawnPoints); // <--- AQUI
-
-  mazeGroup.name = "Area4Maze";
+    position: new THREE.Vector3(0, 0, 131.0),
+    southEntrance: true,
+  }, outSpawnPoints);
   
-  mazeGroup.traverse((child) => {
-    if (child.isMesh) {
+  mazeGroup.name = "Area4Maze";
+  scene.add(mazeGroup);
+  
+  if (collidableObjects) {
+    mazeGroup.children.forEach(child => {
       collidableObjects.push(child);
-    }
-  });
-
+    });
+  }
+  
+  console.log('[LABIRINTH] ✅ Labirinto da Área 4 criado e pontos de spawn populados.');
   return mazeGroup;
 }

@@ -1263,8 +1263,9 @@ export function isPlayerInArea4(camera) {
   const playerX = camera.position.x;
   const playerZ = camera.position.z;
 
-  const inX = playerX >= -172 && playerX <= 172;
-  const inZ = playerZ >= -44 && playerZ <= 44;
+  // Limites corrigidos baseados nas dimensões e posição final do labirinto
+  const inX = playerX >= -175 && playerX <= 175;
+  const inZ = playerZ >= 81 && playerZ <= 181;
 
   return inX && inZ;
 }

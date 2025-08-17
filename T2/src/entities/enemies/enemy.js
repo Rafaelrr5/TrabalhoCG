@@ -27,6 +27,8 @@ export async function preloadEnemies() {
 export async function createEnemies(scene) {
   await preloadEnemies();
   
+  // --- DEMAIS INIMIGOS (Áreas 1, 2, 3) ---
+  // (O código das outras áreas permanece o mesmo, omitido por brevidade)
   const lostSoulY = WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT / 2 + 8.0;
   const lostSoulPositions = [
     [-170, 6.0, -140],
@@ -35,75 +37,39 @@ export async function createEnemies(scene) {
     [-155, lostSoulY, -120],
     [-140, lostSoulY, -145]
   ];
-  
   lostSoulPositions.forEach(([x, y, z]) => {
     const enemy = new LostSoul([x, y, z]);
     enemy.area = 'area1';
     enemy.enemyType = 'LostSoul';
     enemies.push(enemy);
     scene.add(enemy.mesh);
-    console.log(`Created LostSoul at ${x}, ${y}, ${z}`);
   });
-
   const cacodeemonPositions = [
     [-22.5, 20, -155.5],
     [25.5, 20, -123.5],
     [-6.5, 20, -107.0],
   ];
-
   cacodeemonPositions.forEach(([x, y, z]) => {
     const enemy = new Cacodemon([x, y, z]);
     enemy.area = 'area2';
     enemy.enemyType = 'Cacodemon';
     enemies.push(enemy);
     scene.add(enemy.mesh);
-    console.log(`Created Cacodemon at ${x}, ${y}, ${z}`);
   });
-
-  // --- LÓGICA DE SPAWN DA ÁREA 4 (LABIRINTO) - ALTERADO ---
-  if (spawnPoints && spawnPoints.length > 0) {
-    // O primeiro ponto de spawn é para o Pain Elemental
-    const painElemental = new PainElemental(spawnPoints[0]);
-    painElemental.area = 'area4';
-    painElemental.enemyType = 'PainElemental';
-    enemies.push(painElemental);
-    scene.add(painElemental.mesh);
-    console.log(`Created PainElemental for Area 4 at ${spawnPoints[0]}`);
-
-    // Os 4 pontos seguintes são para os Cacodemons
-    for (let i = 1; i < 5; i++) {
-      if (spawnPoints[i]) {
-        const cacodemon = new Cacodemon(spawnPoints[i]);
-        cacodemon.area = 'area4';
-        cacodemon.enemyType = 'Cacodemon';
-        enemies.push(cacodemon);
-        scene.add(cacodemon.mesh);
-        console.log(`Created Cacodemon for Area 4 at ${spawnPoints[i]}`);
-      }
-    }
-  } else {
-    console.warn("spawnPoints array is empty or not defined. Cannot create Area 4 enemies.");
-  }
-  // --- FIM DA LÓGICA DE SPAWN DA ÁREA 4 ---
-
-  const zombiemanY = WORLD_CONFIG.AREA_Y_POSITION - 2; // Ligeiramente acima do chão
-  const hangarCenterX = 156.25; // Centro do hangar em X
-  const hangarCenterZ = -130.0; // Centro do hangar em Z
+  const zombiemanY = WORLD_CONFIG.AREA_Y_POSITION - 2;
+  const hangarCenterX = 156.25;
+  const hangarCenterZ = -130.0;
   const hangarBackZ = hangarCenterZ - 10;
-  
   const zombiemanPositions = [
-    // Linha traseira (4 Zombiemen)
     [hangarCenterX - 30, zombiemanY, hangarBackZ],
     [hangarCenterX - 10, zombiemanY, hangarBackZ],
     [hangarCenterX + 10, zombiemanY, hangarBackZ],
     [hangarCenterX + 30, zombiemanY, hangarBackZ],
-    // Linha do meio (4 Zombiemen)
     [hangarCenterX - 25, zombiemanY, hangarBackZ + 15],
     [hangarCenterX - 5, zombiemanY, hangarBackZ + 15],
     [hangarCenterX + 5, zombiemanY, hangarBackZ + 15],
     [hangarCenterX + 25, zombiemanY, hangarBackZ + 15]
   ];
-
   zombiemanPositions.forEach(([x, y, z], index) => {
     const enemy = new Zombieman([x, y, z]);
     enemy.area = 'area3';
@@ -111,6 +77,61 @@ export async function createEnemies(scene) {
     enemies.push(enemy);
     scene.add(enemy.mesh);
   });
+  // --- FIM DOS OUTROS INIMIGOS ---
+
+
+  // --- LÓGICA DE SPAWN DA ÁREA 4 (LABIRINTO) - CORRIGIDO COM DESLOCAMENTO ---
+
+  // NOVO: Defina o mesmo vetor de deslocamento usado em labirinth.js
+  const mazeDisplacement = { x: 0, y: 0, z: 131.0 };
+
+  console.log('[DEBUG] Verificando spawnPoints para a Área 4. Total de pontos:', spawnPoints.length);
+  if (spawnPoints.length > 0) {
+      console.log('[DEBUG] Conteúdo original de spawnPoints:', JSON.stringify(spawnPoints));
+  } else {
+      console.warn('[DEBUG] O array spawnPoints está VAZIO. Nenhum inimigo da Área 4 será criado.');
+  }
+
+  if (spawnPoints && spawnPoints.length > 0) {
+    // Pain Elemental
+    const painElementalPosObj = spawnPoints[0];
+    // CORREÇÃO: Aplica o deslocamento ao criar o array de posição
+    const painElementalPosArray = [
+      painElementalPosObj.x + mazeDisplacement.x,
+      painElementalPosObj.y + mazeDisplacement.y,
+      painElementalPosObj.z + mazeDisplacement.z
+    ];
+    
+    const painElemental = new PainElemental(painElementalPosArray);
+    painElemental.area = 'area4';
+    painElemental.enemyType = 'PainElemental';
+    enemies.push(painElemental);
+    scene.add(painElemental.mesh);
+    console.log(`[ÁREA 4] Inimigo 'PainElemental' criado na posição final: x=${painElementalPosArray[0]}, y=${painElementalPosArray[1]}, z=${painElementalPosArray[2]}`);
+
+    // Cacodemons
+    for (let i = 1; i < 5; i++) {
+      if (spawnPoints[i]) {
+        const cacodemonPosObj = spawnPoints[i];
+        // CORREÇÃO: Aplica o deslocamento ao criar o array de posição
+        const cacodemonPosArray = [
+          cacodemonPosObj.x + mazeDisplacement.x,
+          cacodemonPosObj.y + mazeDisplacement.y,
+          cacodemonPosObj.z + mazeDisplacement.z
+        ];
+        
+        const cacodemon = new Cacodemon(cacodemonPosArray);
+        cacodemon.area = 'area4';
+        cacodemon.enemyType = 'Cacodemon';
+        enemies.push(cacodemon);
+        scene.add(cacodemon.mesh);
+        console.log(`[ÁREA 4] Inimigo 'Cacodemon' #${i} criado na posição final: x=${cacodemonPosArray[0]}, y=${cacodemonPosArray[1]}, z=${cacodemonPosArray[2]}`);
+      } else {
+        console.warn(`[ÁREA 4] Ponto de spawn de índice ${i} não encontrado no array spawnPoints.`);
+      }
+    }
+  }
+  // --- FIM DA LÓGICA DE SPAWN DA ÁREA 4 ---
 }
 
 // --- FUNÇÃO shouldUpdateEnemy - ALTERADO ---
