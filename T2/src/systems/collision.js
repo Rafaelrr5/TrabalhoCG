@@ -50,6 +50,9 @@ function checkGroundCollisions(collidableObjects, camera) {
 function checkWallCollisions(collidableObjects, camera) {
     wallColide.x = false;
     wallColide.z = false;
+    
+    if (obj.userData.enemyOnly) return false;
+
     const validObjects = collidableObjects.filter(obj => {
         if (!obj?.isMesh || !obj.visible) return false;
         const isStair = obj.parent && obj.parent.name.includes("Escada");

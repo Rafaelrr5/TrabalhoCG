@@ -108,6 +108,8 @@ export async function createAreas(scene, collidableObjects) {
     updateProgress(64, 'Aplicando texturas...');
     await applyEnvironmentTextures(scene);
     updateProgress(66, 'Texturas aplicadas!');
+
+    createArea4EnemyHitbox(scene, collidableObjects);
 }
 
 async function applyEnvironmentTextures(scene) {
@@ -1427,4 +1429,28 @@ function raiseCentralBlock(blockGroup, delta) {
             blockGroup.userData.isRaised = true;
         }
     }
+}
+
+export function createArea4EnemyHitbox(scene, collidables) {
+    const width = 350; // 175 - (-175)
+    const depth = 100; // 181 - 81
+    const height = 50; // Altura da hitbox
+
+    const hitboxGeometry = new THREE.BoxGeometry(width, height, depth);
+    const hitboxMaterial = new THREE.MeshBasicMaterial({
+        visible: false, // Deixe true para depurar
+        wireframe: true,
+        color: 0xff00ff
+    });
+
+    const hitbox = new THREE.Mesh(hitboxGeometry, hitboxMaterial);
+    hitbox.position.set(0, height / 2, 131);
+    hitbox.name = "Area4EnemyOnlyHitbox";
+
+    hitbox.userData.enemyOnly = true;
+
+    scene.add(hitbox);
+    collidables.push(hitbox); // Adiciona à lista principal
+
+    console.log('[ENVIRONMENT] ✅ Hitbox da Área 4 (EnemyOnly) adicionada aos collidables.');
 }
