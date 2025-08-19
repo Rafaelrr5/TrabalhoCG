@@ -1,0 +1,30 @@
+{
+  "name": "trabalho-cg-multiplayer",
+  "version": "1.0.0",
+  "description": "Sistema de multiplayer para o jogo Trabalho CG",
+  "main": "multiplayer-server.js",
+  "scripts": {
+    "start": "node multiplayer-server.js",
+    "dev": "nodemon multiplayer-server.js",
+    "game": "node serve-game.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "multiplayer",
+    "websocket",
+    "game",
+    "threejs",
+    "3d"
+  ],
+  "author": "Rafael e Vinicius",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

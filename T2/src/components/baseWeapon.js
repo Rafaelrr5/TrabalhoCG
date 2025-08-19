@@ -223,6 +223,17 @@ export class BaseWeapon {
                 
                 if (enemy && enemy.isAlive) {
                     enemy.takeDamage(this.damage);
+                    
+                    // Sincronizar hit com multiplayer
+                    if (window.multiplayerClient && window.multiplayerClient.isConnected()) {
+                        window.multiplayerClient.sendEnemyHit(
+                            enemy.id,
+                            this.damage,
+                            projectile.position
+                        );
+                        console.log(`[MULTIPLAYER] Hit sincronizado: inimigo ${enemy.id} recebeu ${this.damage} de dano`);
+                    }
+                    
                     this.scene.remove(projectile);
                     this.projectiles.splice(i, 1);
                     hitEnemy = true;

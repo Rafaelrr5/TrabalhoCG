@@ -21,9 +21,14 @@ import { updateArea4Totem, updateArea4KeyAnimation, updateArea4WallsAnimation } 
 import { updateHangarTotem, updateHangarKeyAnimation, updateHangarDoorsAnimation } from '../systems/hangarAccess.js';
 import { loadSky } from '../systems/sky.js';
 import { initializeArea4Victory, checkArea4Victory, updateArea4Victory, resetArea4Victory } from '../systems/area4Victory.js';
+import { multiplayerClient, connectToMultiplayer, disconnectFromMultiplayer, isMultiplayerConnected, getOtherPlayerCount } from '../systems/multiplayer.js';
+import { MULTIPLAYER_CONFIG } from './config/multiplayerConfig.js';
 
 // Expor keyManager globalmente para debug
 window.keyManager = keyManager;
+
+// Expor enemies globalmente para debug do multiplayer
+window.enemies = enemies;
 
 window.playerTakeDamage = function(damage) {
   const isAlive = player.takeDamage(damage);
@@ -32,6 +37,11 @@ window.playerTakeDamage = function(damage) {
   
   if (!isAlive) {
     handlePlayerDeath();
+    
+    // Sincronizar morte com multiplayer
+    if (multiplayerClient && multiplayerClient.isConnected()) {
+      multiplayerClient.sendPlayerDied(camera.position);
+    }
   }
 };
 
@@ -422,6 +432,24 @@ function createLoadingScreen() {
         <p>WASD - Movimento | Mouse - Olhar | Click - Atirar</p>
         <p>1/2 - Trocar Arma</p>
     `;
+
+    // Interface de conexão multiplayer
+    const multiplayerInfo = document.createElement('div');
+    multiplayerInfo.style.cssText = `
+        position: absolute;
+        bottom: 120px;
+        left: 50%;
+        transform: translateX(-50%);
+        text-align: center;
+        color: #ff0000;
+        font-size: 14px;
+        line-height: 1.5;
+    `;
+    multiplayerInfo.innerHTML = `
+        <p><strong>MULTIPLAYER:</strong></p>
+        <p>Conecte-se para jogar com até 2 jogadores</p>
+        <p>Servidor: ${MULTIPLAYER_CONFIG.DEFAULT_SERVER_URL}</p>
+    `;
     
     const style = document.createElement('style');
     style.textContent = `
@@ -452,6 +480,7 @@ function createLoadingScreen() {
     overlay.appendChild(progressPercent);
     overlay.appendChild(loadingDots);
     overlay.appendChild(controlsInfo);
+    overlay.appendChild(multiplayerInfo);
     
     document.body.appendChild(overlay);
     return overlay;
@@ -547,6 +576,9 @@ async function init() {
     updateLoadingProgress(95, 'Inicializando sistema de armas...');
     createWeaponManager(camera, scene);
     
+    updateLoadingProgress(97, 'Inicializando multiplayer...');
+    initializeMultiplayer();
+    
     updateLoadingProgress(100, 'Carregamento concluído!');
     
   await new Promise(resolve => setTimeout(resolve, 500));
@@ -579,6 +611,109 @@ async function init() {
     window.gameInitialized = true;
 }
 
+function initializeMultiplayer() {
+    // Inicializar variável de controle de atualização do status
+    window.lastMultiplayerStatusUpdate = 0;
+    
+    // Configurar callbacks do multiplayer
+    multiplayerClient.onPlayerJoined = (player) => {
+        console.log(`[MULTIPLAYER] Jogador ${player.id} entrou no jogo`);
+        console.log(`[MULTIPLAYER] Dados do jogador:`, player);
+        
+        // Atualizar status imediatamente
+        updateMultiplayerStatus();
+        
+        // Atualizar novamente após um pequeno delay para garantir sincronização
+        setTimeout(updateMultiplayerStatus, 100);
+    };
+    
+    multiplayerClient.onPlayerLeft = (playerId) => {
+        console.log(`[MULTIPLAYER] Jogador ${playerId} saiu do jogo`);
+        
+        // Atualizar status imediatamente
+        updateMultiplayerStatus();
+        
+        // Atualizar novamente após um pequeno delay para garantir sincronização
+        setTimeout(updateMultiplayerStatus, 100);
+    };
+    
+    multiplayerClient.onPlayerUpdate = (data) => {
+        // Atualizações de outros jogadores são tratadas automaticamente
+        if (MULTIPLAYER_CONFIG.DEBUG_LOG_MESSAGES) {
+            console.log(`[MULTIPLAYER] Atualização do jogador ${data.playerId}`);
+        }
+    };
+    
+    multiplayerClient.onProjectileFired = (projectile) => {
+        // Criar projétil visual para outros jogadores
+        createOtherPlayerProjectile(projectile);
+    };
+    
+    multiplayerClient.onEnemyHit = (data) => {
+        // Sincronizar hits em inimigos
+        console.log(`[MULTIPLAYER] Jogador ${data.playerId} acertou inimigo ${data.enemyId} com ${data.damage} de dano`);
+        
+        // Aplicar dano ao inimigo localmente
+        if (enemies && enemies.length > 0) {
+            const enemy = enemies.find(e => e.id === data.enemyId);
+            if (enemy) {
+                console.log(`[MULTIPLAYER] Aplicando dano ${data.damage} ao inimigo ${data.enemyId}`);
+                console.log(`[MULTIPLAYER] Vida atual do inimigo: ${enemy.currentHealth}/${enemy.maxHealth}`);
+                
+                enemy.takeDamage(data.damage);
+                
+                // Verificar se o inimigo morreu
+                if (enemy.currentHealth <= 0) {
+                    console.log(`[MULTIPLAYER] Inimigo ${data.enemyId} morreu por dano multiplayer`);
+                    enemy.removeFromScene();
+                    
+                    // Remover do array enemies também
+                    const enemyIndex = enemies.findIndex(e => e.id === data.enemyId);
+                    if (enemyIndex !== -1) {
+                        enemies.splice(enemyIndex, 1);
+                        console.log(`[MULTIPLAYER] Inimigo ${data.enemyId} removido do array enemies. Total restante: ${enemies.length}`);
+                    }
+                } else {
+                    console.log(`[MULTIPLAYER] Inimigo ${data.enemyId} sobreviveu com ${enemy.currentHealth} de vida`);
+                }
+            } else {
+                console.warn(`[MULTIPLAYER] Inimigo ${data.enemyId} não encontrado para aplicar dano`);
+                console.log(`[MULTIPLAYER] Inimigos disponíveis:`, enemies.map(e => ({ id: e.id, health: e.currentHealth })));
+            }
+        } else {
+            console.warn(`[MULTIPLAYER] Array de inimigos vazio ou não definido`);
+        }
+    };
+    
+    multiplayerClient.onKeyCollected = (data) => {
+        // Sincronizar coleta de chaves
+        if (MULTIPLAYER_CONFIG.DEBUG_LOG_MESSAGES) {
+            console.log(`[MULTIPLAYER] Jogador ${data.playerId} coletou chave ${data.keyType}`);
+        }
+    };
+    
+    multiplayerClient.onPlayerDied = (data) => {
+        // Sincronizar morte de jogadores
+        if (MULTIPLAYER_CONFIG.DEBUG_LOG_MESSAGES) {
+            console.log(`[MULTIPLAYER] Jogador ${data.playerId} morreu`);
+        }
+    };
+    
+    multiplayerClient.onPlayerRespawned = (data) => {
+        // Sincronizar respawn de jogadores
+        if (MULTIPLAYER_CONFIG.DEBUG_LOG_MESSAGES) {
+            console.log(`[MULTIPLAYER] Jogador ${data.playerId} respawnou`);
+        }
+    };
+    
+    // Tentar conectar automaticamente
+    console.log('[MULTIPLAYER] Tentando conectar ao servidor...');
+    connectToMultiplayer();
+    
+    // Criar interface de status multiplayer
+    createMultiplayerStatusUI();
+}
+
 function setupScene() {
     scene = new THREE.Scene();
     renderer = new THREE.WebGLRenderer({
@@ -589,11 +724,21 @@ function setupScene() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     const container = document.getElementById('webgl-output') || document.body;
     container.appendChild(renderer.domElement);
+    
+    // Expor variáveis globalmente para o multiplayer
+    window.scene = scene;
+    window.renderer = renderer;
+    console.log('[MULTIPLAYER] Scene e Renderer expostos globalmente');
 }
 
 function setupCamera() {
     camera = new THREE.PerspectiveCamera(CAMERA_CONFIG.CAMERA_FOV, window.innerWidth/window.innerHeight, CAMERA_CONFIG.CAMERA_NEAR, CAMERA_CONFIG.CAMERA_FAR);
     camera.position.y = CAMERA_CONFIG.CAMERA_HEIGHT;
+    
+    // Expor câmera globalmente para o multiplayer
+    window.camera = camera;
+    console.log('[MULTIPLAYER] Camera exposta globalmente');
+    
     window.listener = new THREE.AudioListener();
     
     const originalSetMasterVolume = window.listener.setMasterVolume;
@@ -710,6 +855,13 @@ function animate() {
             // Log adicional para debug
             console.log(`[KEYS] Total keys collected: ${keyManager.getCollectedKeyCount()}`);
             console.log(`[KEYS] Available key types:`, keyManager.getCollectedKeys());
+            
+            // Sincronizar coleta de chaves com multiplayer
+            if (multiplayerClient && multiplayerClient.isConnected()) {
+                collectedKeys.forEach(key => {
+                    multiplayerClient.sendKeyCollected(key.getType(), camera.position);
+                });
+            }
         }
         
         // Sistema de acesso ao hangar baseado em proximidade (área 3)
@@ -742,6 +894,26 @@ function animate() {
     
     // Atualizar sistema de chaves
     keyManager.updateKeys(delta);
+    
+    // Atualizar multiplayer
+    if (multiplayerClient && multiplayerClient.isConnected()) {
+        multiplayerClient.updateOtherPlayers(delta);
+        
+        // Enviar atualizações do jogador
+        const playerHealth = player.getHealthStatus();
+        multiplayerClient.sendPlayerUpdate(
+            camera.position,
+            camera.rotation,
+            playerHealth.current,
+            'chaingun' // TODO: Pegar arma atual do weapon manager
+        );
+        
+        // Atualizar status multiplayer a cada segundo
+        if (Math.floor(Date.now() / 1000) !== Math.floor(window.lastMultiplayerStatusUpdate / 1000)) {
+            updateMultiplayerStatus();
+            window.lastMultiplayerStatusUpdate = Date.now();
+        }
+    }
     
     // Only do rendering if scene exists and camera position is valid
     if (scene && camera && renderer) {
@@ -797,6 +969,11 @@ async function restartGame() {
     
     keyManager.clearAll();
     updateKeysDisplay();
+    
+    // Sincronizar respawn com multiplayer
+    if (multiplayerClient && multiplayerClient.isConnected()) {
+      multiplayerClient.sendPlayerRespawned(camera.position);
+    }
     
     // Reset iluminação do hangar
     resetHangarLighting();
@@ -1067,4 +1244,141 @@ window.configureHangarLighting = function(hangarIntensity = 2.5, ambientIntensit
     - Intensidade ambiente: ${ambientIntensity}
     - Velocidade de transição: ${transitionSpeed}`);
   });
+};
+
+// Funções auxiliares do multiplayer
+function createMultiplayerStatusUI() {
+    const statusDiv = document.createElement('div');
+    statusDiv.id = 'multiplayer-status';
+    statusDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        z-index: 1000;
+        min-width: 200px;
+    `;
+    
+    statusDiv.innerHTML = `
+        <div><strong>MULTIPLAYER</strong></div>
+        <div id="connection-status">Conectando...</div>
+        <div id="player-count">Jogadores: 0/2</div>
+        <div id="server-info">Servidor: ${MULTIPLAYER_CONFIG.DEFAULT_SERVER_URL}</div>
+        <button id="connect-btn" style="margin-top: 5px; padding: 3px 8px; font-size: 10px;">Conectar</button>
+        <button id="disconnect-btn" style="margin-top: 5px; margin-left: 5px; padding: 3px 8px; font-size: 10px;">Desconectar</button>
+    `;
+    
+    document.body.appendChild(statusDiv);
+    
+    // Configurar botões
+    const connectBtn = document.getElementById('connect-btn');
+    const disconnectBtn = document.getElementById('disconnect-btn');
+    
+    connectBtn.addEventListener('click', () => {
+        if (!multiplayerClient.isConnected()) {
+            connectToMultiplayer();
+        }
+    });
+    
+    disconnectBtn.addEventListener('click', () => {
+        if (multiplayerClient.isConnected()) {
+            disconnectFromMultiplayer();
+        }
+    });
+    
+    // Atualizar status inicial
+    updateMultiplayerStatus();
+}
+
+function updateMultiplayerStatus() {
+    const statusDiv = document.getElementById('multiplayer-status');
+    if (!statusDiv) return;
+    
+    const connectionStatus = document.getElementById('connection-status');
+    const playerCount = document.getElementById('player-count');
+    
+    if (multiplayerClient.isConnected()) {
+        connectionStatus.textContent = 'Conectado';
+        connectionStatus.style.color = '#00ff00';
+        const otherCount = getOtherPlayerCount();
+        playerCount.textContent = `Jogadores: ${otherCount + 1}/2`;
+        
+        // Log detalhado para debug
+        console.log(`[MULTIPLAYER UI] Status atualizado: ${otherCount + 1}/2 jogadores`);
+        console.log(`[MULTIPLAYER UI] Outros jogadores:`, multiplayerClient.getOtherPlayers());
+    } else {
+        connectionStatus.textContent = 'Desconectado';
+        connectionStatus.style.color = '#ff0000';
+        playerCount.textContent = 'Jogadores: 0/2';
+    }
+}
+
+function createOtherPlayerProjectile(projectile) {
+    // Criar projétil visual para outros jogadores
+    const geometry = new THREE.SphereGeometry(0.1, 8, 6);
+    const material = new THREE.MeshBasicMaterial({ 
+        color: 0xff0000, 
+        transparent: true, 
+        opacity: 0.8 
+    });
+    
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(projectile.position.x, projectile.position.y, projectile.position.z);
+    mesh.name = `OtherProjectile_${projectile.id}`;
+    
+    if (scene) {
+        scene.add(mesh);
+        
+        // Animar projétil
+        const direction = new THREE.Vector3(projectile.direction.x, projectile.direction.y, projectile.direction.z);
+        const speed = 50;
+        
+        // Remover projétil após um tempo
+        setTimeout(() => {
+            if (scene && mesh.parent) {
+                scene.remove(mesh);
+                mesh.geometry.dispose();
+                mesh.material.dispose();
+            }
+        }, MULTIPLAYER_CONFIG.PROJECTILE_LIFETIME);
+    }
+}
+
+// Funções globais para debug do multiplayer
+window.connectToMultiplayer = function(serverUrl = null) {
+    connectToMultiplayer(serverUrl);
+};
+
+window.disconnectFromMultiplayer = function() {
+    disconnectFromMultiplayer();
+};
+
+window.getMultiplayerStatus = function() {
+    return {
+        connected: multiplayerClient.isConnected(),
+        playerId: multiplayerClient.getPlayerId(),
+        otherPlayers: multiplayerClient.getOtherPlayers(),
+        otherPlayerCount: multiplayerClient.getOtherPlayerCount()
+    };
+};
+
+// Função de debug para verificar status dos inimigos
+window.debugEnemies = function() {
+    console.log('=== DEBUG INIMIGOS ===');
+    console.log('Total de inimigos:', enemies.length);
+    console.log('IDs dos inimigos:', enemies.map(e => e.id));
+    console.log('Status dos inimigos:', enemies.map(e => ({
+        id: e.id,
+        health: e.currentHealth,
+        maxHealth: e.maxHealth,
+        isAlive: e.isAlive,
+        area: e.area,
+        enemyType: e.enemyType
+    })));
+    console.log('=====================');
 };
