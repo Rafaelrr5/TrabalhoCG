@@ -1,8 +1,8 @@
-import * as THREE from '../../../../build/three.module.js';
+import * as THREE from '../../../build/three.module.js';
 import { WORLD_CONFIG } from '../core/config/worldConfig.js';
 import { loadOBJModel } from '../utils/modelLoader.js';
 import { enableShadowsForAll } from '../systems/lights.js';
-import { CSG } from '../../../../libs/other/CSGMesh.js';
+import { CSG } from '../../../libs/other/CSGMesh.js';
 import { keyManager, Key } from '../entities/items/key.js';
 import { QuickTexture } from '../utils/textureUtils.js'
 

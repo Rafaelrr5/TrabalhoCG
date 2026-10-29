@@ -1,4 +1,4 @@
-import * as THREE from '../../../../../../build/three.module.js';
+import * as THREE from '../../../../../build/three.module.js';
 import { DEBUG_CONFIG } from '../../../core/config/debugConfig.js';
 import { WORLD_CONFIG } from '../../../core/config/worldConfig.js';
 

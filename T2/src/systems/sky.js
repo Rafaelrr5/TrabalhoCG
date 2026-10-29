@@ -9,8 +9,8 @@ export function loadSky(scene, texturePath, options = {}) {
     const possiblePaths = [
         texturePath,
         `assets/textures/${texturePath}`,
-        `../assets/textures/${texturePath}`,
-        `../../assets/textures/${texturePath}`
+        `assets/textures/${texturePath}`,
+        `assets/textures/${texturePath}`
     ];
     
     let loadAttempt = 0;

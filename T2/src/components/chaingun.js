@@ -59,8 +59,8 @@ export class Chaingun extends BaseWeapon {
         
         const possibleAudioPaths = [
             'assets/sounds/weapon/chaingun_fire.wav',
-            '../assets/sounds/weapon/chaingun_fire.wav',
-            '../../assets/sounds/weapon/chaingun_fire.wav'
+            'assets/sounds/weapon/chaingun_fire.wav',
+            'assets/sounds/weapon/chaingun_fire.wav'
         ];
         
         const tryLoadAudio = (pathIndex = 0) => {
@@ -200,8 +200,8 @@ onStopShooting() {
             
             const possiblePaths = [
                 'assets/sprites/ChaingunSpriteAtirando.png',
-                '../assets/sprites/ChaingunSpriteAtirando.png',
-                '../../assets/sprites/ChaingunSpriteAtirando.png'
+                'assets/sprites/ChaingunSpriteAtirando.png',
+                'assets/sprites/ChaingunSpriteAtirando.png'
             ];
             
             const tryLoadTexture = (pathIndex = 0) => {

@@ -66,8 +66,8 @@ export async function loadSkullModel() {
 
   try {
     const loadedModel = await loadOBJModel(
-      './assets/models/skull.obj',
-      './assets/textures/lost_soul/skull.mtl',
+      'assets/models/skull.obj',
+      'assets/textures/lost_soul/skull.mtl',
       SKULL_CONFIG
     );
     

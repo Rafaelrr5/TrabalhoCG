@@ -12,9 +12,9 @@ export class PlayerAudioManager {
     this.injuredSound = null;
     
     this.soundPaths = {
-      hittingGround: '/T2/assets/sounds/player/player_hitting_ground.wav',
-      death: '/T2/assets/sounds/player/player_death.wav',
-      injured: '/T2/assets/sounds/player/player_injured.wav'
+      hittingGround: 'assets/sounds/player/player_hitting_ground.wav',
+      death: 'assets/sounds/player/player_death.wav',
+      injured: 'assets/sounds/player/player_injured.wav'
     };
     
     this.volumes = {

@@ -13,8 +13,8 @@ class SimpleTextureManager {
 
         const paths = [
             `assets/textures/${name}`,
-            `../assets/textures/${name}`,
-            `../../assets/textures/${name}`
+            `assets/textures/${name}`,
+            `assets/textures/${name}`
         ];
 
         for (const path of paths) {

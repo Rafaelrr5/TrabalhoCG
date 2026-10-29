@@ -12,9 +12,9 @@ export class AmbientAudioManager {
     this.isTransitioning = false; // Prevent overlapping transitions
     
     this.areaMusicMap = {
-      'none': '/T2/assets/sounds/ambient/nenhumaarea.wav',
-      'area1': '/T2/assets/sounds/ambient/area1.wav',
-      'area2': '/T2/assets/sounds/ambient/area2.wav'
+      'none': 'assets/sounds/ambient/nenhumaarea.wav',
+      'area1': 'assets/sounds/ambient/area1.wav',
+      'area2': 'assets/sounds/ambient/area2.wav'
     };
   }
 

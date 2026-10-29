@@ -40,11 +40,11 @@ export class Gun extends BaseWeapon {
      * Carrega o modelo 3D da arma usando o loader com texturas manuais.
      */
     async createWeaponMesh() {
-        const modelPath = './assets/models/rocketlauncher.obj';
+        const modelPath = 'assets/models/rocketlauncher.obj';
         const texturePaths = {
-            diffuse: './assets/textures/gun_D.jpg',
-            normal: './assets/textures/gun_N.jpg',
-            displacement: './assets/textures/gun_H.jpg'
+            diffuse: 'assets/textures/gun_D.jpg',
+            normal: 'assets/textures/gun_N.jpg',
+            displacement: 'assets/textures/gun_H.jpg'
         };
 
         const weaponConfig = {
@@ -74,11 +74,11 @@ export class Gun extends BaseWeapon {
     }
 
     async loadProjectileModel() {
-        const modelPath = './assets/models/rocket.obj';
+        const modelPath = 'assets/models/rocket.obj';
         const texturePaths = {
-            diffuse: './assets/textures/rocket_D.jpg',
-            normal: './assets/textures/rocket_N.jpg',
-            displacement: './assets/textures/rocket_H.jpg'
+            diffuse: 'assets/textures/rocket_D.jpg',
+            normal: 'assets/textures/rocket_N.jpg',
+            displacement: 'assets/textures/rocket_H.jpg'
         };
 
         const projectileConfig = {

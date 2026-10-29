@@ -61,9 +61,9 @@ async loadModel() {
         opacity: 1.0,
         visible: true,
         side: THREE.DoubleSide,
-        map: await this.loadTexture('../../../../0_assetsT3/objects/pain/textures/pain_elemental_toy_diffuse.png'),
-        normalMap: await this.loadTexture('../../../../0_assetsT3/objects/pain/textures/pain_elemental_toy_normal.png'),
-        displacementMap: await this.loadTexture('../../../../0_assetsT3/objects/pain/textures/pain_elemental_toy_specularGlossiness.png'),
+        map: await this.loadTexture('../0_assetsT3/objects/pain/textures/pain_elemental_toy_diffuse.png'),
+        normalMap: await this.loadTexture('../0_assetsT3/objects/pain/textures/pain_elemental_toy_normal.png'),
+        displacementMap: await this.loadTexture('../0_assetsT3/objects/pain/textures/pain_elemental_toy_specularGlossiness.png'),
         displacementScale: 0.1
       },
       fallback: {
@@ -76,7 +76,7 @@ async loadModel() {
     this.removePlaceholder();
     
     // Caminho corrigido para o modelo GLB
-    this.model = await loadGLTFModel('../../../../0_assetsT3/objects/pain/painElemental.glb', modelConfig);
+    this.model = await loadGLTFModel('../0_assetsT3/objects/pain/painElemental.glb', modelConfig);
     
     this.mesh.add(this.model);
     this.modelLoaded = true;

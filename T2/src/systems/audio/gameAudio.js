@@ -13,10 +13,10 @@ export class GameAudioManager {
     this.liftStoppingSound = null;
     
     this.soundPaths = {
-      doorOpening: '/T2/assets/sounds/ambient/door_opening.wav',
-      itemPickup: '/T2/assets/sounds/ambient/item_pickup.wav',
-      liftStarting: '/T2/assets/sounds/platform/lift_starting.wav',
-      liftStopping: '/T2/assets/sounds/platform/lift_stopping.wav'
+      doorOpening: 'assets/sounds/ambient/door_opening.wav',
+      itemPickup: 'assets/sounds/ambient/item_pickup.wav',
+      liftStarting: 'assets/sounds/platform/lift_starting.wav',
+      liftStopping: 'assets/sounds/platform/lift_stopping.wav'
     };
     
     this.volumes = {

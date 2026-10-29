@@ -74,7 +74,7 @@ export class Cacodemon extends Enemy {
 
       this.removePlaceholder();
       
-      this.model = await loadGLTFModel('./assets/models/cacodemon.glb', modelConfig);
+      this.model = await loadGLTFModel('assets/models/cacodemon.glb', modelConfig);
       
       this.mesh.add(this.model);
       
