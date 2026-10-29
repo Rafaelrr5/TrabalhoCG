@@ -474,22 +474,35 @@ export function calculateSafeMovement(movementVector, collidableObjects) {
     const movementDirection = movementVector.clone().normalize();
     const movementDistance = movementVector.length();
 
-    sweepRaycaster.set(playerPosition, movementDirection);
-    sweepRaycaster.far = movementDistance;
-
-    // AQUI ESTÁ A CORREÇÃO IMPORTANTE
     const validObjects = collidableObjects.filter(obj => {
         if (obj.userData.enemyOnly) return false; // Ignora a hitbox do inimigo
         return obj?.isMesh && obj.visible && (!obj.parent || !obj.parent.name.includes("Escada"));
     });
 
-    const intercepts = sweepRaycaster.intersectObjects(validObjects, true);
-    const collisionOffset = 0.1;
+    // Keep the same clearance the wall rays enforce (0.5 offset + 1.2 ray), otherwise the
+    // sweep lets the player walk in and the wall rays shove him back out every frame (jitter).
+    const clearance = 0.5 + PLAYER_CONFIG.RAYCAST_DISTANCE * 0.95;
+    const blockedBy = (dir, dist) => {
+        sweepRaycaster.set(playerPosition, dir);
+        sweepRaycaster.far = dist + clearance;
+        return sweepRaycaster.intersectObjects(validObjects, true)[0];
+    };
 
-    if (intercepts.length > 0 && intercepts[0].distance < movementDistance) {
-        const safeDistance = Math.max(0, intercepts[0].distance - collisionOffset);
-        return movementDirection.clone().multiplyScalar(safeDistance);
+    const hit = blockedBy(movementDirection, movementDistance);
+    if (!hit) return movementVector;
+
+    // Slide along the wall: drop the component of the move that goes into the surface
+    const allowed = movementDirection.clone().multiplyScalar(Math.max(0, hit.distance - clearance));
+    if (hit.face) {
+        const n = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+        n.y = 0;
+        if (n.lengthSq() > 1e-6) {
+            n.normalize();
+            const slide = movementVector.clone().sub(allowed);
+            slide.addScaledVector(n, -slide.dot(n));
+            const len = slide.length();
+            if (len > 1e-4 && !blockedBy(slide.clone().normalize(), len)) allowed.add(slide);
+        }
     }
-
-    return movementVector;
+    return allowed;
 }

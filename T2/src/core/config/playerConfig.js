@@ -21,7 +21,7 @@ export const PLAYER_CONFIG = {
     STAIR_HEIGHT_TOLERANCE: 1.5,
     STAIR_MOVEMENT_SPEED: 0.2,
     
-    INITIAL_PLAYER_HEIGHT: 150.0,
+    INITIAL_PLAYER_HEIGHT: 2.9, // standing on the base ground (was 150: the run began with a 6 s fall)
     
     PLAYER_IMMORTAL: false
 };
