@@ -16,7 +16,7 @@ const LIGHTING_CONFIG = {
         position: { x: 350.00, y: 450, z: -350.00 },
         castShadow: true,
         shadow: {
-            mapSize: { width: 4096, height: 4096 },
+            mapSize: { width: 2048, height: 2048 }, // 4096 was the largest single frame cost
             camera: {
                 near: 300,
                 far: 880,
@@ -72,7 +72,7 @@ class LightingSystem {
 
     _setupShadows(renderer) {
         renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.shadowMap.type = THREE.PCFShadowMap;
         renderer.shadowMap.autoUpdate = true;
     }
 

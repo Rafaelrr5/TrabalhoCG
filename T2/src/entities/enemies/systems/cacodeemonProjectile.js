@@ -1,4 +1,5 @@
 import * as THREE from '../../../../../build/three.module.js';
+import { worldBox } from '../../../utils/aabbCache.js';
 import { CACODEMON_CONFIG } from '../config/enemyConfig.js';
 
 export class CacodeemonProjectile {
@@ -105,7 +106,7 @@ export class CacodeemonProjectile {
     
     for (const object of collidableObjects) {
       if (object.geometry && object.position) {
-        const objectBox = new THREE.Box3().setFromObject(object);
+        const objectBox = worldBox(object);
         if (projectileBox.intersectsBox(objectBox)) {
           return { object, point: projectilePosition.clone() };
         }

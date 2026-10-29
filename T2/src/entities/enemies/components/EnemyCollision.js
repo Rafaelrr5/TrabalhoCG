@@ -1,4 +1,5 @@
 import * as THREE from '../../../../../build/three.module.js';
+import { worldBox } from '../../../utils/aabbCache.js';
 
 export class EnemyCollision {
   constructor(enemy) {
@@ -82,7 +83,7 @@ export class EnemyCollision {
     );
     
     for (const obj of collidableObjects) {
-      const objectBox = new THREE.Box3().setFromObject(obj);
+      const objectBox = worldBox(obj);
       
       if (enemyBox.intersectsBox(objectBox)) {
         // Calcular direção de escape
@@ -277,7 +278,7 @@ export class EnemyCollision {
     let correctionCount = 0;
     
     for (const obj of collidableObjects) {
-      const objectBox = new THREE.Box3().setFromObject(obj);
+      const objectBox = worldBox(obj);
       const objectCenter = objectBox.getCenter(new THREE.Vector3());
       const distance = currentPos.distanceTo(objectCenter);
       

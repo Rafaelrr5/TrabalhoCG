@@ -12,9 +12,9 @@ export class AmbientAudioManager {
     this.isTransitioning = false; // Prevent overlapping transitions
     
     this.areaMusicMap = {
-      'none': 'assets/sounds/ambient/nenhumaarea.wav',
-      'area1': 'assets/sounds/ambient/area1.wav',
-      'area2': 'assets/sounds/ambient/area2.wav'
+      'none': 'assets/sounds/ambient/nenhumaarea.mp3',
+      'area1': 'assets/sounds/ambient/area1.mp3',
+      'area2': 'assets/sounds/ambient/area2.mp3'
     };
   }
 
@@ -85,7 +85,12 @@ export class AmbientAudioManager {
     // Create new audio object
     this.currentAmbientMusic = new THREE.Audio(this.listener);
     
-    this.audioLoader.load(musicPath, (buffer) => {
+    // Decoded tracks are cached: area changes used to re-download 15-30 MB each time
+    this.bufferCache = this.bufferCache || new Map();
+    if (!this.bufferCache.has(musicPath)) {
+      this.bufferCache.set(musicPath, new Promise((resolve, reject) => this.audioLoader.load(musicPath, resolve, undefined, reject)));
+    }
+    this.bufferCache.get(musicPath).then((buffer) => {
       
       if (this.currentAmbientMusic && this.currentArea === areaName) {
         this.currentAmbientMusic.setBuffer(buffer);
@@ -107,7 +112,7 @@ export class AmbientAudioManager {
         console.warn('[AMBIENT] Music load callback called but context changed');
         this.isTransitioning = false;
       }
-    }, undefined, (error) => {
+    }, (error) => {
       console.warn(`[AMBIENT] Could not load ambient music: ${musicPath}`, error);
       // Fallback to no music for this area
       this.currentAmbientMusic = null;
