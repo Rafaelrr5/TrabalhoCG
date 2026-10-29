@@ -16,6 +16,22 @@ export class Gun extends BaseWeapon {
         this.recoilAmount = 0.3; // Distância do "coice" para trás
         this.recoilSpeed = 1 / (this.shootRate / 1000); // Recuperação em 500ms
         this.bigImpact = true; // rockets explode on impact
+        // HDR colour so the bloom pass makes the exhaust glow
+        this.glowGeometry = new THREE.SphereGeometry(0.22, 10, 10);
+        this.glowMaterial = new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 2.4, 0.6) });
+    }
+
+    // Textured rocket model (loaded in init) with a glowing exhaust; plain glow if not loaded yet
+    createRocketMesh() {
+        const group = new THREE.Group();
+        const glow = new THREE.Mesh(this.glowGeometry, this.glowMaterial);
+        group.add(glow);
+        if (this.projectileModel) {
+            const rocket = this.projectileModel.clone();
+            group.add(rocket);
+            glow.position.z = -0.4; // exhaust behind the nose (group +Z faces the target)
+        }
+        return group;
     }
 
     async init(scene) {
@@ -96,23 +112,14 @@ export class Gun extends BaseWeapon {
         // Ignora a checagem de modelos por enquanto
         if (!this.mesh) return;
 
-        const projectileGeometry = new THREE.SphereGeometry(0.3, 12, 12);
-        // HDR colour so the bloom pass makes the rocket glow
-        const projectileMaterial = new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 2.4, 0.6) });
-        const projectile = new THREE.Mesh(projectileGeometry, projectileMaterial);
+        const projectile = this.createRocketMesh();
 
-        // 2. FORÇA A POSIÇÃO INICIAL PARA UM PONTO SEGURO
-        //    2 unidades à frente da câmera e 1 unidade abaixo.
-        //    Isso garante que ele não será cortado pelo "near plane".
-        const startPosition = new THREE.Vector3(0, -1, -2);
-        
-        // Converte essa posição local da câmera para uma posição no mundo
+        // Sai abaixo da câmera (fora do near plane) e converge para o ponto sob a mira
+        const startPosition = new THREE.Vector3(0, -0.6, -2);
         this.camera.localToWorld(startPosition);
         projectile.position.copy(startPosition);
-
-        // 3. A direção continua a mesma: para onde a câmera aponta
-        const direction = new THREE.Vector3();
-        this.camera.getWorldDirection(direction);
+        const direction = this.aimDirectionFrom(startPosition);
+        projectile.lookAt(startPosition.clone().add(direction));
         
         // ==============================================================================
         //                           FIM DO TESTE DE VISIBILIDADE

@@ -284,6 +284,7 @@ export class Zombieman extends Enemy {
     this.camera = camera;
 
     if (this.isDying) {
+      this.deathEffects.update();
       if (this.spriteMixer) this.spriteMixer.update(delta);
       if (this.actionSprite) this.actionSprite.quaternion.copy(camera.quaternion);
       return;

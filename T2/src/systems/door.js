@@ -91,6 +91,7 @@ export function updateTotem(delta, scene, hitbox, keyType, collidableObjects) {
                 
                 // Toca o som de abertura da porta
                 gameAudioManager.playDoorOpeningSound();
+                window.dispatchEvent(new CustomEvent('game:objective', { detail: 'Suba o elevador e elimine os Cacodemons' }));
                 
                 // Inicia a animação da porta
                 doorAnimationState.isAnimating = true;

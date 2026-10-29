@@ -6,12 +6,7 @@ export function loadSky(scene, texturePath, options = {}) {
     const textureLoader = new THREE.TextureLoader();
     
     // Try multiple paths like textureManager does
-    const possiblePaths = [
-        texturePath,
-        `assets/textures/${texturePath}`,
-        `assets/textures/${texturePath}`,
-        `assets/textures/${texturePath}`
-    ];
+    const possiblePaths = [`assets/textures/${texturePath}`];
     
     let loadAttempt = 0;
     

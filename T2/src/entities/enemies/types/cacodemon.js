@@ -27,8 +27,10 @@ export class Cacodemon extends Enemy {
     super(position, doom2Config);
 
     // Configurações de detecção
-    this.detection.fovAngle = Math.PI; // 180 graus (anterior era 270)
-    this.detection.maxDistance = 30.0; // Reduzido de 40 para melhor performance
+    // 360 graus e 70 m: com 180/30 os Cacodemons da arena nunca notavam o jogador
+    // (a linha de visão ainda é exigida pelo raycast em checkPlayerVisibility)
+    this.detection.fovAngle = Math.PI * 2;
+    this.detection.maxDistance = 70.0;
     this.detection.detectionCooldown = 500; // Mais reativo
     
     // Projéteis

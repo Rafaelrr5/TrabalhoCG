@@ -582,6 +582,8 @@ export function updateHangarDoors(delta, camera, scene, collidableObjects, keyMa
             }
             
             animateHangarDoors(hangar, true, collidableObjects);
+            window.dispatchEvent(new CustomEvent('game:toast', { detail: 'Hangar aberto' }));
+            window.dispatchEvent(new CustomEvent('game:objective', { detail: 'Elimine os soldados e pegue a chave azul no hangar' }));
             
             hangar.userData.permanentlyOpen = true;
         }

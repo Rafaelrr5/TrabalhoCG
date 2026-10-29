@@ -107,6 +107,7 @@ export function updateArea4Totem(delta, scene, hitbox, collidableObjects) {
                 // Inicia a animação dos muros descendo
                 wallsAnimationState.isAnimating = true;
                 wallsAnimationState.hasStarted = true;
+                window.dispatchEvent(new CustomEvent('game:objective', { detail: 'Entre no labirinto e derrote o Pain Elemental' }));
                                 
                 // Remove os muros da lista de colisão imediatamente para permitir passagem
                 if (area4Walls && area4Walls.children) {

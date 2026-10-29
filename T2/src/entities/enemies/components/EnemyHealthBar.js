@@ -62,6 +62,8 @@ export class EnemyHealthBar {
       // Update health percentage
       const healthPercent = Math.max(0, Math.min(1, this.enemy.currentHealth / this.enemy.maxHealth));
       this.healthBarFill.scale.x = healthPercent;
+      // keep the bar anchored on the left instead of shrinking from both ends
+      this.healthBarFill.position.x = -this.healthBarFill.geometry.parameters.width * (1 - healthPercent) / 2;
       
       // Update color based on health
       const color = healthPercent > 0.6 ? 0x00ff00 : 

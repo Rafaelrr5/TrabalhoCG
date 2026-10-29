@@ -197,6 +197,10 @@ export class LostSoul extends Enemy {
       this.wander(delta, collidableObjects);
     }
     
+    // Never sink into the floor: area 1 stands on a 4 m slab, everything else on y = 0
+    const floorY = this.area === 'area1' ? 5.0 : 1.0;
+    if (this.mesh.position.y < floorY) this.mesh.position.y = floorY;
+
     // Atualiza componentes visuais/auditivos
     this.audio.updateProximity(camera?.position);
     this.healthBar.update(camera);

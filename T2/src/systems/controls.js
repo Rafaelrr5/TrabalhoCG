@@ -7,7 +7,7 @@ import { enemies } from '../entities/enemies/enemy.js';
 import { nextWeapon, previousWeapon, switchWeapon, startShooting, stopShooting} from '../components/weaponManager.js';
 import { keyManager } from '../entities/items/key.js';
 import { audioManager } from './audio/audioManager.js';
-import { calculateSafeMovement } from './collision.js'; // Importa a nova função
+import { calculateSafeMovement, requestJump } from './collision.js'; // Importa a nova função
 import { hitbox } from '../entities/player/player.js'; // Precisamos da referência da hitbox
 import * as THREE from '../../../build/three.module.js'; // Precisamos do THREE para o Vector3
 
@@ -67,6 +67,7 @@ function onKeyDown(event) {
         case 'a': case 'arrowleft': moveState.left = true; break;
         case 'd': case 'arrowright': moveState.right = true; break;
         case 'shift': moveState.sprint = true; break; // Tecla Shift para corrida
+        case ' ': requestJump(); event.preventDefault(); break;
         case 'q': toggleAudio(); break; // Tecla Q para alternar sons
         case 'g': togglePlayerImmortality(); break;
         case 'c': giveAllKeys(); break; // Dar todas as chaves ao jogador

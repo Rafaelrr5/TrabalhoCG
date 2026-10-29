@@ -1,5 +1,7 @@
 import * as THREE from '../../../../../build/three.module.js';
-import { DEBUG_CONFIG } from '../../../core/config/debugConfig.js';
+// Death tuning lives in ENEMY_CONFIG (it used to be read from the debug config, where it never
+// existed, so enemies vanished instantly and stayed in the enemies array forever)
+import { ENEMY_CONFIG } from '../config/enemyConfig.js';
 import { WORLD_CONFIG } from '../../../core/config/worldConfig.js';
 
 export class EnemyDeathEffects {
@@ -15,7 +17,7 @@ export class EnemyDeathEffects {
   start() {
     if (this.isDying) return;
     
-    if (!DEBUG_CONFIG.ENEMY_DEATH_FADE_ENABLED) {
+    if (!ENEMY_CONFIG.DEATH_FADE_ENABLED) {
       this.enemy.removeFromScene();
       return;
     }
@@ -27,6 +29,9 @@ export class EnemyDeathEffects {
     // Store original opacity values
     this.enemy.mesh.traverse((child) => {
       if (child.isMesh && child.material) {
+        // Clone first: loaded models share materials between instances, and fading a
+        // shared material would fade every living enemy of the same type
+        child.material = Array.isArray(child.material) ? child.material.map(m => m.clone()) : child.material.clone();
         const materials = Array.isArray(child.material) ? child.material : [child.material];
         materials.forEach((material, index) => {
           const key = `${child.uuid}_${index}`;
@@ -44,8 +49,8 @@ export class EnemyDeathEffects {
     try {
       const currentTime = performance.now();
       const elapsedTime = (currentTime - this.deathStartTime) / 1000;
-      const fadeDelay = DEBUG_CONFIG.ENEMY_DEATH_FADE_DELAY || 0.5;
-      const fadeDuration = DEBUG_CONFIG.ENEMY_DEATH_FADE_DURATION || 2.0;
+      const fadeDelay = ENEMY_CONFIG.DEATH_FADE_DELAY || 0.5;
+      const fadeDuration = ENEMY_CONFIG.DEATH_FADE_DURATION || 2.0;
       
       if (elapsedTime < fadeDelay) return;
       
@@ -64,7 +69,7 @@ export class EnemyDeathEffects {
         this.fadeCompleted = true;
         setTimeout(() => {
           this.enemy.removeFromScene();
-        }, (DEBUG_CONFIG.ENEMY_DEATH_REMOVE_DELAY || 0.2) * 1000);
+        }, (ENEMY_CONFIG.DEATH_REMOVE_DELAY || 0.2) * 1000);
       }
     } catch (error) {
       console.error(`[DEATH_EFFECTS] Update error:`, error);
@@ -91,14 +96,14 @@ export class EnemyDeathEffects {
   }
 
   applyScaleEffect(fadeFactor) {
-    if (DEBUG_CONFIG.ENEMY_DEATH_SCALE_EFFECT && this.originalScale) {
+    if (ENEMY_CONFIG.DEATH_SCALE_EFFECT && this.originalScale) {
       const scaleMultiplier = 1.0 + (1.0 - fadeFactor) * 0.2;
       this.enemy.mesh.scale.copy(this.originalScale).multiplyScalar(scaleMultiplier);
     }
   }
 
   applyRotationEffect(fadeFactor) {
-    if (DEBUG_CONFIG.ENEMY_DEATH_ROTATION_EFFECT) {
+    if (ENEMY_CONFIG.DEATH_ROTATION_EFFECT) {
       const rotationAmount = (1.0 - fadeFactor) * Math.PI * 2;
       this.enemy.mesh.rotation.y = rotationAmount;
     }

@@ -2,25 +2,24 @@ import * as THREE from '../../../build/three.module.js';
 import { PointerLockControls } from '../../../build/jsm/controls/PointerLockControls.js';
 import { CAMERA_CONFIG } from './config/cameraConfig.js';
 import { PLAYER_CONFIG } from './config/playerConfig.js';
-import { WORLD_CONFIG } from './config/worldConfig.js';
 import { DEBUG_CONFIG } from './config/debugConfig.js';
-import { createWalls, createAreas, updateArea1, updateArea2, area1KeyPlatform, area2KeyPlatform, isPlayerInArea1, isPlayerInArea2, isPlayerInArea3 } from '../systems/environment.js';
+import { createWalls, createAreas, updateArea1, updateArea2, isPlayerInArea1, isPlayerInArea2, isPlayerInArea3, isPlayerInArea4 } from '../systems/environment.js';
 import { updateHangarDoors } from '../components/hangar.js';
 import { createWeaponManager, updateProjectiles } from '../components/weaponManager.js';
-import { createEnemies, updateEnemies, cleanupDeadEnemies, enemies, cleanupAllEnemyProjectiles, resetArea2Activation, resetArea1Activation, resetArea3Activation, areAllArea4EnemiesDefeated } from '../entities/enemies/enemy.js';
+import { createEnemies, updateEnemies, enemies, areAllArea4EnemiesDefeated } from '../entities/enemies/enemy.js';
 import { setupEventListeners, updateCameraMovement, continuousCameraDebug } from '../systems/controls.js';
 import { lightingSystem } from '../systems/lights.js';
-import { initHangarLighting, updateHangarLighting, resetHangarLighting } from '../systems/hangarLights.js';
+import { initHangarLighting, updateHangarLighting } from '../systems/hangarLights.js';
 import { applyGravity} from '../systems/collision.js';
 import { createHitbox, hitbox, player } from '../entities/player/player.js';
 import { updateElevator } from '../systems/elevator.js';
 import { keyManager } from '../entities/items/key.js';
 import { ambientAudioManager, playerAudioManager, gameAudioManager, audioManager } from '../systems/index.js';
-import { updateTotem, updateDoorAnimation, updateKeyAnimation, totem } from '../systems/door.js';
+import { updateTotem, updateDoorAnimation, updateKeyAnimation } from '../systems/door.js';
 import { updateArea4Totem, updateArea4KeyAnimation, updateArea4WallsAnimation } from '../systems/area4Access.js';
 import { updateHangarTotem, updateHangarKeyAnimation, updateHangarDoorsAnimation } from '../systems/hangarAccess.js';
 import { loadSky } from '../systems/sky.js';
-import { initializeArea4Victory, checkArea4Victory, updateArea4Victory, resetArea4Victory } from '../systems/area4Victory.js';
+import { initializeArea4Victory, checkArea4Victory, updateArea4Victory } from '../systems/area4Victory.js';
 import { hud, CONTROLS_HTML } from '../ui/hud.js';
 import { PostFX } from '../systems/postfx.js';
 import { CameraFeel } from '../systems/feel.js';
@@ -58,6 +57,22 @@ function handlePlayerDeath() {
   showGameOverPopup();
 }
 
+function showVictoryScreen() {
+  gameOver = true;
+  hud.running = false;
+  controls.unlock();
+  const { kills, time } = hud.stats();
+  const overlay = document.createElement('div');
+  overlay.id = 'game-over-overlay';
+  overlay.className = 'hud-overlay on';
+  overlay.innerHTML = `<div><h1 style="color:#ffb03b">Vitória</h1><p>A base foi libertada. As muralhas caíram.</p>
+    <div class="hud-statgrid"><div>${kills}<span>Abates</span></div><div>${time}<span>Tempo</span></div></div>
+    <button class="hud-btn">Jogar de novo</button></div>`;
+  document.body.appendChild(overlay);
+  // A full reload is the only reset that also restores the lowered victory walls
+  overlay.querySelector('button').addEventListener('click', () => location.reload());
+}
+
 function showGameOverPopup() {
   document.getElementById('game-over-overlay')?.remove();
   gameOver = true;
@@ -74,8 +89,9 @@ function showGameOverPopup() {
     event.preventDefault();
     event.stopPropagation();
     overlay.remove();
-    gameOver = false;
-    restartGame().then(() => controls.lock());
+    // Areas, doors, keys and enemies are built once at load; a reload is the only
+    // reset that restores all of them consistently (the old in-place reset lost the keys)
+    location.reload();
   });
   setTimeout(() => restartButton.focus(), 100);
 }
@@ -241,10 +257,6 @@ async function init() {
         updateKeysDisplay();
     });
     
-    setTimeout(() => {
-        console.log('[MAIN] Force starting ambient music...');
-        ambientAudioManager.forcePlayAreaMusic('none');
-    }, 500);
     
     window.gameInitialized = true;
 
@@ -256,6 +268,8 @@ async function init() {
 
 function setupScene() {
     scene = new THREE.Scene();
+    // area4Victory.js and the weapons read the level collision list from here
+    window.collidableObjects = collidableObjects;
     renderer = new THREE.WebGLRenderer({
         antialias: true,
         powerPreference: "high-performance"
@@ -321,7 +335,7 @@ function setupControls() {
     controls.addEventListener('lock', () => hud.setPaused(false));
     controls.addEventListener('unlock', () => hud.setPaused(gameStarted && !gameOver));
     addEventListener('game:god', updatePlayerHealthDisplay);
-    addEventListener('game:victory', () => { gameOver = true; hud.running = false; controls.unlock(); });
+    addEventListener('game:victory', showVictoryScreen);
     scene.add(controls.getObject());
     
     window.addEventListener('resize', onWindowResize);
@@ -338,7 +352,7 @@ async function createEnvironment() {
     
     updateLoadingProgress(55, 'Carregando céu...');
     // Load sky
-    loadSky(scene, 'panorama1Red.jpg');
+    loadSky(scene, 'panorama1Red.jpg'); // resolved under assets/textures/
     
     updateLoadingProgress(65, 'Criando inimigos...');
     createEnemies(scene);
@@ -384,16 +398,27 @@ function animate() {
         updateEnemies(delta, scene, camera, gun, collidableObjects);
         
         // Verificar vitória na área 4
-        checkArea4Victory(areAllArea4EnemiesDefeated);
+        // Victory only counts once the player has reached the maze
+        if (isPlayerInArea4(camera)) checkArea4Victory(areAllArea4EnemiesDefeated);
         
         // Update ambient music based on player position
         updateAmbientMusic();
         
         // Verificar coletas de chaves
-        const totemPosition = totem ? totem.position : null;
-        const collectedKeys = keyManager.checkCollisions(camera.position, 1.5, totemPosition);
+        // null: each totem positions its key itself (passing the area-2 totem teleported every key there)
+        const collectedKeys = keyManager.checkCollisions(camera.position, 1.5, null);
         if (collectedKeys.length > 0) {
             updateKeysDisplay(); // Atualizar display das chaves
+            const next = {
+                red: 'Use a chave vermelha no totem da porta azul',
+                yellow: 'Leve a chave amarela até o hangar',
+                blue: 'Use a chave azul no totem ao sul da base'
+            };
+            const names = { red: 'vermelha', yellow: 'amarela', blue: 'azul' };
+            collectedKeys.forEach(k => {
+                hud.toast(`Chave ${names[k.getType()] || ''} coletada`);
+                if (next[k.getType()]) hud.setObjective(next[k.getType()]);
+            });
             console.log(`[KEYS] Collected ${collectedKeys.length} key(s):`, collectedKeys.map(k => k.getType()));
             
             // Log adicional para debug
@@ -462,102 +487,6 @@ function updateAmbientMusic() {
   if (newArea !== currentPlayerArea) {
     currentPlayerArea = newArea;
     ambientAudioManager.playAreaMusic(newArea);
-  }
-}
-
-async function restartGame() {
-  try {
-    player.respawn();
-    updatePlayerHealthDisplay();
-    
-    // Reset player to safe position using fixed height
-    const safeHeight = PLAYER_CONFIG.INITIAL_PLAYER_HEIGHT;
-    camera.position.set(0, safeHeight, 0);
-    camera.rotation.set(0, 0, 0);
-    
-    camera.lookAt(0, safeHeight, -10);
-    
-    cleanupAllEnemyProjectiles(scene);
-    
-    cleanupDeadEnemies(scene);
-    
-    enemies.length = 0;
-    
-    await resetGameAreas();
-    
-    await createEnemies(scene);
-    
-    keyManager.clearAll();
-    updateKeysDisplay();
-    
-    // Reset iluminação do hangar
-    resetHangarLighting();
-    
-    // Reset sistema de vitória da área 4
-    resetArea4Victory();
-    
-    currentPlayerArea = 'none';
-    ambientAudioManager.playAreaMusic('none');
-    hud.resetRun();
-    
-    
-  } catch (error) {
-    console.error('[RESTART] Error restarting game:', error);
-  }
-}
-
-async function resetGameAreas() {
-  
-  try {
-    // Reset enemy activation states
-    resetArea1Activation();
-    resetArea2Activation();
-    resetArea3Activation();
-    
-    if (area1KeyPlatform) {
-      console.log('[RESTART] Resetting area 1 platform');
-      area1KeyPlatform.userData.shouldRaise = false;
-      area1KeyPlatform.userData.isRaised = false;
-      
-      const platform = area1KeyPlatform.userData.platform;
-      const keyInstance = area1KeyPlatform.userData.keyInstance;
-      
-      if (platform) {
-        platform.position.y = WORLD_CONFIG.AREA_Y_POSITION - 2;
-      }
-      if (keyInstance && keyInstance.getMesh()) {
-        keyInstance.getMesh().position.y = WORLD_CONFIG.AREA_Y_POSITION - 1.0;
-        keyInstance.getMesh().visible = false;
-      }
-    } else {
-      console.log('[RESTART] Area 1 platform not found');
-    }
-    
-    if (area2KeyPlatform) {
-      console.log('[RESTART] Resetting area 2 central block');
-      area2KeyPlatform.userData.shouldRaise = false;
-      area2KeyPlatform.userData.isRaised = false;
-      
-      const centralBlock = area2KeyPlatform.userData.centralBlock;
-      const keyInstance = area2KeyPlatform.userData.keyInstance;
-      
-      if (centralBlock) {
-        centralBlock.position.y = WORLD_CONFIG.AREA_Y_POSITION + 6; // Posição original do bloco
-      }
-      if (keyInstance && keyInstance.getMesh()) {
-        const redKeyTargetY = WORLD_CONFIG.AREA_Y_POSITION + WORLD_CONFIG.AREA_HEIGHT/2 + 0.5;
-        const finalKeyHeight = redKeyTargetY + 1.0; // Mesma altura da chave vermelha após subir
-        keyInstance.getMesh().position.y = finalKeyHeight;
-        keyInstance.getMesh().position.x = 0.0;
-        keyInstance.getMesh().position.z = -131.0;
-        keyInstance.getMesh().visible = false;
-        keyInstance.position.y = finalKeyHeight;
-        keyInstance.originalY = finalKeyHeight;
-      }
-    }
-
-  } catch (error) {
-    console.error('[RESTART] Error resetting game areas:', error);
   }
 }
 
@@ -636,100 +565,6 @@ window.testHangarDoors = function() {
   } else {
     console.log('[DEBUG] Area3 not found');
   }
-};
-
-// Debug function to test dynamic texture application
-window.testDynamicTextures = function() {
-  console.log('[DEBUG] Testando aplicação dinâmica de texturas...');
-  
-  // Import the dynamic texture system
-  import('../systems/dynamicTextures.js').then(module => {
-    const { DynamicTextureApplicator, QuickTexture } = module;
-    
-    // Criar instância do aplicador
-    const textureApplicator = new DynamicTextureApplicator(scene);
-    
-    // Aplicar textura de metal nos blocos da área 2
-    QuickTexture.applyMetal(scene, 'MetalBlocks', 'caixametal.jpg')
-      .then(success => {
-        if (success) {
-          console.log('[DEBUG] ✅ Textura de metal aplicada nos blocos!');
-        } else {
-          console.log('[DEBUG] ❌ Falha ao aplicar textura de metal');
-        }
-      });
-      
-    // Aplicar texturas em objetos por critério
-    textureApplicator.applyTextureByCriteria(
-      { userData: { isBlock: true } },
-      'caixametal.jpg',
-      { materialType: 'metal', roughness: 0.2, metalness: 0.95 }
-    ).then(count => {
-      console.log(`[DEBUG] Texturas aplicadas em ${count} blocos por critério`);
-    });
-    
-    // Mostrar informações sobre texturas aplicadas
-    setTimeout(() => {
-      const info = textureApplicator.getAppliedTexturesInfo();
-      console.log('[DEBUG] Informações sobre texturas aplicadas:', info);
-    }, 2000);
-  });
-};
-
-// Function to demonstrate different texture applications
-window.applyTextureVariations = function() {
-  console.log('[DEBUG] Aplicando variações de texturas...');
-  
-  import('../systems/dynamicTextures.js').then(module => {
-    const { DynamicTextureApplicator } = module;
-    const applicator = new DynamicTextureApplicator(scene);
-    
-    // Lista de variações de textura para testar
-    const textureVariations = [
-      { name: 'MetalBlocks', texture: 'caixametal.jpg', type: 'metal' },
-      // Adicione mais variações conforme necessário
-    ];
-    
-    textureVariations.forEach(async (variation, index) => {
-      setTimeout(async () => {
-        try {
-          const success = await applicator.applyTextureByName(
-            variation.name, 
-            variation.texture, 
-            { 
-              materialType: variation.type,
-              roughness: 0.2 + (index * 0.2),
-              metalness: 0.9 - (index * 0.1)
-            }
-          );
-          
-          if (success) {
-            console.log(`[DEBUG] ✅ Variação ${index + 1} aplicada: ${variation.texture}`);
-          }
-        } catch (error) {
-          console.log(`[DEBUG] ❌ Erro na variação ${index + 1}:`, error);
-        }
-      }, index * 1000);
-    });
-  });
-};
-
-// Initialize dynamic texture system on game start
-window.initializeDynamicTextures = function() {
-  if (!scene) {
-    console.log('[DEBUG] Cena não está pronta ainda');
-    return;
-  }
-  
-  import('../systems/dynamicTextures.js').then(module => {
-    const { getGlobalTextureApplicator } = module;
-    const applicator = getGlobalTextureApplicator(scene);
-    
-    // Aplicar texturas padrão
-    applicator.applyDefaultTextures().then(() => {
-      console.log('[DEBUG] ✅ Sistema de texturas dinâmicas inicializado');
-    });
-  });
 };
 
 // Debug functions for hangar lighting system

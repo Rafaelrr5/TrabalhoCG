@@ -1,7 +1,7 @@
 import * as THREE from '../../../build/three.module.js';
 import { WEAPONS_CONFIG } from '../core/config/weaponsConfig.js';
 import { DEBUG_CONFIG } from '../core/config/debugConfig.js';
-import { enemies, getCacodemons } from '../entities/enemies/enemy.js';
+import { enemies, getCacodemons, damageEnemiesInArea } from '../entities/enemies/enemy.js';
 
 export class BaseWeapon {
     constructor(camera, weaponConfig) {
@@ -24,6 +24,11 @@ export class BaseWeapon {
         this.projectileSize = weaponConfig.PROJECTILE_SIZE;
         this.projectileColor = weaponConfig.PROJECTILE_COLOR;
         this.projectileVisibility = weaponConfig.PROJECTILE_VISIBILITY
+        // One geometry/material shared by every projectile of this weapon (no per-shot GPU leak)
+        this.projectileGeometry = new THREE.SphereGeometry(this.projectileSize);
+        this.projectileMaterial = new THREE.MeshLambertMaterial({ color: this.projectileColor, visible: this.projectileVisibility });
+        this.aimRaycaster = new THREE.Raycaster();
+        this.aimRaycaster.camera = camera; // needed to raycast against sprites (Zombieman)
         
         this.id = this.generateId();
         this.scene = null;
@@ -116,31 +121,14 @@ export class BaseWeapon {
         // Atualiza timestamp do último disparo
         this.lastShotTime = performance.now();
         
-        // Cria geometria e material do projétil
-        const projectileGeometry = new THREE.SphereGeometry(this.projectileSize);
-        const projectileMaterial = new THREE.MeshLambertMaterial({ color: this.projectileColor , visible: this.projectileVisibility});
-        const projectile = new THREE.Mesh(projectileGeometry, projectileMaterial);
-        
-        // Pega direção que a câmera está olhando no momento do tiro
-        const direction = new THREE.Vector3();
-        this.camera.getWorldDirection(direction);
-        
-        // Calcula posição mundial da ponta da arma com precisão
-        const gunWorldPosition = new THREE.Vector3();
-        this.mesh.getWorldPosition(gunWorldPosition);
-        
-        // Calcula offset da ponta da arma no espaço local
-        const gunTipOffset = new THREE.Vector3(0, 0, WEAPONS_CONFIG.GUN_TIP_OFFSET);
-        
-        // Quando soma o vetor que representa a ponta da arma à posição global da arma, o projétil sai exatamente na ponta do cano
-        const cameraRotationMatrix = new THREE.Matrix4();
-        cameraRotationMatrix.extractRotation(this.camera.matrixWorld);
-        gunTipOffset.applyMatrix4(cameraRotationMatrix);
-        
-        // Posiciona projétil na ponta da arma
-        projectile.position.copy(gunWorldPosition);
-        projectile.position.add(gunTipOffset);
-        
+        const projectile = new THREE.Mesh(this.projectileGeometry, this.projectileMaterial);
+
+        // Sai da ponta do cano, mas mirando no ponto sob a mira
+        const muzzle = new THREE.Vector3(0, -0.35, -1.2);
+        this.camera.localToWorld(muzzle);
+        projectile.position.copy(muzzle);
+        const direction = this.aimDirectionFrom(muzzle);
+
         this.scene.add(projectile);
         
         // Armazena projétil com seus dados de movimento e tempo
@@ -158,6 +146,32 @@ export class BaseWeapon {
         }
     }
 
+    // Direction from the muzzle to whatever is under the crosshair, so shots land where
+    // the player aims (the barrel sits below the camera; a parallel ray always hit low).
+    aimDirectionFrom(muzzle) {
+        const camPos = new THREE.Vector3();
+        const camDir = new THREE.Vector3();
+        this.camera.getWorldPosition(camPos);
+        this.camera.getWorldDirection(camDir);
+        this.aimRaycaster.set(camPos, camDir);
+        this.aimRaycaster.far = 400;
+        const hit = this.aimRaycaster.intersectObjects(this.hitTargets(), true)[0];
+        const target = hit ? hit.point : camPos.clone().addScaledVector(camDir, 400);
+        return target.sub(muzzle).normalize();
+    }
+
+    // Static level collision + live enemies; far cheaper than raycasting the whole scene
+    hitTargets() {
+        const targets = (window.collidableObjects || []).slice();
+        for (const e of enemies) if (e.isAlive && e.mesh) targets.push(e.mesh);
+        return targets;
+    }
+
+    removeProjectile(i) {
+        this.scene.remove(this.projectiles[i].mesh);
+        this.projectiles.splice(i, 1);
+    }
+
     // Hook para subclasses implementarem lógica específica após o tiro
     onShoot() {
         // Pode ser sobrescrito pelas subclasses
@@ -166,6 +180,7 @@ export class BaseWeapon {
     updateProjectiles(delta) {
         if (!this.scene) return;
         
+        const targets = this.projectiles.length ? this.hitTargets() : [];
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const projectileData = this.projectiles[i];
             const projectile = projectileData.mesh;
@@ -178,7 +193,7 @@ export class BaseWeapon {
             this.raycaster.set(projectile.position, projectileData.direction);
             this.raycaster.far = this.projectileSpeed * delta + this.collisionDistance;
 
-            const intersects = this.raycaster.intersectObjects(this.scene.children, true);
+            const intersects = this.raycaster.intersectObjects(targets, true);
 
             // Filtra as colisões - exclui sprites e objetos relacionados à arma
             const validIntersects = intersects.filter(intersect => {
@@ -223,8 +238,7 @@ export class BaseWeapon {
                 if (enemy && enemy.isAlive) {
                     enemy.takeDamage(this.damage);
                     this.emitImpact(hit.point);
-                    this.scene.remove(projectile);
-                    this.projectiles.splice(i, 1);
+                    this.removeProjectile(i);
                     hitEnemy = true;
                     break;
                 }
@@ -234,8 +248,7 @@ export class BaseWeapon {
             // Colisão com ambiente, remove o projétil
             if (validIntersects.length > 0) {
                 this.emitImpact(validIntersects[0].point);
-                this.scene.remove(projectile);
-                this.projectiles.splice(i, 1);
+                this.removeProjectile(i);
                 continue;
             }
              
@@ -246,14 +259,14 @@ export class BaseWeapon {
              
             // Remove projétil após tempo limite
             if (projectileData.timeAlive > this.projectileLifetime) {
-                this.scene.remove(projectile);
-                this.projectiles.splice(i, 1);
+                this.removeProjectile(i);
             }
         }
     }
 
     // Visual feedback where a projectile stops; rockets (Gun) get a big explosion
     emitImpact(point) {
+        if (this.bigImpact) damageEnemiesInArea(point, 3.5, this.damage * 0.6); // rocket splash
         window.dispatchEvent(new CustomEvent('game:impact', {
             detail: { position: point.clone(), big: this.bigImpact === true }
         }));

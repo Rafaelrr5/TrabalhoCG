@@ -1,4 +1,5 @@
 import * as THREE from '../../../build/three.module.js';
+import { worldBox } from '../utils/aabbCache.js';
 import { PLAYER_CONFIG } from '../core/config/playerConfig.js';
 import { hitbox, player } from '../entities/player/player.js';
 import { playerAudioManager } from './index.js';
@@ -26,6 +27,7 @@ function checkGroundCollisions(collidableObjects, camera) {
     // Raycast for ground and stairs
     const wasGrounded = isGrounded;
     isGrounded = false;
+    if (velocityY > 0) return; // rising from a jump: don't snap back to the floor
     const downDir = new THREE.Vector3(0, -1, 0);
     const hits = detectRayCollisions(hitbox.position.clone(), downDir, collidableObjects, raySize, true);
     if (hits.length > 0) {
@@ -122,6 +124,15 @@ export function detectRayCollisions(origin, direction, objects, maxDistance, rec
     return raycaster.intersectObjects(objects, recursive);
 }
 
+// Space: jump impulse. With GRAVITY -20 this is a ~1.6 m hop.
+export function requestJump() {
+    // On the base ground there is no collidable floor; the 1.9 m clamp in applyGravity holds the player
+    const onBaseGround = hitbox && hitbox.position.y <= 1.9 + 1e-3;
+    if (!isGrounded && !onBaseGround) return;
+    velocityY = 8.0;
+    isGrounded = false;
+}
+
 export function applyGravity(delta, collidableObjects, camera) {
     if (!hitbox || !camera || !collidableObjects) return;
 
@@ -149,8 +160,7 @@ function checkSphereCollisions(position, radius, collidableObjects) {
     
     for (const obj of collidableObjects) {
         if (obj.isMesh && obj.visible) {
-            obj.updateWorldMatrix(true, false);
-            const box = new THREE.Box3().setFromObject(obj);
+            const box = worldBox(obj);
             
             if (sphere.intersectsBox(box)) {
                 collisions.push({

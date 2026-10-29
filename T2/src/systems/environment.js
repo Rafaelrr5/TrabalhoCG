@@ -1121,6 +1121,8 @@ export function updateArea1(delta) {
     
     if (!area1KeyPlatform.userData.shouldRaise && areAllArea1EnemiesDefeated()) {
         area1KeyPlatform.userData.shouldRaise = true;
+        window.dispatchEvent(new CustomEvent('game:toast', { detail: 'Templo limpo!' }));
+        window.dispatchEvent(new CustomEvent('game:objective', { detail: 'Pegue a chave vermelha no pedestal do templo' }));
         setTimeout(() => {
             cleanupDeadEnemies(area1KeyPlatform.parent);
         }, 1000);
@@ -1135,6 +1137,8 @@ export function updateArea2(delta) {
     
     if (!area2KeyPlatform.userData.shouldRaise && areAllArea2EnemiesDefeated()) {
         area2KeyPlatform.userData.shouldRaise = true;
+        window.dispatchEvent(new CustomEvent('game:toast', { detail: 'Arena limpa!' }));
+        window.dispatchEvent(new CustomEvent('game:objective', { detail: 'Pegue a chave amarela no centro da arena' }));
         setTimeout(() => {
             cleanupDeadEnemies(area2KeyPlatform.parent);
         }, 1000);

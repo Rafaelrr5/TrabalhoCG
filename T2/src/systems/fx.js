@@ -40,6 +40,7 @@ export class Effects {
         camera.add(this.muzzle);
 
         addEventListener('game:shot', () => { this.muzzle.intensity = 30; });
+        addEventListener('game:kill', (e) => { if (e.detail?.position) this.deathBurst(e.detail.position); });
         addEventListener('game:impact', (e) => {
             const { position, big } = e.detail;
             big ? this.explosion(position) : this.sparks(position);
@@ -75,6 +76,13 @@ export class Effects {
             this._spawn(pos, 1.2 + Math.random(), 0.5 + Math.random() * 0.4, v, i % 2 ? 0xff6a20 : 0xffb040, 2.5);
         }
         dispatchEvent(new CustomEvent('game:shake', { detail: 0.35 }));
+    }
+
+    deathBurst(pos) {
+        for (let i = 0; i < 8; i++) {
+            const v = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.6, Math.random() - 0.5).normalize().multiplyScalar(3 + Math.random() * 4);
+            this._spawn(pos, 1 + Math.random() * 0.8, 0.6 + Math.random() * 0.3, v, i % 2 ? 0xff2a10 : 0x8a0a00, 1.5);
+        }
     }
 
     update(delta) {

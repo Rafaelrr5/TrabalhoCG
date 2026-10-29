@@ -137,11 +137,12 @@ export class Enemy extends SimpleEventEmitter {
 
     if (this.currentHealth <= 0) {
         this.currentHealth = 0;
+        if (typeof this.die === 'function') this.die(); // e.g. Zombieman death animation
         this.isAlive = false;
         this.isDying = true;
         this.deathEffects.start(); // Inicia a animação de morte
         this.emit('death', { enemy: this });
-        window.dispatchEvent(new CustomEvent('game:kill', { detail: { type: this.enemyType } }));
+        window.dispatchEvent(new CustomEvent('game:kill', { detail: { type: this.enemyType, position: this.mesh?.position.clone() } }));
         return true; // Inimigo morreu
     }
     window.dispatchEvent(new CustomEvent('game:hit'));

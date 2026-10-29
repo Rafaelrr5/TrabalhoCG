@@ -80,7 +80,7 @@ const CSS = `
 const KEY_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="7" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="3"/><path d="M11 10.5h11v3h-2v3h-3v-3h-6z"/></svg>';
 
 export const CONTROLS_HTML = `
-  <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> mover</div><div><kbd>Shift</kbd> correr</div>
+  <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> mover</div><div><kbd>Shift</kbd> correr · <kbd>Espaço</kbd> pular</div>
   <div><kbd>Mouse</kbd> mirar / atirar</div><div><kbd>1</kbd><kbd>2</kbd> / roda trocar arma</div>
   <div><kbd>Esc</kbd> pausar</div><div><kbd>Q</kbd> som on/off</div>
   <div><kbd>G</kbd> modo deus</div><div><kbd>C</kbd> todas as chaves</div>`;
@@ -131,7 +131,7 @@ class Hud {
         this.running = false;
         this.spread = 0;
         this.setWeapon(0);
-        this.setObjective('Explore a base e encontre a chave vermelha');
+        this.setObjective('Vá ao templo a oeste e elimine as almas perdidas');
 
         addEventListener('game:shot', () => { this.spread = Math.min(14, this.spread + 6); });
         addEventListener('game:hit', (e) => this.hitMarker(e.detail?.killed));
@@ -191,12 +191,6 @@ class Hud {
     }
 
     setPaused(paused) { this.pause.classList.toggle('on', paused); }
-
-    resetRun() {
-        this.kills = 0; this.elapsed = 0; this.running = true;
-        this.el.kills.textContent = '0';
-        this.setObjective('Explore a base e encontre a chave vermelha');
-    }
 
     stats() { return { kills: this.kills, time: fmtTime(this.elapsed) }; }
 

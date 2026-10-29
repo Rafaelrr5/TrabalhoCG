@@ -256,7 +256,7 @@ forceUpdateSpawnedSouls() {
     this.isDying = true;
     this.deathEffects.start(); // Força o início da animação de morte
     this.emit('death', { enemy: this });
-    window.dispatchEvent(new CustomEvent('game:kill', { detail: { type: 'PainElemental' } }));
+    window.dispatchEvent(new CustomEvent('game:kill', { detail: { type: 'PainElemental', position: this.mesh?.position.clone() } }));
     return true;
   }
   window.dispatchEvent(new CustomEvent('game:hit'));

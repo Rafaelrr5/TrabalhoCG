@@ -163,66 +163,12 @@ function easeInCubic(t) {
 }
 
 function showVictoryMessage() {
-    const message = document.createElement('div');
-    message.style.cssText = `
-        position: fixed;
-        top: 30%;
-        left: 50%;
-        transform: translateX(-50%);
-        background-color: rgba(0, 128, 0, 0.9);
-        color: white;
-        padding: 20px;
-        font-size: 20px;
-        border-radius: 5px;
-        z-index: 10000;
-        text-align: center;
-    `;
-    
-    message.textContent = 'Pain Elemental derrotado! As paredes do mapa estão descendo...';
-    
-    document.body.appendChild(message);
-    
-    setTimeout(() => {
-        if (message.parentNode) {
-            message.parentNode.removeChild(message);
-        }
-    }, 3000);
+    window.dispatchEvent(new CustomEvent('game:toast', { detail: 'Pain Elemental derrotado! As muralhas estão caindo...' }));
 }
 
+// main.js shows the victory screen (with run stats and replay button)
 function showFinalVictoryMessage() {
-    const overlay = document.createElement('div');
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.7);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 99999;
-        font-family: Arial, sans-serif;
-    `;
-    
-    const popup = document.createElement('div');
-    popup.style.cssText = `
-        background-color: #2a2a2a;
-        border: 2px solid #4CAF50;
-        border-radius: 10px;
-        padding: 30px;
-        text-align: center;
-        color: white;
-        max-width: 400px;
-    `;
-    
-    popup.innerHTML = `
-        <h2 style="color: #4CAF50; margin: 0 0 15px 0;">VITÓRIA!</h2>
-        <p style="margin: 0 0 20px 0;">Você venceu o jogo! As paredes do mapa foram removidas e você conquistou sua liberdade.</p>
-    `;
-        
-    overlay.appendChild(popup);
-    document.body.appendChild(overlay);
+    window.dispatchEvent(new CustomEvent('game:victory'));
 }
 
 export function resetArea4Victory() {
