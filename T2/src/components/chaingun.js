@@ -219,6 +219,7 @@ onStopShooting() {
                             console.log(`[Chaingun] Sucesso ao carregar: ${currentPath}`);
                         }
                         
+                        texture.colorSpace = THREE.SRGBColorSpace;
                         this.chaingunSprite = this.spriteMixer.ActionSprite(texture, 4, 1);
                         this.chaingunSprite.setFrame(0);
                         

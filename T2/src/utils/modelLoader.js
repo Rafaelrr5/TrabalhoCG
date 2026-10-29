@@ -393,6 +393,7 @@ export function loadOBJWithManualTextures(objPath, texturePaths = {}, config = {
     // Carrega e atribui cada textura se o caminho for fornecido
     if (texturePaths.diffuse) {
       material.map = textureLoader.load(texturePaths.diffuse);
+      material.map.colorSpace = THREE.SRGBColorSpace;
     }
     if (texturePaths.normal) {
       material.normalMap = textureLoader.load(texturePaths.normal);

@@ -23,5 +23,5 @@ export const PLAYER_CONFIG = {
     
     INITIAL_PLAYER_HEIGHT: 150.0,
     
-    PLAYER_IMMORTAL: true
+    PLAYER_IMMORTAL: false
 };

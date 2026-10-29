@@ -3,43 +3,40 @@ import * as THREE from '../../../build/three.module.js';
 class SimpleTextureManager {
     constructor() {
         this.loader = new THREE.TextureLoader();
-        this.cache = new Map();
+        this.cache = new Map();    // file name -> Promise<Texture|null>
+        this.variants = new Map(); // name|repeat|colour -> Texture
     }
 
-    async load(name, options = {}) {
-        if (this.cache.has(name)) {
-            return this.cache.get(name);
-        }
-
-        const paths = [
-            `assets/textures/${name}`,
-            `assets/textures/${name}`,
-            `assets/textures/${name}`
-        ];
-
-        for (const path of paths) {
-            try {
-                const texture = await new Promise((resolve, reject) => {
-                    this.loader.load(path, resolve, undefined, reject);
+    // One download per file (the promise is cached, so parallel callers share it);
+    // each repeat/colour-space combination gets its own lightweight clone.
+    async load(name, options = {}, isColor = false) {
+        if (!this.cache.has(name)) {
+            this.cache.set(name, new Promise((resolve) => {
+                this.loader.load(`assets/textures/${name}`, resolve, undefined, () => {
+                    console.warn(`❌ Textura não encontrada: ${name}`);
+                    resolve(null);
                 });
-                
-                texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-                if (options.repeat) texture.repeat.set(options.repeat.x || 1, options.repeat.y || 1);
-                
-                this.cache.set(name, texture);
-                return texture;
-            } catch (e) {
-                continue;
-            }
+            }));
         }
-        
-        console.warn(`❌ Textura não encontrada: ${name}`);
-        return null;
+        const base = await this.cache.get(name);
+        if (!base) return null;
+
+        const r = options && options.repeat;
+        const key = `${name}|${r ? `${r.x}x${r.y}` : ''}|${isColor}`;
+        if (this.variants.has(key)) return this.variants.get(key);
+        const texture = base.clone();
+        this.variants.set(key, texture);
+        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        texture.anisotropy = 8; // three clamps this to the GPU maximum
+        if (isColor) texture.colorSpace = THREE.SRGBColorSpace;
+        if (options && options.repeat) texture.repeat.set(options.repeat.x || 1, options.repeat.y || 1);
+        texture.needsUpdate = true;
+        return texture;
     }
 
     // Criar material com qualquer tipo e propriedades
     async createMaterial(textureName, materialType = 'standard', properties = {}) {
-        const texture = await this.load(textureName, properties.textureOptions);
+        const texture = await this.load(textureName, properties.textureOptions, true);
         
         // Carregar texturas adicionais se especificadas
         let normalMap = null;

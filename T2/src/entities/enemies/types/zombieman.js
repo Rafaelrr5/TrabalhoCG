@@ -53,6 +53,7 @@ export class Zombieman extends Enemy {
     const loader = new THREE.TextureLoader();
     const texturePath = '../assets/textures/sprites/zombieman.png';
     loader.load(texturePath, (texture) => {
+      texture.colorSpace = THREE.SRGBColorSpace;
       this.spriteMixer = new SpriteMixer();
       
       this.actionSprite = this.spriteMixer.ActionSprite(texture, 8, 8);
