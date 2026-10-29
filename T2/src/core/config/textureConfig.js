@@ -2,7 +2,7 @@ export const TEXTURE_CONFIG = {
     FLOOR_TEXTURE: {
         NAME: 'pisointertravado.jpg',
         REPEAT: { x: 100, y: 100 },
-        ROUGHNESS: 0,
+        ROUGHNESS: 0.85,
         METALNESS: 0.0
     },
     

@@ -15,6 +15,7 @@ export class Gun extends BaseWeapon {
         this.recoilProgress = 1; // 0 = recuo máximo, 1 = em repouso
         this.recoilAmount = 0.3; // Distância do "coice" para trás
         this.recoilSpeed = 1 / (this.shootRate / 1000); // Recuperação em 500ms
+        this.bigImpact = true; // rockets explode on impact
     }
 
     async init(scene) {
@@ -95,8 +96,9 @@ export class Gun extends BaseWeapon {
         // Ignora a checagem de modelos por enquanto
         if (!this.mesh) return;
 
-        const projectileGeometry = new THREE.SphereGeometry(0.5, 16, 16); // Esfera com 1 metro de diâmetro
-        const projectileMaterial = new THREE.MeshLambertMaterial({ color: 'rgb(80,80,80)' });
+        const projectileGeometry = new THREE.SphereGeometry(0.3, 12, 12);
+        // HDR colour so the bloom pass makes the rocket glow
+        const projectileMaterial = new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 2.4, 0.6) });
         const projectile = new THREE.Mesh(projectileGeometry, projectileMaterial);
 
         // 2. FORÇA A POSIÇÃO INICIAL PARA UM PONTO SEGURO
@@ -127,8 +129,9 @@ export class Gun extends BaseWeapon {
         // --- INICIA A ANIMAÇÃO DE RECUO ---
         this.recoilProgress = 0;
 
-
         this.onShoot();
+        window.dispatchEvent(new CustomEvent('game:shot'));
+        window.dispatchEvent(new CustomEvent('game:shake', { detail: 0.12 }));
     }
 
     updateProjectiles(delta) {

@@ -52,6 +52,7 @@ export class WeaponManager {
             
             // Define visibilidade - a arma vai lidar com o carregamento internamente
             newWeapon.setVisibility(DEBUG_CONFIG.DEBUG_SHOW_WEAPON);
+            window.dispatchEvent(new CustomEvent('game:weapon', { detail: index }));
             
             if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
                 console.log(`[WEAPON] Switched to weapon ${index}`);

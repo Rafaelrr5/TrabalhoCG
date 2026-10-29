@@ -61,10 +61,9 @@ async loadModel() {
         opacity: 1.0,
         visible: true,
         side: THREE.DoubleSide,
-        map: await this.loadTexture('../0_assetsT3/objects/pain/textures/pain_elemental_toy_diffuse.png'),
-        normalMap: await this.loadTexture('../0_assetsT3/objects/pain/textures/pain_elemental_toy_normal.png'),
-        displacementMap: await this.loadTexture('../0_assetsT3/objects/pain/textures/pain_elemental_toy_specularGlossiness.png'),
-        displacementScale: 0.1
+        map: await this.loadTexture('../0_assetsT3/objects/pain/textures/pain_elemental_toy_diffuse.png', true),
+        // The specular/glossiness map was used as a displacement map, which warped the mesh
+        normalMap: await this.loadTexture('../0_assetsT3/objects/pain/textures/pain_elemental_toy_normal.png')
       },
       fallback: {
         type: 'sphere',
@@ -104,12 +103,15 @@ async loadModel() {
   }
 }
 
-  async loadTexture(path) {
+  async loadTexture(path, isColor = false) {
     const loader = new THREE.TextureLoader();
     return new Promise((resolve, reject) => {
       loader.load(
         path,
-        texture => resolve(texture),
+        texture => {
+          if (isColor) texture.colorSpace = THREE.SRGBColorSpace;
+          resolve(texture);
+        },
         undefined,
         error => reject(error)
       );
@@ -254,8 +256,10 @@ forceUpdateSpawnedSouls() {
     this.isDying = true;
     this.deathEffects.start(); // Força o início da animação de morte
     this.emit('death', { enemy: this });
+    window.dispatchEvent(new CustomEvent('game:kill', { detail: { type: 'PainElemental' } }));
     return true;
   }
+  window.dispatchEvent(new CustomEvent('game:hit'));
   return false;
 }
 

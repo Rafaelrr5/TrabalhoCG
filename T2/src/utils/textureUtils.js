@@ -155,6 +155,7 @@ export const QuickTexture = {
         await applyTexture(object, textureName, 'standard', {
             roughness: TEXTURE_CONFIG.FLOOR_TEXTURE.ROUGHNESS,
             metalness: TEXTURE_CONFIG.FLOOR_TEXTURE.METALNESS,
+            color: 0x8c8580,
             textureOptions: { repeat: TEXTURE_CONFIG.FLOOR_TEXTURE.REPEAT }
         }),
         

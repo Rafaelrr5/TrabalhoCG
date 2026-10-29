@@ -141,8 +141,10 @@ export class Enemy extends SimpleEventEmitter {
         this.isDying = true;
         this.deathEffects.start(); // Inicia a animação de morte
         this.emit('death', { enemy: this });
+        window.dispatchEvent(new CustomEvent('game:kill', { detail: { type: this.enemyType } }));
         return true; // Inimigo morreu
     }
+    window.dispatchEvent(new CustomEvent('game:hit'));
 
     return false; // Inimigo ainda está vivo
 }

@@ -43,6 +43,7 @@ export function loadSky(scene, texturePath, options = {}) {
         textureEquirec.colorSpace = THREE.SRGBColorSpace;
         
         scene.background = textureEquirec;
+        scene.backgroundIntensity = 0.7; // tone the saturated red sky down a bit
     }
     
     tryLoadTexture();

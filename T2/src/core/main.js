@@ -21,12 +21,21 @@ import { updateArea4Totem, updateArea4KeyAnimation, updateArea4WallsAnimation } 
 import { updateHangarTotem, updateHangarKeyAnimation, updateHangarDoorsAnimation } from '../systems/hangarAccess.js';
 import { loadSky } from '../systems/sky.js';
 import { initializeArea4Victory, checkArea4Victory, updateArea4Victory, resetArea4Victory } from '../systems/area4Victory.js';
+import { hud, CONTROLS_HTML } from '../ui/hud.js';
+import { PostFX } from '../systems/postfx.js';
+import { CameraFeel } from '../systems/feel.js';
+import { Effects } from '../systems/fx.js';
 
 // Expor keyManager globalmente para debug
 window.keyManager = keyManager;
 
 window.playerTakeDamage = function(damage) {
+  const before = player.health;
   const isAlive = player.takeDamage(damage);
+  if (player.health < before) {
+    postfx?.flashDamage(Math.min(0.9, 0.25 + damage / 40));
+    feel?.shake(Math.min(0.6, 0.15 + damage / 60));
+  }
   
   updatePlayerHealthDisplay();
   
@@ -37,37 +46,8 @@ window.playerTakeDamage = function(damage) {
 
 function updatePlayerHealthDisplay() {
   const healthStatus = player.getHealthStatus();
-  const healthPercentage = healthStatus.percentage;
-  
-  // Atualizar a barra de vida 3D - sempre visível
-  const healthBarGroup = camera.getObjectByName('PlayerHealthBar');
-  if (healthBarGroup) {
-    healthBarGroup.visible = true;
-    
-    const healthBarFill = healthBarGroup.getObjectByName('PlayerHealthBarFill');
-    if (healthBarFill) {
-      // Atualizar escala da barra baseada na porcentagem de vida
-      healthBarFill.scale.x = Math.max(0.01, healthPercentage); // Mínimo para ser visível
-      
-      // Mudar cor baseada na porcentagem de vida
-      if (healthPercentage < 0.3) {
-        healthBarFill.material.color.setHex(0xff0000); // Vermelho
-      } else if (healthPercentage < 0.6) {
-        healthBarFill.material.color.setHex(0xffaa00); // Laranja
-      } else {
-        healthBarFill.material.color.setHex(0x00ff00); // Verde
-      }
-    }
-  }
-  
-  const healthText = document.getElementById('player-health-text');
-  if (healthText) {
-    healthText.style.display = 'block';
-    if (PLAYER_CONFIG.PLAYER_IMMORTAL) {
-    } else {
-      healthText.textContent = `${healthStatus.current}/${healthStatus.max}`;
-    }
-  }
+  hud.setHealth(healthStatus.current, healthStatus.max, PLAYER_CONFIG.PLAYER_IMMORTAL);
+  postfx?.setLowHealth(healthStatus.percentage);
 }
 
 function handlePlayerDeath() {
@@ -79,223 +59,42 @@ function handlePlayerDeath() {
 }
 
 function showGameOverPopup() {
-  console.log('[RESTART] Creating game over popup');
-  
-  const existingOverlay = document.getElementById('game-over-overlay');
-  if (existingOverlay) {
-    document.body.removeChild(existingOverlay);
-  }
-  
+  document.getElementById('game-over-overlay')?.remove();
+  gameOver = true;
+  const { kills, time } = hud.stats();
   const overlay = document.createElement('div');
   overlay.id = 'game-over-overlay';
-  overlay.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.9);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 99999;
-    font-family: Arial, sans-serif;
-    pointer-events: auto;
-  `;
-  
-  // Create popup content
-  const popup = document.createElement('div');
-  popup.style.cssText = `
-    background-color: #2a2a2a;
-    border: 3px solid #ff4444;
-    border-radius: 10px;
-    padding: 30px;
-    text-align: center;
-    color: white;
-    box-shadow: 0 0 20px rgba(255, 68, 68, 0.5);
-    position: relative;
-    z-index: 100000;
-    pointer-events: auto;
-  `;
-  
-  // Create elements separately for better control
-  const title = document.createElement('h2');
-  title.style.cssText = 'color: #ff4444; margin: 0 0 20px 0; font-size: 32px;';
-  title.textContent = 'GAME OVER';
-  
-  const message = document.createElement('p');
-  message.style.cssText = 'margin: 0 0 30px 0; font-size: 18px;';
-  message.textContent = 'Você foi derrotado pelos inimigos!';
-  
-  const instruction = document.createElement('p');
-  instruction.style.cssText = 'margin: 0 0 20px 0; font-size: 14px; color: #cccccc;';
-  instruction.textContent = 'Clique em "Continuar" para jogar novamente';
-  
-  const restartButton = document.createElement('button');
-  restartButton.id = 'restart-button';
-  restartButton.style.cssText = `
-    background-color: #ff4444;
-    border: none;
-    color: white;
-    padding: 15px 30px;
-    font-size: 18px;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-    position: relative;
-    z-index: 100001;
-    pointer-events: auto;
-    outline: none;
-  `;
-  restartButton.textContent = 'Continuar';
-  
-  restartButton.addEventListener('mouseenter', () => {
-    restartButton.style.backgroundColor = '#ff6666';
-  });
-  
-  restartButton.addEventListener('mouseleave', () => {
-    restartButton.style.backgroundColor = '#ff4444';
-  });
-  
+  overlay.className = 'hud-overlay on';
+  overlay.innerHTML = `<div><h1>Você morreu</h1><p>Os demônios tomaram a base.</p>
+    <div class="hud-statgrid"><div>${kills}<span>Abates</span></div><div>${time}<span>Tempo</span></div></div>
+    <button id="restart-button" class="hud-btn">Tentar de novo</button></div>`;
+  document.body.appendChild(overlay);
+  const restartButton = overlay.querySelector('#restart-button');
   restartButton.addEventListener('click', (event) => {
-    console.log('[RESTART] Restart button clicked!');
     event.preventDefault();
     event.stopPropagation();
-    
-    try {
-      if (overlay.parentNode) {
-        overlay.parentNode.removeChild(overlay);
-      }
-      console.log('[RESTART] Overlay removed, calling restartGame');
-      restartGame();
-    } catch (error) {
-      console.error('[RESTART] Error handling restart button click:', error);
-    }
+    overlay.remove();
+    gameOver = false;
+    restartGame().then(() => controls.lock());
   });
-  
-  // Assemble the popup
-  popup.appendChild(title);
-  popup.appendChild(message);
-  popup.appendChild(instruction);
-  popup.appendChild(restartButton);
-  overlay.appendChild(popup);
-  
-  // Add to document
-  document.body.appendChild(overlay);
-  
-  // Focus the button to ensure it's interactive
-  setTimeout(() => {
-    restartButton.focus();
-    console.log('[RESTART] Popup created and button focused');
-  }, 100);
-}
-
-function createPlayerHealthHUD() {
-    // Criar um grupo para a barra de vida 3D
-    const healthBarGroup = new THREE.Group();
-    healthBarGroup.name = 'PlayerHealthBar';
-    
-    // Configurações da barra
-    const barWidth = 0.8;
-    const barHeight = 0.06;
-    const barDepth = 0.01;
-    
-    // Background da barra (preto)
-    const bgGeometry = new THREE.BoxGeometry(barWidth, barHeight, barDepth);
-    const bgMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0x000000, 
-        transparent: true, 
-        opacity: 0.8 
-    });
-    const healthBarBg = new THREE.Mesh(bgGeometry, bgMaterial);
-    
-    // Preenchimento da barra (verde inicialmente)
-    const fillGeometry = new THREE.BoxGeometry(barWidth, barHeight * 0.8, barDepth * 1.1);
-    const fillMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-    const healthBarFill = new THREE.Mesh(fillGeometry, fillMaterial);
-    healthBarFill.name = 'PlayerHealthBarFill';
-    
-    // Posicionar no canto superior esquerdo da tela
-    healthBarGroup.position.set(-2.6, 1.4, -2);
-    
-    healthBarGroup.add(healthBarBg);
-    healthBarGroup.add(healthBarFill);
-    
-    // Adicionar à câmera para que siga o jogador
-    camera.add(healthBarGroup);
-    
-    // Criar texto para mostrar valores numéricos
-    const healthDisplay = document.createElement('div');
-    healthDisplay.id = 'player-health-text';
-    healthDisplay.style.cssText = `
-        position: fixed;
-        top: 50px;
-        left: 20px;
-        color: white;
-        font-size: 14px;
-        font-weight: bold;
-        z-index: 1000;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-        font-family: Arial, sans-serif;
-    `;
-    
-    healthBarGroup.visible = true;
-    
-    document.body.appendChild(healthDisplay);
+  setTimeout(() => restartButton.focus(), 100);
 }
 
 function initializeImmortalityIndicator() {
-    const immortalityIndicator = document.getElementById('immortality-indicator');
-    if (immortalityIndicator) {
-        immortalityIndicator.style.display = PLAYER_CONFIG.PLAYER_IMMORTAL ? 'block' : 'none';
-    }
-    
-    // Manter a barra de vida sempre visível, apenas atualizar o texto
     updatePlayerHealthDisplay();
-}
-
-function createKeysHUD() {
-    const keysDisplay = document.createElement('div');
-    keysDisplay.id = 'keys-display';
-    keysDisplay.style.position = 'fixed';
-    keysDisplay.style.top = '50px';
-    keysDisplay.style.left = '20px';
-    keysDisplay.style.color = 'gold';
-    keysDisplay.style.fontSize = '16px';
-    keysDisplay.style.fontWeight = 'bold';
-    keysDisplay.style.zIndex = '1000';
-    keysDisplay.style.textShadow = '2px 2px 4px rgba(0,0,0,0.8)';
-    keysDisplay.textContent = 'Keys: None'; // Estado inicial sem chamar updateKeysDisplay()
-    document.body.appendChild(keysDisplay);
 }
 
 // Update keys display
 function updateKeysDisplay() {
-    const keysDisplay = document.getElementById('keys-display');
-    if (keysDisplay) {
-        const collectedKeys = keyManager.getCollectedKeys();
-        
-        const keyColors = {
-            red: '🔴',
-            blue: '🔵', 
-            green: '🟢',
-            yellow: '🟡',
-            gold: '🟠'
-        };
-        
-        if (collectedKeys.length === 0) {
-            keysDisplay.textContent = 'Keys: None';
-        } else {
-            const keyIcons = collectedKeys.map(keyType => keyColors[keyType] || '🔑').join(' ');
-            keysDisplay.textContent = `Keys: ${keyIcons} (${collectedKeys.length})`;
-        }
-    }
+    hud.setKeys(keyManager.getCollectedKeys());
 }
 function showDebugInstructions() {
     // Debug instructions removed
 }
 
-let camera, scene, renderer, controls, gun;
+let camera, scene, renderer, controls, gun, postfx, feel, fx;
+let gameStarted = false; // START was pressed
+let gameOver = false;    // death or victory overlay is up
 let clock = new THREE.Clock();
 let collidableObjects = [];
 let currentPlayerArea = 'none'; // Track current area for ambient music
@@ -307,152 +106,35 @@ animate();
 
 // Create loading screen
 function createLoadingScreen() {
-    const overlay = document.createElement('div');
-    overlay.id = 'loading-overlay';
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        z-index: 99999;
-        font-family: 'Courier New', monospace;
-        color: #ff3c00ff;
-    `;
-    
-    // Game title
-    const title = document.createElement('h1');
-    title.style.cssText = `
-        font-size: 48px;
-        margin-bottom: 20px;
-        text-shadow: 0 0 20px #ff3300ff;
-        letter-spacing: 3px;
-        text-align: center;
-        animation: pulse 2s infinite;
-    `;
-    title.textContent = 'Trabalho CG - Rafael e Vinicius';
-    
-    // Loading text
-    const loadingText = document.createElement('p');
-    loadingText.id = 'loading-text';
-    loadingText.style.cssText = `
-        font-size: 18px;
-        margin-bottom: 30px;
-        text-align: center;
-        color: #cccccc;
-        min-height: 25px;
-    `;
-    loadingText.textContent = 'Inicializando...';
-    
-    // Progress bar container
-    const progressContainer = document.createElement('div');
-    progressContainer.style.cssText = `
-        width: 400px;
-        height: 20px;
-        background-color: #333;
-        border: 2px solid #ff0000ff;
-        border-radius: 10px;
-        overflow: hidden;
-        margin-bottom: 20px;
-        box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
-        position: relative;
-    `;
-    
-    // Progress bar
-    const progressBar = document.createElement('div');
-    progressBar.id = 'loading-progress';
-    progressBar.style.cssText = `
-        width: 0%;
-        height: 100%;
-        background: linear-gradient(90deg, #ff0000ff, #ff0a0aff);
-        transition: width 0.3s ease;
-        box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
-        position: relative;
-    `;
-    
-    const shine = document.createElement('div');
-    shine.style.cssText = `
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-        animation: shine 2s infinite;
-    `;
-    progressBar.appendChild(shine);
-    
-    const progressPercent = document.createElement('div');
-    progressPercent.id = 'loading-percent';
-    progressPercent.style.cssText = `
-        font-size: 16px;
-        color: #ff0000ff;
-        text-shadow: 0 0 5px #ff0000ff;
-        margin-top: 10px;
-    `;
-    progressPercent.textContent = '0%';
-    
-    const loadingDots = document.createElement('div');
-    loadingDots.style.cssText = `
-        font-size: 20px;
-        color: #ff0000ff;
-        margin-top: 20px;
-        animation: dots 1.5s infinite;
-    `;
-    loadingDots.textContent = '...';
-    
-    const controlsInfo = document.createElement('div');
-    controlsInfo.style.cssText = `
-        position: absolute;
-        bottom: 50px;
-        left: 50%;
-        transform: translateX(-50%);
-        text-align: center;
-        color: #666;
-        font-size: 14px;
-        line-height: 1.5;
-    `;
-    controlsInfo.innerHTML = `
-        <p><strong>CONTROLES:</strong></p>
-        <p>WASD - Movimento | Mouse - Olhar | Click - Atirar</p>
-        <p>1/2 - Trocar Arma</p>
-    `;
-    
     const style = document.createElement('style');
     style.textContent = `
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
-        
-        @keyframes shine {
-            0% { left: -100%; }
-            100% { left: 100%; }
-        }
-        
-        @keyframes dots {
-            0%, 20% { content: '...'; }
-            40% { content: ''; }
-            60% { content: '.'; }
-            80% { content: '..'; }
-            100% { content: '...'; }
-        }
+      #loading-overlay { position: fixed; inset: 0; z-index: 99999; display: grid; place-items: center; overflow: hidden;
+        background: radial-gradient(ellipse at 50% 120%, #5a0d06 0%, #1a0504 45%, #050101 100%);
+        font-family: 'Rajdhani', 'Segoe UI', sans-serif; color: #f2ece4; text-transform: uppercase; letter-spacing: .12em; text-align: center; }
+      #loading-overlay::before { content: ''; position: absolute; inset: -50%; background:
+        repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 1px, transparent 1px 3px); animation: lsScan 8s linear infinite; pointer-events: none; }
+      #loading-overlay .ls-kicker { font-size: 14px; opacity: .55; letter-spacing: .5em; }
+      #loading-overlay h1 { margin: 8px 0 4px; font-size: clamp(48px, 9vw, 112px); line-height: .9; font-weight: 700; color: #ff4a2a;
+        text-shadow: 0 0 40px rgba(255,60,20,.55), 0 4px 0 #5a0d06; }
+      #loading-overlay .ls-sub { font-size: 16px; opacity: .7; letter-spacing: .3em; }
+      #loading-overlay .ls-bar { width: min(460px, 80vw); height: 4px; margin: 34px auto 10px; background: rgba(255,255,255,.08); border-radius: 2px; overflow: hidden; }
+      #loading-progress { height: 100%; width: 0; background: linear-gradient(90deg, #ff2d2d, #ffb03b); box-shadow: 0 0 14px #ff5a2a; transition: width .3s ease; }
+      #loading-overlay .ls-status { display: flex; justify-content: space-between; width: min(460px, 80vw); margin: 0 auto; font-size: 13px; opacity: .65; }
+      #start-button { margin-top: 30px; }
+      @keyframes lsScan { to { transform: translateY(3px); } }
     `;
     document.head.appendChild(style);
-    
-    progressContainer.appendChild(progressBar);
-    overlay.appendChild(title);
-    overlay.appendChild(loadingText);
-    overlay.appendChild(progressContainer);
-    overlay.appendChild(progressPercent);
-    overlay.appendChild(loadingDots);
-    overlay.appendChild(controlsInfo);
-    
+    const overlay = document.createElement('div');
+    overlay.id = 'loading-overlay';
+    overlay.innerHTML = `<div>
+        <div class="ls-kicker">Computação Gráfica · UFJF</div>
+        <h1>Base Infernal</h1>
+        <div class="ls-sub">Rafael &amp; Vinicius</div>
+        <div class="ls-bar"><div id="loading-progress"></div></div>
+        <div class="ls-status"><span id="loading-text">Inicializando...</span><span id="loading-percent">0%</span></div>
+        <div id="start-slot"></div>
+        <div class="hud-controls">${CONTROLS_HTML}</div>
+      </div>`;
     document.body.appendChild(overlay);
     return overlay;
 }
@@ -484,29 +166,19 @@ function removeLoadingScreen() {
 }
 // At the end of loading, show Start button for player to enter the game
 function showStartButton() {
-  const overlay = document.getElementById('loading-overlay');
-  if (!overlay) return;
-
+  const slot = document.getElementById('start-slot');
+  if (!slot) return;
   const startBtn = document.createElement('button');
   startBtn.id = 'start-button';
-  startBtn.textContent = 'START';
-  startBtn.style.cssText = `
-    margin-top: 20px;
-    padding: 15px 30px;
-    font-size: 20px;
-    color: white;
-    background-color: #28a745;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    outline: none;
-    z-index: 100001;
-  `;
+  startBtn.className = 'hud-btn';
+  startBtn.textContent = 'Jogar';
   startBtn.addEventListener('click', () => {
     removeLoadingScreen();
-    if (controls && controls.lock) controls.lock();
+    gameStarted = true;
+    hud.show();
+    controls.lock();
   });
-  overlay.appendChild(startBtn);
+  slot.appendChild(startBtn);
   startBtn.focus();
 }
 
@@ -540,8 +212,6 @@ async function init() {
     setupEventListeners(camera, scene);
     
     updateLoadingProgress(90, 'Criando interface...');
-    createPlayerHealthHUD();
-    createKeysHUD();
     initializeImmortalityIndicator();
     
     updateLoadingProgress(95, 'Inicializando sistema de armas...');
@@ -590,8 +260,9 @@ function setupScene() {
         antialias: true,
         powerPreference: "high-performance"
     });
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.setSize(window.innerWidth, window.innerHeight);
+    hud.init();
     const container = document.getElementById('webgl-output') || document.body;
     container.appendChild(renderer.domElement);
 }
@@ -624,6 +295,10 @@ function setupCamera() {
     };
     
     camera.add(window.listener);
+    postfx = new PostFX(renderer, scene, camera);
+    feel = new CameraFeel(camera, CAMERA_CONFIG.CAMERA_FOV);
+    fx = new Effects(scene, camera);
+    addEventListener('game:weapon', (e) => hud.setWeapon(e.detail));
     
     console.log('[MAIN] Initializing audio systems...');
     ambientAudioManager.init(window.listener);
@@ -640,12 +315,13 @@ function resetPlayerPosition() {
 function setupControls() {
     controls = new PointerLockControls(camera, document.body);
 
-    renderer.domElement.addEventListener('click', () => {
-        const gameOverPopup = document.getElementById('game-over-overlay');
-        if (!gameOverPopup) {
-            controls.lock();
-        }
-    });
+    const resume = () => { if (gameStarted && !gameOver) controls.lock(); };
+    renderer.domElement.addEventListener('click', resume);
+    hud.pause.addEventListener('click', resume);
+    controls.addEventListener('lock', () => hud.setPaused(false));
+    controls.addEventListener('unlock', () => hud.setPaused(gameStarted && !gameOver));
+    addEventListener('game:god', updatePlayerHealthDisplay);
+    addEventListener('game:victory', () => { gameOver = true; hud.running = false; controls.unlock(); });
     scene.add(controls.getObject());
     
     window.addEventListener('resize', onWindowResize);
@@ -677,7 +353,13 @@ async function createEnvironment() {
 function animate() {
     requestAnimationFrame(animate);
     
-    const delta = clock.getDelta();
+    const delta = Math.min(clock.getDelta(), 0.1); // avoid huge steps after a tab switch
+    const paused = gameStarted && !gameOver && !(controls && controls.isLocked);
+    hud.update(delta, paused);
+    if (paused) {
+        if (renderer) postfx.render(0);
+        return;
+    }
     
     // Validar valores da câmera para evitar problemas de áudio
     if (camera && camera.position) {
@@ -696,7 +378,9 @@ function animate() {
             applyGravity(delta, collidableObjects, camera);
         }
         
-        updateCameraMovement(delta, controls, collidableObjects);
+        if (controls.isLocked) updateCameraMovement(delta, controls, collidableObjects);
+        feel.update(delta, controls.isLocked);
+        fx.update(delta);
         updateEnemies(delta, scene, camera, gun, collidableObjects);
         
         // Verificar vitória na área 4
@@ -751,7 +435,9 @@ function animate() {
     // Only do rendering if scene exists and camera position is valid
     if (scene && camera && renderer) {
         continuousCameraDebug(camera, controls, delta);
-        renderer.render(scene, camera);
+        feel.apply();
+        postfx.render(delta);
+        feel.restore();
     }
 }
 
@@ -759,6 +445,7 @@ function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    postfx.setSize(window.innerWidth, window.innerHeight);
 }
 
 function updateAmbientMusic() {
@@ -811,6 +498,7 @@ async function restartGame() {
     
     currentPlayerArea = 'none';
     ambientAudioManager.playAreaMusic('none');
+    hud.resetRun();
     
     
   } catch (error) {

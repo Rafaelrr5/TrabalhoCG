@@ -151,6 +151,7 @@ export class BaseWeapon {
         });
 
         this.onShoot();
+        window.dispatchEvent(new CustomEvent('game:shot'));
 
         if (DEBUG_CONFIG.DEBUG_CONSOLE_LOGS) {
             console.log(`[${this.constructor.name}] Projectile fired. Active projectiles: ${this.projectiles.length}`);
@@ -171,8 +172,6 @@ export class BaseWeapon {
             
             projectileData.timeAlive += delta;
             
-            // Log para depuração: Mostra a posição do projétil a cada frame
-            console.log(`Projétil ${i} Posição:`, projectile.position);
 
 
             // Verifica colisão com paredes usando Raycaster
@@ -223,6 +222,7 @@ export class BaseWeapon {
                 
                 if (enemy && enemy.isAlive) {
                     enemy.takeDamage(this.damage);
+                    this.emitImpact(hit.point);
                     this.scene.remove(projectile);
                     this.projectiles.splice(i, 1);
                     hitEnemy = true;
@@ -233,6 +233,7 @@ export class BaseWeapon {
             
             // Colisão com ambiente, remove o projétil
             if (validIntersects.length > 0) {
+                this.emitImpact(validIntersects[0].point);
                 this.scene.remove(projectile);
                 this.projectiles.splice(i, 1);
                 continue;
@@ -249,6 +250,13 @@ export class BaseWeapon {
                 this.projectiles.splice(i, 1);
             }
         }
+    }
+
+    // Visual feedback where a projectile stops; rockets (Gun) get a big explosion
+    emitImpact(point) {
+        window.dispatchEvent(new CustomEvent('game:impact', {
+            detail: { position: point.clone(), big: this.bigImpact === true }
+        }));
     }
 
     toggleVisibility() {

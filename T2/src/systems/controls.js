@@ -31,11 +31,19 @@ export function setupEventListeners(camera, scene,) {
     document.addEventListener('keyup', onKeyUp);
     document.addEventListener('mousedown', onMouseDown);
     document.addEventListener('mouseup', onMouseUp);
-    document.addEventListener('wheel', (e)=> weaponSwitch(Date.now(), e.deltaY));
+    document.addEventListener('wheel', (e) => { if (document.pointerLockElement) weaponSwitch(Date.now(), e.deltaY); });
+    // Releasing the pointer (Esc) must not leave keys or the trigger stuck
+    document.addEventListener('pointerlockchange', () => {
+        if (document.pointerLockElement) return;
+        Object.keys(moveState).forEach(k => { moveState[k] = false; });
+        onMouseUp();
+    });
     window.addEventListener('resize', onWindowResize);
 }
 
-function onMouseDown() {
+function onMouseDown(event) {
+    // Only shoot while playing (pointer locked), never when clicking menus
+    if (!document.pointerLockElement || event.button !== 0) return;
     if (!isMousePressed) {
         isMousePressed = true;
         startShooting();
@@ -52,6 +60,7 @@ function onMouseUp() {
 // ===== CONTROLES DE MOVIMENTO =====
 //atualiza pro estado de movimento correspondente
 function onKeyDown(event) {
+    if (!document.pointerLockElement) return; // ignore keys while paused or in menus
     switch(event.key.toLowerCase()) {
         case 'w': case 'arrowup': moveState.forward = true; break;
         case 's': case 'arrowdown': moveState.backward = true; break;
@@ -169,125 +178,21 @@ export function continuousCameraDebug(camera, controls, delta, interval = 3.0) {
     }
 }
 
+const toast = (text) => window.dispatchEvent(new CustomEvent('game:toast', { detail: text }));
+
 // Função para alternar imortalidade do jogador
 function togglePlayerImmortality() {
     PLAYER_CONFIG.PLAYER_IMMORTAL = !PLAYER_CONFIG.PLAYER_IMMORTAL;
-    
-    // Atualiza a exibição de vida na interface
-    const healthDisplay = document.getElementById('player-health');
-    const immortalityIndicator = document.getElementById('immortality-indicator');
-    
-    if (PLAYER_CONFIG.PLAYER_IMMORTAL) {
-        // Esconde display de vida e mostra indicador de imortalidade
-        if (healthDisplay) healthDisplay.style.display = 'none';
-        if (immortalityIndicator) immortalityIndicator.style.display = 'block';
-        console.log('[IMMORTALITY] Player immortality ENABLED');
-    } else {
-        // Mostra display de vida e esconde indicador de imortalidade
-        if (healthDisplay) {
-            healthDisplay.style.display = 'block';
-            // Atualiza o display com a vida atual do jogador
-            if (typeof player !== 'undefined' && player.getHealthStatus) {
-                const healthStatus = player.getHealthStatus();
-                healthDisplay.textContent = `Health: ${healthStatus.current}/${healthStatus.max}`;
-            }
-        }
-        if (immortalityIndicator) immortalityIndicator.style.display = 'none';
-        console.log('[IMMORTALITY] Player immortality DISABLED');
-    }
-    
-    // Mostra notificação visual temporária
-    showImmortilityNotification(PLAYER_CONFIG.PLAYER_IMMORTAL);
-}
-
-// Função para mostrar notificação visual de mudança de imortalidade
-function showImmortilityNotification(isImmortal) {
-    // Remove notificação existente se houver
-    const existingNotification = document.getElementById('immortality-notification');
-    if (existingNotification) {
-        existingNotification.remove();
-    }
-    
-    // Cria nova notificação
-    const notification = document.createElement('div');
-    notification.id = 'immortality-notification';
-    notification.style.cssText = `
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background-color: ${isImmortal ? '#4CAF50' : '#f44336'};
-        color: white;
-        padding: 15px 30px;
-        border-radius: 10px;
-        font-size: 18px;
-        font-weight: bold;
-        z-index: 10000;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-        transition: opacity 0.3s ease;
-    `;
-    notification.textContent = isImmortal ? 'IMORTALIDADE ON' : 'IMORTALIDADE OFF';
-    
-    document.body.appendChild(notification);
-    
-    // Remove a notificação após 2 segundos
-    setTimeout(() => {
-        notification.style.opacity = '0';
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.parentNode.removeChild(notification);
-            }
-        }, 300);
-    }, 200);
+    window.dispatchEvent(new CustomEvent('game:god'));
+    toast(PLAYER_CONFIG.PLAYER_IMMORTAL ? 'Modo deus ativado' : 'Modo deus desativado');
 }
 
 function giveAllKeys() {
     const addedCount = keyManager.addAllKeysToInventory(gameScene);
-    
-    console.log(`[CHEAT] Player received all keys (${addedCount} keys added)`);
-    
-    showKeysCheatNotification(addedCount);
-}
-
-function showKeysCheatNotification(keyCount) {
-    const existingNotification = document.getElementById('keys-cheat-notification');
-    if (existingNotification) {
-        existingNotification.remove();
-    }
-    
-    const notification = document.createElement('div');
-    notification.id = 'keys-cheat-notification';
-    notification.style.cssText = `
-        position: fixed;
-        top: 40%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background-color: #FFD700;
-        color: #333;
-        padding: 15px 30px;
-        border-radius: 10px;
-        font-size: 18px;
-        font-weight: bold;
-        z-index: 10000;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-        transition: opacity 0.3s ease;
-        border: 2px solid #FFA500;
-    `;
-    notification.textContent = keyCount > 0 ? `RECEBEU ${keyCount} CHAVES! 🔑` : 'TODAS AS CHAVES JÁ POSSUÍDAS! 🔑';
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.style.opacity = '0';
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.parentNode.removeChild(notification);
-            }
-        }, 300);
-    }, 3000);
+    toast(addedCount > 0 ? `+${addedCount} chaves` : 'Você já tem todas as chaves');
 }
 
 function toggleAudio() {
     const isEnabled = audioManager.toggleAudio();
-    console.log(`[CONTROLS] Áudio ${isEnabled ? 'ativado' : 'desativado'} via tecla Q`);
+    toast(isEnabled ? 'Som ligado' : 'Som desligado');
 }

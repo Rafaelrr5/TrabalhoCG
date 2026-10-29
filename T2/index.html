@@ -5,30 +5,12 @@
       <link rel="shortcut icon" href="../favicon.ico">
       <link rel="stylesheet" href="../html/resources/default.css">
       <meta name="viewport" content="width=device-width, initial-scale=1"> 
-      <title>Rafael e Vinicius</title> 
+      <title>Base Infernal · Trabalho CG (Rafael e Vinicius)</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <style>
-            body { margin: 0; }
+            body { margin: 0; background: #050101; overflow: hidden; }
             canvas { display: block; }
-            #crosshair {
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                color: white;
-                font-size: 24px;
-                pointer-events: none;
-            }
-            #immortality-indicator {
-                position: fixed;
-                top: 80px;
-                left: 20px;
-                color: gold;
-                font-size: 14px;
-                font-weight: bold;
-                z-index: 1000;
-                text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-                display: none;
-            }
         </style>
    </head>
    <body>
@@ -36,8 +18,6 @@
       <script type="importmap"> 
          {"imports": {"three": "../build/three.module.js"}} 
       </script>  
-      <div id="crosshair">+</div>
-      <div id="immortality-indicator">IMMORTAL MODE</div>
       
       <div id="webgl-output">     
          <script type="module" src="src/core/main.js"></script>

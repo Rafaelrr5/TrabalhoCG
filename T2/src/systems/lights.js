@@ -3,11 +3,16 @@ import * as THREE from '../../../build/three.module.js';
 const LIGHTING_CONFIG = {
     ambient: {
         color: "rgb(100,100,100)",
-        intensity: 0.8
+        intensity: 0.35
+    },
+    hemisphere: {
+        sky: 0xff7a5c,
+        ground: 0x2a1812,
+        intensity: 1.1
     },
     directional: {
-        color: 0xffffff,
-        intensity: 5.0,
+        color: 0xffd9b8,
+        intensity: 4.2,
         position: { x: 350.00, y: 450, z: -350.00 },
         castShadow: true,
         shadow: {
@@ -51,6 +56,12 @@ class LightingSystem {
         const config = this._mergeConfig(LIGHTING_CONFIG, options);
         this._setupShadows(renderer);
         this._setupAmbientLight(scene, config.ambient);
+        const h = config.hemisphere;
+        const hemi = new THREE.HemisphereLight(h.sky, h.ground, h.intensity);
+        scene.add(hemi);
+        this.lights.push(hemi);
+        // Reddish haze that matches the sky and hides the far edges of the map
+        scene.fog = new THREE.FogExp2(0x2a0805, 0.0042);
         this._setupDirectionalLight(scene, config.directional);
         this._setupOposeLight(scene, config.oposeLight);
         if (config.helpers.enabled) {
