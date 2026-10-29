@@ -1,5 +1,27 @@
 # Trabalho T2 - Computação Gráfica
 
+Jogar: https://rafaelrr5.github.io/TrabalhoCG/T2/
+
+### Controles
+
+| Tecla | Ação |
+|---|---|
+| W A S D / setas | mover |
+| Shift | correr |
+| Espaço | pular |
+| Mouse | mirar / atirar |
+| 1, 2 ou roda | trocar arma |
+| Esc | pausar |
+| Q | som on/off |
+| G | modo deus |
+| C | todas as chaves |
+
+Objetivo: limpar o templo (chave vermelha), abrir a porta azul, limpar a arena (chave amarela),
+abrir o hangar (chave azul), derrubar as muralhas da Área 4 e derrotar o Pain Elemental no labirinto.
+O HUD mostra o objetivo atual.
+
+`?debug` na URL expõe `window.__game` para testes automatizados.
+
 ### 📁 Estrutura do Projeto
 
 ```

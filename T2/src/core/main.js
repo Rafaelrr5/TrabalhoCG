@@ -60,6 +60,7 @@ function handlePlayerDeath() {
 function showVictoryScreen() {
   gameOver = true;
   hud.running = false;
+  hud.setObjective('');
   controls.unlock();
   const { kills, time } = hud.stats();
   const overlay = document.createElement('div');

@@ -123,9 +123,7 @@ export class Zombieman extends Enemy {
     this.isDying = true;
     this.isAlive = false;
     
-    if (this.ai) {
-      this.ai.stop();
-    }
+    this.ai?.stop?.(); // EnemyAI has no stop(); this threw on every Zombieman death
     
     if (this.actions.Die) {
       Object.values(this.actions).forEach(action => action.stop());
