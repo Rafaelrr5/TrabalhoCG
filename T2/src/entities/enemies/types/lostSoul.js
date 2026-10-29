@@ -65,6 +65,32 @@ export class LostSoul extends Enemy {
   }
 
 
+  // Additive halo behind the skull: the "lost soul" fire. One texture shared by all souls.
+  static flameSprite() {
+    if (!LostSoul.flameMaterial) {
+      const c = document.createElement('canvas');
+      c.width = c.height = 64;
+      const g = c.getContext('2d');
+      const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      grad.addColorStop(0, 'rgba(255,220,140,1)');
+      grad.addColorStop(0.35, 'rgba(255,110,20,0.75)');
+      grad.addColorStop(1, 'rgba(120,10,0,0)');
+      g.fillStyle = grad;
+      g.fillRect(0, 0, 64, 64);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      LostSoul.flameMaterial = new THREE.SpriteMaterial({
+        map: tex, color: new THREE.Color(2.2, 1.2, 0.6), blending: THREE.AdditiveBlending,
+        depthWrite: false, transparent: true
+      });
+    }
+    const s = new THREE.Sprite(LostSoul.flameMaterial);
+    s.scale.setScalar(1.9);
+    s.position.set(0, 0.15, -0.45); // behind and slightly above the skull
+    s.raycast = () => {}; // not a hit target
+    return s;
+  }
+
   async loadSkull() {
     try {
       await preloadSkullModel();
@@ -79,17 +105,28 @@ export class LostSoul extends Enemy {
             child.material = Array.isArray(child.material) 
               ? child.material.map(mat => mat.clone())
               : child.material.clone();
+            [].concat(child.material).forEach(m => {
+              // skull.mtl: Kd 1.8 becomes ~3.9 in linear space and blew the texture out to white
+              if (m.map && m.color) m.color.setScalar(1.6);
+              // map_Bump points at a tangent-space normal map; as a bump map it read as noise
+              if (m.bumpMap) { m.normalMap = m.bumpMap; m.bumpMap = null; m.needsUpdate = true; }
+              // faint inner fire, picked up by the bloom pass
+              if (m.emissive) m.emissive.setHex(0x3a0c00);
+            });
           }
         }
       });
       
+      // The OBJ lies face-down with the face toward -Z. Stand it up and turn the face to +Z,
+      // which is where every Lost Soul rotation (lookAt, setFromUnitVectors) points the heading;
+      // without this they flew at you top/back of the head first.
+      clonedModel.rotation.set(-Math.PI / 2, Math.PI, 0, 'YXZ');
       const box = new THREE.Box3().setFromObject(clonedModel);
       const center = box.getCenter(new THREE.Vector3());
-
-      clonedModel.rotation.set(0, 0, 0);
       clonedModel.position.sub(center);
       
       skullWrapper.add(clonedModel);
+      skullWrapper.add(this.flame = LostSoul.flameSprite());
       skullWrapper.scale.setScalar(this.config.skullScale);
       
       skullWrapper.traverse((child) => {
@@ -153,6 +190,7 @@ export class LostSoul extends Enemy {
 
   update(delta, camera, targetPosition, collidableObjects) {
   if (this.isDying) {
+    if (this.flame) this.flame.visible = false; // the fire goes out with the soul
     this.deathEffects.update();
     return;
   }
@@ -197,6 +235,12 @@ export class LostSoul extends Enemy {
       this.wander(delta, collidableObjects);
     }
     
+    // Keep staring at the player while it lines up the next charge
+    if (canSeePlayer && !this.isCharging) {
+      const look = new THREE.Matrix4().lookAt(targetPosition, this.mesh.position, this.mesh.up);
+      this.mesh.quaternion.slerp(new THREE.Quaternion().setFromRotationMatrix(look), Math.min(1, delta * 6));
+    }
+
     // Never sink into the floor: area 1 stands on a 4 m slab, everything else on y = 0
     const floorY = this.area === 'area1' ? 5.0 : 1.0;
     if (this.mesh.position.y < floorY) this.mesh.position.y = floorY;

@@ -42,10 +42,29 @@ export class Chaingun extends BaseWeapon {
     }
 
     update(delta) {
-        // Atualiza as animações do sprite
-        if (this.spriteMixer) {
-            this.spriteMixer.update(delta);
+        if (!this.isLoaded || !this.chaingunSprite?.setFrame) return;
+        const ms = delta * 1000;
+
+        // 0..1 barrel speed: ~0.45 s to spin up, ~0.7 s to wind down
+        this.spin = Math.min(1, Math.max(0, (this.spin || 0) + (this.isMousePressed ? delta / 0.45 : -delta / 0.7)));
+        const firing = this.isMousePressed && this.spin >= 1;
+
+        if (firing) {
+            this.fireAcc = (this.fireAcc || 0) + ms;
+            while (this.fireAcc >= this.shootRate) { this.fireAcc -= this.shootRate; this.shoot(); }
+        } else {
+            this.fireAcc = this.shootRate; // first shot leaves as soon as the barrel is up to speed
         }
+
+        // Frames 0/1 are the barrel turning, 2/3 add the muzzle flash
+        if (this.spin <= 0) { this.chaingunSprite.setFrame(0); this.frameAcc = 0; return; }
+        const period = 220 - 180 * this.spin; // ms per frame: 220 at rest -> 40 at full speed
+        this.frameAcc = (this.frameAcc || 0) + ms;
+        if (this.frameAcc < period) return;
+        this.frameAcc %= period;
+        this.frameStep = ((this.frameStep || 0) + 1) % 4;
+        const frames = firing ? [0, 2, 1, 3] : [0, 1, 0, 1];
+        this.chaingunSprite.setFrame(frames[this.frameStep]);
     }
     
     initAudio() {
@@ -85,67 +104,17 @@ export class Chaingun extends BaseWeapon {
         tryLoadAudio();
     }
 
-    onStartShooting() {
-        this.isActivating = true;
-        this.activationTimer = 0;
+    // Trigger handling is frame-driven (see update): the barrel spins up slowly, only fires
+    // once it is at full speed, and winds down after release, like the Doom chaingun.
+    startShooting() {
+        if (!this.isLoaded) return;
+        this.isMousePressed = true;
     }
 
-startShooting() {
-    if (this.isMousePressed) return; // Já está disparando, não faz nada
-    if (!this.isLoaded || !this.actions || !this.actions.shooting) {
-        console.warn('[CHAINGUN] Cannot start shooting - sprite not loaded yet');
-        return;
+    stopShooting() {
+        this.isMousePressed = false;
     }
 
-    this.isMousePressed = true;
-    this.onStartShooting();
-
-    this.shootInterval = setInterval(() => {
-        this.activationTimer += this.shootRate;
-
-        // Transição para 'shooting' após o delay
-        if (this.activationTimer >= this.activationDelay && this.isMousePressed) {
-            this.isActivating = false;
-
-            // Verifica se a animação de shooting já está rodando
-            if (this.onLoop) {
-                this.shoot();
-                return;
-            }
-                        
-            if (!this.onLoop && this.actions && this.actions.shooting) {
-                this.actions.shooting.playLoop();
-                this.onLoop = true;
-            }
-
-            this.shoot();
-        }
-    }, this.shootRate);
-}
-    
-onStopShooting() {
-    this.isActivating = false;
-    this.activationTimer = 0;
-    this.isShootingAnimationActive = false;
-
-    if (this.onLoop && this.actions && this.actions.shooting) {
-        try {
-            this.actions.shooting.stop();
-            this.onLoop = false;
-        } catch (error) {
-            console.warn('[CHAINGUN] Error stopping shooting animation:', error);
-            this.onLoop = false;
-        }
-    }
-    
-    if (this.chaingunSprite && typeof this.chaingunSprite.setFrame === 'function') {
-        try {
-            this.chaingunSprite.setFrame(0);
-        } catch (error) {
-            console.warn('[CHAINGUN] Error setting frame:', error);
-        }
-    }
-}
     onShoot() {
         this.playFireSound();
     }

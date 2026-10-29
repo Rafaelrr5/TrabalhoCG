@@ -27,7 +27,16 @@ export class Gun extends BaseWeapon {
         const glow = new THREE.Mesh(this.glowGeometry, this.glowMaterial);
         group.add(glow);
         if (this.projectileModel) {
-            const rocket = this.projectileModel.clone();
+            if (!this.rocketTemplate) {
+                // The OBJ comes in ~140 m long at scale 5: normalise it to a 0.9 m rocket and turn
+                // the nose (model -Z) to +Z, which lookAt() points at the target
+                const t = this.projectileModel.clone();
+                const size = new THREE.Box3().setFromObject(t).getSize(new THREE.Vector3());
+                t.scale.multiplyScalar(0.9 / Math.max(size.x, size.y, size.z));
+                t.rotation.y = Math.PI;
+                this.rocketTemplate = t;
+            }
+            const rocket = this.rocketTemplate.clone();
             group.add(rocket);
             glow.position.z = -0.4; // exhaust behind the nose (group +Z faces the target)
         }

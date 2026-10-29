@@ -73,7 +73,11 @@ export class EnemyHealthBar {
       
       // Face camera if provided - this is crucial for visibility
       if (camera && this.healthBarGroup) {
-        this.healthBarGroup.lookAt(camera.position);
+        // Billboard: match the camera orientation in world space. lookAt() rolled the bar
+        // with the enemy's pitch, so bars hung at an angle.
+        const parentQ = new THREE.Quaternion();
+        this.healthBarGroup.parent?.getWorldQuaternion(parentQ);
+        this.healthBarGroup.quaternion.copy(parentQ.invert().multiply(camera.quaternion));
         
         // Ensure the health bar is always visible by setting its visibility
         this.healthBarGroup.visible = true;
