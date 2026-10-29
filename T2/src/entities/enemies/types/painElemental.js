@@ -90,7 +90,10 @@ async loadModel() {
     // Ajuste da barra de vida após carregar o modelo
     if (this.healthBar && this.healthBar.healthBarGroup) {
       // Aumenta a altura da barra proporcionalmente ao aumento do modelo
-      this.healthBar.healthBarGroup.position.y = this.config.radius * 3.5; // Ajuste este valor conforme necessário
+      // Just above the model's top (radius * 3.5 left it ~4.5 m above the head, off screen up close)
+      this.mesh.updateMatrixWorld(true);
+      const top = new THREE.Box3().setFromObject(this.model).max.y - this.mesh.position.y;
+      this.healthBar.healthBarGroup.position.y = top + 0.8;
   
       // Opcional: Aumentar o tamanho da barra também
       this.healthBar.healthBarGroup.scale.set(2.0, 1.5, 2.0); // Ajuste a escala conforme necessário
@@ -326,7 +329,7 @@ forceUpdateSpawnedSouls() {
       this.collision.preventOverlap(collidableObjects, delta);
     }
 
-    const MIN_HEIGHT = 2.3; // Defina a altura mínima de voo desejada
+    const MIN_HEIGHT = 3.6; // the model reaches 3 m below its origin: 2.3 left it sunk into the floor
     const MAX_HEIGHT = 20.0; // Altura máxima de voo
 
     this.mesh.position.y = Math.max(MIN_HEIGHT, this.mesh.position.y); // Impede de atravessar o chão

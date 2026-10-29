@@ -29,11 +29,14 @@ function checkGroundCollisions(collidableObjects, camera) {
     isGrounded = false;
     if (velocityY > 0) return; // rising from a jump: don't snap back to the floor
     const downDir = new THREE.Vector3(0, -1, 0);
-    const hits = detectRayCollisions(hitbox.position.clone(), downDir, collidableObjects, raySize, true);
+    // Same standing height as the base ground (hitbox centre 1.9 m above the floor). The wall ray
+    // length (1.2) used to double as this, so on stairs and platforms the eye sat 0.7 m lower.
+    const groundRay = 1.9;
+    const hits = detectRayCollisions(hitbox.position.clone(), downDir, collidableObjects, groundRay, true);
     if (hits.length > 0) {
         const hit = hits[0];
-        if (hit.distance < raySize) {
-            const correction = raySize - hit.distance;
+        if (hit.distance < groundRay) {
+            const correction = groundRay - hit.distance;
             hitbox.position.y += correction;
             camera.position.y += correction;
             

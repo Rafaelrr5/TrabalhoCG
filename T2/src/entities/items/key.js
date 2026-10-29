@@ -98,10 +98,12 @@ export class Key {
     checkCollision(playerPosition, collectionDistance = null) {
         if (this.isCollected) return false;
 
-        const distance = this.position.distanceTo(playerPosition);
+        // Reach is horizontal, plus anything between the feet (eye - 2.9 m) and a bit above the eye,
+        // so a key floating at chest height counts however tall the platform is
         const checkDistance = collectionDistance || ITEMS_CONFIG.KEYS.ANIMATION.COLLECTION_DISTANCE;
-        
-        return distance <= checkDistance;
+        const dx = this.position.x - playerPosition.x, dz = this.position.z - playerPosition.z;
+        const dy = this.position.y - playerPosition.y;
+        return Math.hypot(dx, dz) <= checkDistance && dy >= -3.4 && dy <= 1.6;
     }
 
     collect(totemPosition = null) {

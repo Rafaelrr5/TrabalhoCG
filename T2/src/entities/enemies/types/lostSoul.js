@@ -117,10 +117,10 @@ export class LostSoul extends Enemy {
         }
       });
       
-      // The OBJ lies face-down with the face toward -Z. Stand it up and turn the face to +Z,
+      // The OBJ lies face-down. Pitching it up -90° on X puts the horns up and the face on +Z,
       // which is where every Lost Soul rotation (lookAt, setFromUnitVectors) points the heading;
-      // without this they flew at you top/back of the head first.
-      clonedModel.rotation.set(-Math.PI / 2, Math.PI, 0, 'YXZ');
+      // without this they flew at you top of the head first. (Checked from the side.)
+      clonedModel.rotation.set(-Math.PI / 2, 0, 0);
       const box = new THREE.Box3().setFromObject(clonedModel);
       const center = box.getCenter(new THREE.Vector3());
       clonedModel.position.sub(center);
@@ -235,10 +235,18 @@ export class LostSoul extends Enemy {
       this.wander(delta, collidableObjects);
     }
     
-    // Keep staring at the player while it lines up the next charge
-    if (canSeePlayer && !this.isCharging) {
+    // Keep staring at the player between charges (visibility is FOV-limited, so a soul that
+    // flew past would never turn back if this waited for canSeePlayer)
+    if (!this.isCharging && distanceToPlayer < 45) {
       const look = new THREE.Matrix4().lookAt(targetPosition, this.mesh.position, this.mesh.up);
-      this.mesh.quaternion.slerp(new THREE.Quaternion().setFromRotationMatrix(look), Math.min(1, delta * 6));
+      this.mesh.quaternion.slerp(new THREE.Quaternion().setFromRotationMatrix(look), Math.min(1, delta * 14)); // wins over the wander turn
+    }
+
+    if (this.recoil) {
+      // shortcut: no wall check during the 0.5 s bounce; the arenas are open
+      this.mesh.position.addScaledVector(this.recoil, delta);
+      this.recoil.multiplyScalar(Math.exp(-5 * delta));
+      if (this.recoil.lengthSq() < 0.25) this.recoil = null;
     }
 
     // Never sink into the floor: area 1 stands on a 4 m slab, everything else on y = 0
@@ -313,8 +321,14 @@ executeCharge(delta, targetPosition, collidableObjects) {
     
     // 4. Verificação de impacto
     const distanceToPlayer = this.mesh.position.distanceTo(targetPosition);
+    // One bite per charge, then it pulls off. It used to deal 5 on every frame it overlapped
+    // the player, so a single pass-through cost 60-100 HP.
     if (distanceToPlayer <= this.config.radius * 3) {
-        this.dealDamageToPlayer(5);
+        this.dealDamageToPlayer(this.config.damage * 2);
+        this.endCharge();
+        // bounce off the player like Doom's lost souls instead of hovering in his face
+        this.recoil = this.chargeDirection.clone().multiplyScalar(-14);
+        return;
     }
     
     // 5. Controle de tempo manual

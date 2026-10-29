@@ -277,8 +277,10 @@ applyRandomAttackMovement() {
         this.collision.preventOverlap(collidableObjects, delta);
     }
 
-    // Limite de altura
-    this.mesh.position.y = Math.min(this.mesh.position.y, 20.0);
+    // Limite de altura. Floor: the arena (area 2) is a 4 m slab, the maze sits on y = 0;
+    // without the lower bound the maze Cacodemons hovered half sunk into the floor.
+    const floorY = this.area === 'area2' ? 4.0 : 0.0;
+    this.mesh.position.y = Math.min(Math.max(this.mesh.position.y, floorY + 2.6), 20.0);
 }
 
   updateProjectiles(delta, collidableObjects, camera) {
