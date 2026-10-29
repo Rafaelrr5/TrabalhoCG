@@ -577,6 +577,11 @@ async function init() {
     }, 500);
     
     window.gameInitialized = true;
+
+    // Test/debug handle, only with ?debug in the URL
+    if (new URLSearchParams(location.search).has('debug')) {
+        window.__game = { THREE, scene, camera, renderer, controls, player, enemies, keyManager, collidableObjects };
+    }
 }
 
 function setupScene() {
